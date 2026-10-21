@@ -1,0 +1,15 @@
+﻿# Compiled build outputs â€” never commit binaries or installer artifacts
+desktop-release/
+release/
+.verification-release/
+
+# Temp scratch scripts and one-off probes
+scratch/
+
+# Temporary probe/shot files
+.probe-tmp/
+.shot-check.png
+
+# node_modules (root .gitignore also covers this, belt-and-suspenders)
+node_modules/
+
