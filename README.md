@@ -1,80 +1,109 @@
 # Browser-use
 
-Browser-use is the official Lorde Studios desktop browser automation and MCP client for visible, proof-first browser control.
+<p align="center">
+  <img src="assets/logo/browser-use-icon.png" width="96" alt="Browser-use logo" />
+</p>
 
-> The public repository is a distribution page. Proprietary implementation source is not included here.
+<h1 align="center">Browser-use</h1>
+
+<p align="center">
+  A visible desktop browser and agent workstation for Windows, built for coding agents, MCP clients and hands-on browser automation.
+</p>
+
+<p align="center">
+  <a href="https://github.com/LordeStudios/Browser-use/releases/latest"><img alt="Release" src="https://img.shields.io/badge/release-v0.3.6-2ea043" /></a>
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-blue" />
+  <img alt="License" src="https://img.shields.io/badge/license-Proprietary-lightgrey" />
+</p>
+
+---
+
+Browser-use gives you a real Chromium browser on your desktop with a full automation runtime around it: managed tabs, DevTools protocol control, DOM snapshots, screenshots, native input, an agent chat panel, an MCP server for coding agents, and a terminal. Everything runs locally on your machine.
+
+It is an Electron desktop application with a packaged Chromium runtime, a node terminal and an optional bridge to Android devices.
+
+![Browser-use main window](assets/screenshots/main-window.png)
 
 ## Download
 
-The latest Windows release will be published under [GitHub Releases](https://github.com/LordeStudios/Browser-use/releases/latest).
+The latest release is available on the [GitHub Releases page](https://github.com/LordeStudios/Browser-use/releases/latest).
 
-Available Windows artifacts:
+| Asset | Size | Type |
+|---|---|---|
+| [Browser-use-0.3.6-setup.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.3.6/Browser-use-0.3.6-setup.exe) | 149,245,801 bytes (142.3 MB) | NSIS installer with desktop and start menu shortcuts |
+| [Browser-use-0.3.6-portable.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.3.6/Browser-use-0.3.6-portable.exe) | 149,022,929 bytes (142.1 MB) | Portable build, runs without installing |
 
-- `Browser-use-<version>-setup.exe`: NSIS installer
-- `Browser-use-<version>-portable.exe`: portable application
+SHA-256 checksums for both artifacts (also in [`RELEASE-CHECKSUMS.txt`](RELEASE-CHECKSUMS.txt) and on the release page):
 
-Release assets include SHA-256 checksums. Windows may show a SmartScreen warning for an unsigned release.
+```
+f1fc2d3e45736e44f7c4eac5f8524301b43c5fef39607949931e7d299dd4314b  Browser-use-0.3.6-setup.exe
+7b9da81b9a47d40422640f8d150c076b925684688cb5b9875974c138b4f9e859  Browser-use-0.3.6-portable.exe
+```
 
 ## Features
 
-- Visible Electron browser application with managed tabs and browser controls
-- Chromium DevTools Protocol browser automation
-- DOM snapshots, navigation, screenshots, console and network diagnostics
-- Native browser pointer, keyboard, scroll, drag and text input dispatch
-- MCP server support for agent clients
-- Persistent session-based MCP over loopback HTTP
-- Explicit tab binding and secure pairing for MCP input tools
-- Claude Code compatible MCP connection setup through the desktop Settings drawer
-- Browser-only and AGI computer-control modes
-- Native Windows display observation, pointer, keyboard, terminal, clipboard, screenshots and recordings
-- Optional vision-aware model routing and text-only fallback behavior
-- Ollama, cloud and OpenAI-compatible provider connections
-- Agent plans, approvals, recovery, evidence tracking and progress visibility
-- Android device and ADB integration where configured
-- Portable Windows distribution and standard installer
-
-## Claude Code and MCP
-
-Open Browser-use Settings and copy the generated MCP configuration. The desktop MCP endpoint uses the local loopback address and a short-lived pairing flow.
-
-The MCP surface supports browser observation and control, screenshots, diagnostics, tab binding, native computer tools in AGI mode, plans, approvals and session management.
-
-Use the generated connection details rather than hard-coding credentials. Pairing codes and runtime secrets are generated locally and are never part of this repository or release assets.
+- **Visible Electron browser application** with persistent managed tabs, a tab strip and full browser controls.
+- **Chromium DevTools Protocol automation**: navigation, DOM snapshots, element picking, screenshots, console and network diagnostics.
+- **Native input dispatch**: pointer, keyboard, scroll, drag and text input into real pages.
+- **MCP server for agent clients**: connect Claude Code, Codex and other MCP-compatible agents. Session based transport over loopback HTTP with explicit tab binding and a short-lived pairing flow. Settings includes a generated configuration for Claude Code.
+- **Agent workstation**: plans, approvals, recovery, evidence tracking and progress visibility in the chat panel, with vision aware model routing and text-only fallback.
+- **Provider connections**: Ollama, cloud and OpenAI-compatible endpoints, configured per session.
+- **Browser-only and AGI computer-control modes**: in AGI mode the agent can also observe and drive the native Windows desktop, with a terminal, clipboard, screenshots and recordings.
+- **Android integration where configured**: paired Android devices with an ADB and scrcpy based stream (ADB platform-tools are bundled).
+- **Two distribution formats**: a standard Windows installer and a fully portable build.
 
 ## Installation
 
-1. Download the installer from the latest release.
-2. Run the installer and choose an installation directory.
-3. Start Browser-use from the Start Menu or desktop shortcut.
-4. Open Settings to configure a provider and copy the MCP setup for Claude Code or another MCP host.
+### Installer
 
-The portable executable can run without installation. It includes Electron and does not require a separate Node.js installation.
+1. Download `Browser-use-0.3.6-setup.exe` from the [releases page](https://github.com/LordeStudios/Browser-use/releases/latest).
+2. Run it and follow the wizard. You can change the installation directory.
+3. Launch Browser-use from the desktop or start menu shortcut.
+
+### Portable
+
+1. Download `Browser-use-0.3.6-portable.exe`.
+2. Run it. The application starts directly; no installation step is required.
+
+Verify your download against the SHA-256 checksums above before running.
 
 ## System requirements
 
-- Windows 10 or Windows 11, x64
-- A signed-in interactive Windows desktop session
-- Internet access for remote websites and provider connections
-- A configured model provider for AI agent features
+- Windows 10 (1809 or newer) or Windows 11, 64 bit.
+- About 462 MB of disk space for the installed application (plus space for browser profiles, recordings and downloads).
+- 8 GB of RAM recommended for comfortable agent and browser workloads.
+- An internet connection for the pages you automate and for cloud model providers, if used.
 
-Native computer controls remain subject to Windows permissions, UAC boundaries, secure desktop boundaries and the selected approval mode.
+## Compatibility
 
-## Security
+- Windows 10 and Windows 11, x64 only.
+- Works with any website accessible from Chromium.
+- MCP clients: any client speaking the Model Context Protocol over streamable HTTP, including Claude Code and Codex CLI.
+- Android device integration requires a device with USB debugging enabled (API level 23 or newer for the node protocol).
 
-Browser-use uses loopback MCP pairing and explicit tab binding. Do not use automated control against accounts or websites where actions could publish, delete, purchase, upload or change private data unless you intentionally authorize and monitor those actions.
+## Roadmap
 
-Report security issues privately through the security contact or GitHub security workflow provided by the organization. Do not publish credentials, pairing codes or exploit details in public issues.
-
-## Support
-
-- Organization: [Lorde Studios](https://github.com/LordeStudios)
-- Releases: [Browser-use Releases](https://github.com/LordeStudios/Browser-use/releases)
-- Official site: [studios.lordemaximus.com](https://studios.lordemaximus.com)
+- **Code signing.** The current binaries are not signed; Windows SmartScreen may show a warning on first run. Signing is planned for a future release.
+- **Android companion refinements.** The host side of node pairing and the scrcpy-based device stream are implemented today; setup is being simplified for a future release.
 
 ## Release history
 
-See [CHANGELOG.md](CHANGELOG.md) and the GitHub Releases page.
+See the [releases page](https://github.com/LordeStudios/Browser-use/releases) for versioned downloads and notes. Changes are tracked in [`CHANGELOG.md`](CHANGELOG.md).
+
+## Security
+
+If you discover a vulnerability, please use [GitHub's private vulnerability reporting](https://github.com/LordeStudios/Browser-use/security/advisories/new) rather than a public issue. Do not include credentials, pairing codes or working exploit details in public posts.
+
+Browser-use controls visible browser tabs and, in AGI mode, native computer surfaces. Use explicit pairing, tab binding and approval controls, and do not automate sensitive accounts or irreversible actions without supervision.
+
+## Support
+
+- Questions and help: the [issue tracker](https://github.com/LordeStudios/Browser-use/issues) (please search before opening a new issue).
+- Bug reports: [open an issue](https://github.com/LordeStudios/Browser-use/issues/new) with your Windows version, installation type and the affected MCP or provider surface.
+- Product site: [studios.lordemaximus.com](https://studios.lordemaximus.com)
 
 ## Publisher
 
-Lorde Studios.
+**Lorde Studios.** Official organization: [github.com/lordestudios](https://github.com/lordestudios).
+
+Browser-use is proprietary software. This repository distributes builds and documentation only; the implementation source is not public. Third party components keep their own licences, including Electron (MIT), Playwright (Apache-2.0) and the bundled Android platform-tools (see the notices inside the application folder).

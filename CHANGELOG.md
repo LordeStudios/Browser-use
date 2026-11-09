@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.6
+## 0.3.6, 2026-11-08
 
 - Windows installer and portable distribution built from the current private Browser-use source.
 - Electron desktop browser surface with persistent managed tabs.
