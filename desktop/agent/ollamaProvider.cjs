@@ -1,10 +1,9 @@
 'use strict';
 
-const { agiPromptForTask, isComputerTool } = require('../computer/computerCatalog.cjs');
+const { isComputerTool } = require('../computer/computerCatalog.cjs');
 const { measureProviderRequest } = require('./desktopAgentCoordinator.cjs');
 
 const { isLongReportRequest } = require('./reportFilePolicy.cjs');
-const { REPLY_STYLE_PROMPT } = require('./replyStyle.cjs');
 
 const { createThinkingStreamSplitter } = require('./thinkingStream.cjs');
 const { ProviderTurnLedger } = require('./providerTurnLedger.cjs');
@@ -28,7 +27,6 @@ const REPAIR_MAX_TOKENS = 1_024;
 // edits; the harness-owned plan/doneList/state remain the real memory.
 const REASONING_REPLAY_CHARS = Math.min(8_000, Math.max(100, Number(process.env.BROWSER_USE_REASONING_REPLAY_CHARS) || 300));
 const PREFLIGHT_SCHEMA_PROMPT = 'Return exactly one JSON object and nothing else with one safe browser_tabs action: {"toolCalls":[{"name":"browser_tabs","input":{}}]}';
-const REPAIR_SCHEMA_PROMPT = 'Return exactly one JSON object and nothing else: a valid browser action or done result from the supplied task, observation, history, and tool result. Prior errors and unchanged results are evidence; when the target is grounded, return the next action and inspect only if state genuinely changed or was never seen. Final non-activating pointer placement → browser_mousemove then browser_done in one response. done must be an object, never a boolean. No health checks, templates, placeholders, or protocol terms in user-facing text unless the user asks.';
 
 function normalizeBaseUrl(value = DEFAULT_BASE_URL) {
   const url = new URL(String(value || DEFAULT_BASE_URL));
@@ -917,7 +915,7 @@ function createOllamaProvider({ baseUrl = DEFAULT_BASE_URL, model, fetchImpl = g
     summarizeFor(system, input, signal, coordinator) {
       return summarizeConversation({ protocol: 'ollama', model: selectedModel, endpoint: `${normalizedBaseUrl}/api/chat`, headers: { 'content-type': 'application/json' }, fetchImpl, coordinator, system, input, signal });
     },
-    async complete({ task, agentIdentity, attachments, observation, observationUnchanged, history, messages, coordinator, plan, goals, recovery, workspace, tools, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, signal, onThought, onStream }) {
+    async complete({ task, agentIdentity, systemPrompt, attachments, observation, observationUnchanged, history, messages, coordinator, plan, goals, recovery, workspace, tools, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, signal, onThought, onStream }) {
       // Effort tier (resolved by DesktopChatAgent): minimal acts immediately,
       // standard keeps reasoning brief, advanced is the previous behavior.
       const tier = ['minimal', 'standard', 'advanced'].includes(effort) ? effort : 'advanced';
@@ -966,6 +964,9 @@ function createOllamaProvider({ baseUrl = DEFAULT_BASE_URL, model, fetchImpl = g
       const planToolEntry = agiTools
         ? { name: 'update_plan', input: { goals: 'optional model-authored array of {id,text,status}; omit to keep unchanged, [] clears', goalOperations: 'optional goal add/update/remove/clear operations; no goal is required', steps: 'optional full replacement array of strings or {id, text, status, verification}', operations: 'optional edits: add, update, remove, or clear; target existing tasks by id; choose the task count yourself' } }
         : { name: 'update_plan', input: { steps: 'optional full replacement array of strings or {id, text, status, verification}', operations: 'optional edits: add, update, remove, or clear; target existing tasks by id; choose the task count yourself' } };
+      // DSH: the harness system prompt arrives on the request; the provider
+      // renders it verbatim (effort stays config: think flag + num_predict).
+      const harnessSystem = String(systemPrompt || '').trim() || require('./harness/identity.cjs').IDENTITY_LINE;
       let requestAttempt = 0;
       const telemetry = kind => ({ coordinator, kind, phase: kind === 'repair' ? 'repair' : 'decision', attempt: ++requestAttempt });
       const requestBody = (images) => ({
@@ -980,24 +981,10 @@ function createOllamaProvider({ baseUrl = DEFAULT_BASE_URL, model, fetchImpl = g
           messages: [
             {
               role: 'system',
-              content: `${effortPrompt}${effortEscalationPrompt ? `${effortPrompt ? ' ' : ''}${effortEscalationPrompt}` : ''}${effortPrompt || effortEscalationPrompt ? '\n\n' : ''}You are Browser-use Agent Chat. Complete the user task using the newest observation and the tools listed below.
-
-Return one executable JSON decision: actions/toolCalls, optional short assistantText, optional update_plan, or browser_done. Never intentions, preamble, or long explanation; keep reasoning short. Announce the plan once per task; after a plan or fact is recorded in the run state, never restate it in a later thought. After each tool result, mention only NEW evidence and the single next action. If nothing new is learned, act or finish instead of re-explaining. Act the moment a correct decision is known — never reopen a settled choice with "but wait", "hmm", theories, or speculation; think while working (batch independent calls in one response), not before; on time-sensitive pages (games, live clocks, ticking timers) act immediately with minimal thinking.
-
-Routing: browser_* for page work; computer_* for native dialogs/pickers, native browser controls, strict canvases. agent_message only for concrete handoff/shared-resource decisions; never delegate ordinary work, send status, or claim a message unless it is in agentMessages.
-
-Decide-then-act, per request: understand the intended outcome first. If a requirement is genuinely ambiguous, ask ONE focused clarification with ask_user instead of guessing. Then weigh the next step yourself — IMMEDIATELY-EXECUTABLE (the action and its inputs are already known) → emit it in THIS response; needs exactly one missing fact → fetch only that; needs genuine analysis (unknown mechanism, unfamiliar API, real design choice) → reason briefly and commit. Simple work and time-critical surfaces (games, live clocks, ticking timers) are immediately-executable: act first, never open with research or brainstorming. Do not research what you can already do and do not think about what you can already see. Give the step a reasoning budget as a top-level JSON field ("thinkingBudgetMs": 0 for something you can already do, 3000 for a quick call, 20000 for real work) and stop reasoning the moment the next action is clear — never spend the budget because it remains. Then act, read the real result, name the specific remaining gap, and repeat until the outcome is met.
-
-Execute, do not inventory: use current evidence once, then act. Repeat a read only when state genuinely changed or was never seen; unchanged results are context, not a cue to re-inspect. Batch independent actions with known inputs. On success advance to the next untested part. browser_done only once the WHOLE outcome is supported by evidence: with an active plan or multi-part goal, finishing one part means continue with the next part - never narrow the goal to the part you finished or end while your own summary lists remaining work; report a concrete blocker instead. Keep the plan current; continue from the first pending item.
-
-Reason briefly, never restate the task or history. When the user asks for something new, similar existing content does not satisfy the requested initialization — create it. Never fake pointer placement with a click or drag: a non-activating placement is browser_mousemove.
-
-Available tools:
-${JSON.stringify(Array.isArray(tools) ? tools : [])}
-
-${REPLY_STYLE_PROMPT}${agiTools && needsNativePrompt ? `
-
-Native computer mode: execute the next grounded action with the right computer_* tool; computer_observe/screenshot only when coordinates or window state are genuinely unknown, never as a default first step or between grounded actions. computer_file write=new file, mkdir=new folder; computer_patch updates an existing text file after a targeted read. Never delegate this work or swap in browser_* tools for native surfaces.` : ''}`            },
+              // DSH: the harness owns the system prompt (identity, persona,
+              // policies, tool guidance). The provider appends only the tool
+              // catalog JSON — ollama JSON-mode advertises tools in-prompt.
+              content: `${harnessSystem}\n\nAvailable tools:\n${JSON.stringify(Array.isArray(tools) ? tools : [])}`            },
             ...ledger.wireMessages({ format: 'json' }),
             { role: 'user', content: JSON.stringify(currentContext), ...(images?.length ? { images } : {}) }
           ]
@@ -1064,7 +1051,7 @@ Native computer mode: execute the next grounded action with the right computer_*
               format: 'json',
               options: { temperature: 0, num_predict: isLongReportRequest(task) ? LONG_REPORT_MAX_TOKENS : REPAIR_MAX_TOKENS },
               messages: [
-                { role: 'system', content: REPAIR_SCHEMA_PROMPT + (nativeImage ? agiPromptForTask(task, workspace) : '') },
+                { role: 'system', content: harnessSystem },
                 { role: 'user', content: JSON.stringify(actionOnlyRepairPrompt(context, payload?.message?.content || firstError.message, tools)), ...(nativeImage ? { images: [visual, ...attachmentImages].filter(Boolean) } : {}) }
               ]
             })
@@ -1098,5 +1085,4 @@ module.exports = {
   actionOnlyRepairPrompt,
   extractEmbeddedDecision,
   redactEmbeddedDecision,
-  REPAIR_SCHEMA_PROMPT
 };

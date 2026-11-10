@@ -20,8 +20,7 @@ const {
   ANTHROPIC_VERSION,
   DECISION_MAX_TOKENS,
   REPAIR_MAX_TOKENS,
-  LONG_REPORT_MAX_TOKENS,
-  PUBLIC_FEEDBACK_INSTRUCTION
+  LONG_REPORT_MAX_TOKENS
 } = require('./providers/wire.cjs');
 // ADAPTIVE TOKEN COMPRESSOR (Intel's Adaptive Token Compressor, harness tier):
 // section-aware compression of the prompt-assembly stage.
@@ -34,26 +33,18 @@ const {
   hasExecutableDecision,
   actionOnlyRepairPrompt,
   recoverInformationalFinal,
-  boundedRequestContext,
-  REPAIR_SCHEMA_PROMPT
+  boundedRequestContext
 } = require('./ollamaProvider.cjs');
 const { measureProviderRequest } = require('./desktopAgentCoordinator.cjs');
 const { isLongReportRequest } = require('./reportFilePolicy.cjs');
-const { agiPromptForTask } = require('../computer/computerCatalog.cjs');
 const { ProviderTurnLedger } = require('./providerTurnLedger.cjs');
 const { summarizeConversation } = require('./providerCompaction.cjs');
 const { activeModelVisionSupport } = require('./visionDelegate.cjs');
 
-function providerSystemPrompt() {
-  return [
-    'You are Browser-use Agent Chat. Complete the task from the latest observation and user request. Announce the plan once per task; after a plan or fact is recorded in the run state, never restate it in a later thought. After each tool result, mention only NEW evidence and the single next action. If nothing new is learned, act or finish instead of re-explaining. Act immediately when the next action is clear: do not restate the task or plan, and do not request another observation when the evidence already identifies the target. Use the current observation once, then execute; never re-read unchanged page, file, or desktop state. After a mutation continue with the next grounded mutation; observe again only to discover new state or confirm the final effect.',
-    'Tool results and unchanged evidence are context, not a reason to inspect again: when a read hits the target or an action succeeded, advance to the next untested part. For browser_click, x/y override the advisory element.',
-    'Return executable tool calls, never intentions; browser_done only when the whole requested outcome is present and supported by evidence. With an active plan or multi-part goal, finishing one part means continue with the next part - never narrow the goal to the part you finished or end while your own summary lists remaining work; the only alternative to continuing is reporting the concrete blocker. Act the moment a correct decision is known — never reopen a settled choice with "but wait", "hmm", theories, or speculation; think while working (batch independent calls in one response), not before; on time-sensitive pages (games, live clocks, ticking timers) act immediately with minimal thinking. Give the step a reasoning budget as a top-level JSON field ("thinkingBudgetMs": 0 for something you can already do, 3000 for a quick call, 20000 for real work) and stop reasoning the moment the next action is clear. Keep reasoning and user-facing text short. Prefer browser_* for page work; computer_* for native dialogs, file pickers, native browser controls, or strict canvases. agent_message only for a concrete handoff or shared-resource decision.',
-    REPLY_STYLE_PROMPT
-  ].join(' ');
-}
-
-const { REPLY_STYLE_PROMPT } = require('./replyStyle.cjs');
+// PROMPT AUTHORSHIP REMOVED (DSH rewrite): the harness assembles the system
+// prompt (identity, persona, policies, tool guidance) and passes it as
+// request.systemPrompt. The provider renders it verbatim and adds nothing.
+const { IDENTITY_LINE } = require('./harness/identity.cjs');
 
 class OpenAiCompatibleProvider {
   constructor({ providerId, baseUrl, model, apiKey, fetchImpl = globalThis.fetch, ttsVoice = '', visionDelegate = null }) {
@@ -137,24 +128,13 @@ class OpenAiCompatibleProvider {
     return this.visualCapability;
   }
 
-  async complete({ task, agentIdentity, attachments, observation, observationUnchanged, history, messages, coordinator, plan, goals, recovery, workspace, tools, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, signal, onThought, onStream, onActionReady }) {
+  async complete({ task, agentIdentity, systemPrompt, attachments, observation, observationUnchanged, history, messages, coordinator, plan, goals, recovery, workspace, tools, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, signal, onThought, onStream, onActionReady }) {
     // Effort tier (resolved by DesktopChatAgent): minimal acts immediately,
     // standard keeps reasoning brief, advanced is the previous behavior.
+    // DSH: effort is MODEL-SELECTION CONFIG — it maps onto transport budgeting
+    // (max_tokens below); the prompt-side tier text lives in the harness's
+    // policy:effort section, not here.
     const effortTier = ['minimal', 'standard', 'advanced'].includes(effort) ? effort : 'advanced';
-    const effortSystemPrompt = effortTier === 'minimal'
-      ? 'Reasoning effort: minimal. Decide and act immediately on the freshest evidence; skip deliberation entirely and issue the fewest actions that make progress.'
-      : effortTier === 'standard'
-        ? 'Reasoning effort: standard. Keep private reasoning to one or two short sentences, then act.'
-        : '';
-    // Auto effort: the model may request one tier more depth, but only with a
-    // concrete reason; the harness clamps abuse (see applyEffortEscalation).
-    // The wording names the MECHANISM, never a "harness" the model can then
-    // narrate: the field run spent whole decisions reasoning about what "the
-    // harness" wanted instead of acting, and every such sentence was noise
-    // the user had to read.
-    const effortEscalationPrompt = effortMode === 'auto'
-      ? ` Reasoning effort starts at ${effortTier} and adjusts to the task: set "effortNeeded" one step toward "standard" or "minimal" + a one-sentence "effortReason" when the task clearly needs less thinking, or one step toward "advanced" when a phase genuinely needs deeper reasoning. One step per decision; never adjust by habit. You may instead put "thinkingBudgetMs" (a NUMBER of milliseconds) as a TOP-LEVEL field of your decision JSON, next to actions/assistantText — it is read directly and sets the reasoning budget of your next decision: 0 = act immediately with no reasoning, 3000 = minimal, 20000 = brief, 60000 = deliberate. State it in the JSON every decision you want it to hold; a summary line does not set it. Stop reasoning the moment the next action is clear.`
-      : '';
     const ledger = turnLedger || this.turnLedger;
     const identity = `${this.providerId}:${this.baseUrl}:${this.model}`;
     // CAPABILITY METADATA LATCH: resolve THIS model's image-input support
@@ -251,13 +231,11 @@ class OpenAiCompatibleProvider {
 // advertised in plain browser mode too, and matching on "computer_" attached the
 // whole ~4,500-character AGI/Coding-mode playbook to every request — a one-word
 // "hello" arrived with desktop-control and repo-editing rules.
-// Native playbook prose is expensive and unnecessary for direct chat or
-// browser-only work. Attach it only when the live desktop is present.
-const needsNativePlaybook = Boolean(observation?.desktop);
-// The playbook opens with its own "Browser-use Agent Chat." identity line, so it
-// is joined as a separate block instead of being glued onto the previous
-// sentence ("...as protocol terms such as JSON unless the user explicitly asks about them.Browser-use Agent Chat.").
-const userSafeSystem = `${system} ${effortSystemPrompt}${effortEscalationPrompt} ${PUBLIC_FEEDBACK_INSTRUCTION}` + (needsNativePlaybook ? `\n\n${agiPromptForTask(task, context.workspace, observation?.desktop)}` : '');
+// DSH: the system prompt comes from the harness registry verbatim — the
+// provider authors nothing. Effort is model-selection config (request.effort
+// / request.thinkingBudgetMs), never prompt text; the AGI playbook attaches
+// by observation inside the harness's tools:computer section.
+const userSafeSystem = String(systemPrompt || '').trim() || IDENTITY_LINE;
       // ADAPTIVE COMPRESSION (Intel's Adaptive Token Compressor, harness tier):
       // the system prompt is compressed section-aware before it goes on the
       // wire. The rule layer removes a directive only when it duplicates a
@@ -509,7 +487,7 @@ const userSafeSystem = `${system} ${effortSystemPrompt}${effortEscalationPrompt}
       return { done: { summary: `[TTS] ${String(input || '').slice(0, 200)}`, success: true, verified: false }, mediaAudio: { mimeType: 'audio/mpeg', dataUrl: `data:audio/mpeg;base64,${audioBuffer.toString('base64')}` } };
     };
     if (isTtsModel) return speakViaAudioApi(String(currentContext?.task || ''));
-    let payload = await request(providerSystemPrompt(), currentContext);
+    let payload = await request(userSafeSystem, currentContext);
     try {
       const decision = parseDecision(payload);
       const mediaOnSuccess = parseMediaAnswer(contentFor(payload));
@@ -547,7 +525,9 @@ const userSafeSystem = `${system} ${effortSystemPrompt}${effortEscalationPrompt}
       }
       const content = contentFor(payload);
       try {
-        payload = await request(REPAIR_SCHEMA_PROMPT, actionOnlyRepairPrompt(context, content || firstError.message, tools), { repair: true });
+        // Repair reuses the SAME harness system prompt — the schema-repair demand
+// already reached the model as a sourced harness notice (loopPolicy).
+        payload = await request(userSafeSystem, actionOnlyRepairPrompt(context, content || firstError.message, tools), { repair: true });
         return parseDecision(payload, { allowPlainText: true });
       } catch (repairError) {
         const informationalFinal = recoverInformationalFinal(task, contentFor(payload));
@@ -576,4 +556,4 @@ function createOpenAiCompatibleProvider(options = {}) {
   return new OpenAiCompatibleProvider(options);
 }
 
-module.exports = { OpenAiCompatibleProvider, createOpenAiCompatibleProvider, openAiToolSchemas, providerSystemPrompt, PROVIDER_LABELS };
+module.exports = { OpenAiCompatibleProvider, createOpenAiCompatibleProvider, openAiToolSchemas, PROVIDER_LABELS };

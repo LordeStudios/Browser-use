@@ -21,7 +21,6 @@ const DECISION_MAX_TOKENS = 4_096;
 const REPAIR_MAX_TOKENS = 1_024;
 const LONG_REPORT_MAX_TOKENS = 6_144;
 
-const PUBLIC_FEEDBACK_INSTRUCTION = 'Keep user-facing thinking and replies natural. Do not mention internal response formats or protocol terms such as JSON unless the user explicitly asks about them.';
 
 function normalizeBaseUrl(value, fallback = null) {
   const source = String(value || fallback || '').trim();
@@ -704,7 +703,6 @@ module.exports = {
   DECISION_MAX_TOKENS,
   REPAIR_MAX_TOKENS,
   LONG_REPORT_MAX_TOKENS,
-  PUBLIC_FEEDBACK_INSTRUCTION,
   normalizeBaseUrl,
   providerEndpoint,
   providerError,

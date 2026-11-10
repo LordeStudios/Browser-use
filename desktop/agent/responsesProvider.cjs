@@ -6,10 +6,10 @@ const { ProviderTurnLedger } = require('./providerTurnLedger.cjs');
 const { summarizeConversation } = require('./providerCompaction.cjs');
 const { openAiToolSchemas } = require('./openAiCompatibleProvider.cjs');
 const { measureProviderRequest } = require('./desktopAgentCoordinator.cjs');
-const { agiPromptForTask } = require('../computer/computerCatalog.cjs');
 
-const { REPLY_STYLE_PROMPT } = require('./replyStyle.cjs');
-const INSTRUCTIONS = 'You are Browser-use Agent Chat. Complete the task from the latest observation and user request. Act immediately when the next grounded action is clear; batch actions with known inputs; wait only when a later action depends on unseen state. Do not restate the task or plan, and do not repeat a read. Use current evidence once, execute, and observe again only to discover new state or confirm the final effect. Unchanged evidence is context, not a reason to inspect again. For browser_click, x/y override the advisory element. browser_done only when the whole requested outcome is present and supported by evidence; with an active plan or multi-part goal, finishing one part means continue with the next part - never narrow the goal to the part you finished or end while your own summary lists remaining work; report a concrete blocker instead. Act the moment a correct decision is known — never reopen a settled choice with "but wait", "hmm", theories, or speculation; think while working (batch independent calls in one response), not before; on time-sensitive pages (games, live clocks, ticking timers) act immediately with minimal thinking. Keep reasoning short; return executable tool calls, never intentions. Prefer browser_* for page work; computer_* for native dialogs, file pickers, native browser controls, or strict canvases. agent_message only for a concrete handoff or shared-resource decision.';
+// PROMPT AUTHORSHIP REMOVED (DSH rewrite): the harness assembles the system
+// prompt; the provider renders request.systemPrompt verbatim.
+const { IDENTITY_LINE } = require('./harness/identity.cjs');
 
 class ResponsesProvider {
   constructor({ baseUrl, model, apiKey, fetchImpl = globalThis.fetch }) {
@@ -31,7 +31,7 @@ class ResponsesProvider {
     return summarizeConversation({ protocol: 'responses', model: this.model, endpoint: `${this.baseUrl}/responses`, headers: { 'content-type': 'application/json', authorization: `Bearer ${this.apiKey}` }, fetchImpl: this.fetchImpl, coordinator, signal, system, input });
   }
 
-  async complete({ task, agentIdentity, observation, observationUnchanged, attachments, history = [], tools, coordinator, messages, plan, goals, recovery, workspace, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, signal, onThought, onProgress }) {
+  async complete({ task, agentIdentity, systemPrompt, observation, observationUnchanged, attachments, history = [], tools, coordinator, messages, plan, goals, recovery, workspace, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, signal, onThought, onProgress }) {
     // Effort tier (resolved by DesktopChatAgent): minimal->low,
     // standard->medium; advanced omits the field (previous behavior).
     const effortTier = ['minimal', 'standard', 'advanced'].includes(effort) ? effort : 'advanced';
@@ -60,7 +60,8 @@ class ResponsesProvider {
       const attachmentData = attachment?.kind === 'image' ? base64Payload(attachment.data) : null;
       if (attachmentData) content.push({ type: 'input_image', image_url: `data:${attachment.mimeType};base64,${attachmentData}` });
     }
-    const instructions = INSTRUCTIONS + ' ' + REPLY_STYLE_PROMPT + (observation?.desktop ? ' ' + agiPromptForTask(task, workspace, observation.desktop) : '');
+    // DSH: the harness owns the system prompt; the provider renders it verbatim.
+    const instructions = String(systemPrompt || '').trim() || IDENTITY_LINE;
     const schemas = openAiToolSchemas(tools).map(({ function: tool }) => ({ type: 'function', ...tool, strict: false }));
     const headers = { 'content-type': 'application/json', authorization: `Bearer ${this.apiKey}` };
     await ledger.compact({ current: state, system: instructions, tools: schemas, outputTokens: this.outputBudget || 16_384,

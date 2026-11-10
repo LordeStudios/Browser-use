@@ -407,15 +407,13 @@ async function main() {
   bootLaunch = launchHeadlessChrome({ startPort: 9333, profileDir: args['profile-dir'] ? path.resolve(String(args['profile-dir'])) : null, headed });
   bootLaunch.catch(() => {}); // never unhandled if a require below throws first
 
-  // LOAD ORDER (critical): computerCatalog.cjs is required FIRST, and a
-  // --system-file replaces its exports.agiPromptForTask BEFORE
-  // openAiCompatibleProvider.cjs / desktopChatAgent.cjs load — the provider
-  // destructures the property at its own load time.
-  const computerCatalog = require('../desktop/computer/computerCatalog.cjs');
+  // DSH PROMPT OVERRIDE: --system-file no longer monkey-patches a prompt
+  // function — the text rides on the run request and the harness registers
+  // it as a complete:true section (the DSH whole-prompt replacement mode).
+  require('../desktop/computer/computerCatalog.cjs');
   let promptOverride = null;
   if (systemText !== null) {
     promptOverride = { file: systemFile, mode: systemMode, chars: systemText.length };
-    computerCatalog.agiPromptForTask = () => systemText;
   }
   const { createOpenAiCompatibleProvider } = require('../desktop/agent/openAiCompatibleProvider.cjs');
   const { DesktopChatAgent } = require('../desktop/agent/desktopChatAgent.cjs');
@@ -776,6 +774,8 @@ const { createCliAndroidApi } = require('./cliAndroidApi.cjs');
           : {})),
       provider: providerConfig,
       settings: { controlMode, approvalMode: 'unattended' },
+      // DSH prompt override (--system-file): replaces the assembled prompt.
+      ...(promptOverride ? { systemFile: systemText } : {}),
       // The workspace contract ONLY when the caller declared one (--cwd /
       // --workspace): the run's file tools and terminals root there.
       ...(workspaceDir ? { workspace: { root: workspaceDir } } : {})
