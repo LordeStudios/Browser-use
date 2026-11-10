@@ -1,0 +1,183 @@
+✔ isCodingTask: natural wording without keywords is non-coding alone, coding with a workspace (4.3036ms)
+✔ agiPromptForTask serves the campaign-selected lean core (coding section included) for every task (0.5091ms)
+✔ toolDefinitions: workspace-declared agi run advertises the file tools; browser mode never does (2.0661ms)
+✔ compactComputerOutput keeps whole-file reads under the dedicated budget and trims other outputs tight (1.7819ms)
+✔ a browser-mode run whose task declares a workspace is promoted to agi with file tools (39.4612ms)
+✔ a new-turn done about the closed task is bounced; the ledger resets; the objective is restated (94.9838ms)
+✔ the model can force compaction with chat_compact and the run continues (14.9058ms)
+✔ slash commands: /compact compacts now; /goal and /plan rewrite the live lists; unknown passes through (153.4209ms)
+✔ an idle /compact acts directly: no model decision, no restated conclusion (37.1263ms)
+✔ a done citing screenshot evidence without any screenshot is bounced until evidence exists (16.6609ms)
+✔ a reopened continuation restores the prior task: new-turn classification, boundary, ledger reset fire (32.6993ms)
+✔ a new-turn done restating the prior conclusion is bounced; the fresh conclusion stands (72.54ms)
+✔ structural repair ranks goal-relevant controls and marks successful targets completed (2.9167ms)
+✔ preflight confirms an installed model and structured agent response (1.7879ms)
+✔ preflight fails clearly when the selected model is not installed (0.886ms)
+✔ preflight times out instead of leaving startup pending (21.7678ms)
+✔ provider preserves browser tab details in the next decision context (4.0027ms)
+✖ provider sends a compact fresh observation without duplicating raw DOM state (0.8495ms)
+✔ provider removes screenshot bytes and typed content from bounded context (0.7869ms)
+✖ Ollama provider sends current visual evidence through the native images field (6.4186ms)
+✔ Ollama provider retries with DOM evidence when the selected model rejects images (11.7348ms)
+✔ Ollama provider treats an explicit no-vision response as capability evidence and retries with DOM (1.2083ms)
+✔ bounded conversation context keeps the first turn and the latest follow-ups (0.3418ms)
+✔ provider includes bounded recovery context so the next decision can correct the last error (0.3106ms)
+✔ provider accepts native Ollama tool calls when content is empty (1.1832ms)
+✔ provider repairs one malformed structured response and bounds history (3.3967ms)
+✖ provider repairs a duplicate-recovery action into a different grounded tool (1.6215ms)
+✔ provider repairs a prose-only completion into one executable terminal decision (2.4702ms)
+✔ provider preserves streamed final text when the terminal chunk is only the response suffix (3.9522ms)
+✔ provider preserves the full local reasoning stream before one structural repair (1.6187ms)
+✔ provider keeps inline think tags out of final replies while preserving the thought channel (9.7544ms)
+✔ parser removes inline think blocks before reading a structured final answer (0.1653ms)
+✔ provider retains a plain informational reply when its repair is also unstructured (2.6828ms)
+✔ provider never converts an unstructured mutation request into a terminal answer (1.314ms)
+✔ provider never paints language-labelled command JSON as an informational reply (1.8159ms)
+✔ provider rejects an internal schema template rather than exposing it as a reply (0.3014ms)
+✔ provider accepts a fenced JSON object but rejects malformed tool calls (1.6504ms)
+✔ OpenAI-compatible provider keeps keys private and returns a structured agent decision (36.6502ms)
+✔ OpenAI-compatible provider requires an explicit browser_wait duration (3.3457ms)
+✔ OpenAI-compatible provider sends current visual evidence as a native image content block (2.9001ms)
+✔ OpenAI-compatible provider falls back to the same DOM context when a model rejects image input (11.246ms)
+✔ OpenAI-compatible provider treats an explicit no-vision response as capability evidence and retries with DOM (6.4327ms)
+✔ OpenAI-compatible provider rejects empty credentials and models (0.6854ms)
+✔ OpenAI-compatible provider preserves a plain informational reply instead of dissolving it (4.3143ms)
+✔ OpenAI-compatible provider does not turn language-labelled command JSON into a final chat reply (2.8963ms)
+✔ OpenAI-compatible provider forwards recovery context to the corrective model turn (2.4704ms)
+✔ OpenAI-compatible provider performs one schema repair instead of surfacing a recoverable malformed reply (3.2596ms)
+✔ OpenAI-compatible provider retries one transient transport failure inside the same decision (272.8356ms)
+✔ OpenAI-compatible provider repairs a redundant browser_observe into an actionable decision without sending it to the executor (1.553ms)
+✔ OpenAI-compatible provider passes a redundant screenshot through; the agent loop owns the repair (11.8827ms)
+✔ OpenAI-compatible provider passes duplicate-recovery context through; the agent loop owns the repair (1.7123ms)
+✔ OpenAI-compatible provider streams declared reasoning without exposing structured JSON as thought text (7.12ms)
+✔ OpenAI-compatible provider preserves the full reasoning stream before one structural repair (3.0732ms)
+✔ anthropic route marks the system block as cacheable (1.5998ms)
+✔ a gateway that rejects caching is latched off and requests retry cleanly (2.8899ms)
+✖ the retry ladder is the bounded Cline series (3.5763ms)
+✔ hard provider errors are classified as never-retryable (0.8433ms)
+✔ a network error retries the same decision without burning recovery attempts (65.2131ms)
+✔ an exhausted transport ladder fails the run honestly instead of waiting forever (32.593ms)
+✖ recovery exhaustion stays internal and the next decision can finish (15.4994ms)
+✔ permanent provider blocks still fail fast without retries (8.6896ms)
+✔ a server error inside a 200 SSE stream surfaces as a transport failure (55.6548ms)
+✔ an in-stream server error triggers the transport ladder, never model recovery (39.8537ms)
+✔ a step timeout leaves no truncated reasoning fragment for the retry (41.1226ms)
+✔ a model that streams deltas is never killed by the step timeout (6102.2316ms)
+✔ a model silent before its first token outlives the step deadline (8017.7298ms)
+✔ a truly silent model call still times out and retries (5041.1235ms)
+✔ the absolute cap ends a stream that trickles forever (10036.6998ms)
+ℹ tests 68
+ℹ suites 0
+ℹ pass 63
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29902.6691
+
+✖ failing tests:
+
+test at tests\desktop-ollama-provider.test.mjs:110:1
+✖ provider sends a compact fresh observation without duplicating raw DOM state (0.8495ms)
+  TypeError: Cannot read properties of undefined (reading 'length')
+      at TestContext.<anonymous> (file:///E:/Users/maximus/Documents/GitHub/uganda-art-pulse/tools/browser-use/tests/desktop-ollama-provider.test.mjs:130:51)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7)
+
+test at tests\desktop-ollama-provider.test.mjs:158:1
+✖ Ollama provider sends current visual evidence through the native images field (6.4186ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Reason briefly, never restate the task or history/. Input:
+  
+  'You are Browser-use Agent Chat. Complete the user task using the newest observation and the tools listed below.\n' +
+    '\n' +
+    'Return one executable JSON decision: actions/toolCalls, optional short assistantText, optional update_plan, or browser_done. Never intentions, preamble, or long explanation; keep reasoning short.\n' +
+    '\n' +
+    'Routing: browser_* for page work; computer_* for native dialogs/pickers, native browser controls, strict canvases. agent_message only for concrete handoff/shared-resource decisions; never delegate ordinary work, send status, or claim a message unless it is in agentMessages.\n' +
+    '\n' +
+    'Execute, do not inventory: use current evidence once, then act. Repeat a read only when state genuinely changed or was never seen; unchanged results are context, not a cue to re-inspect. Batch independent actions with known inputs. On success advance to the next untested part. browser_done only once the WHOLE outcome is supported by evidence: with an active plan or multi-part goal, finishing one part means continue with the next part - never narrow the goal to the part you finished or end while your own summary lists remaining work; report a concrete blocker instead. Keep the plan current; continue from the first pending item.\n' +
+    '\n' +
+    'Available tools:\n' +
+    '[]\n' +
+    '\n' +
+    'REPLY STYLE — visible user-facing text (assistantText, done summaries, progress lines): The user is a designer, not an engineer. Lead with the outcome in one short sentence, then at most two or three short plain sentences. Everyday words only. Never put file paths, line numbers, function or tool names, HTTP status codes, JSON, protocol terms, or token/character counts in user-facing text — describe what the user can see and do instead ("The hero now fits phones", "The picture format was rejected — a PNG or JPG will work"). If something failed, say plainly what happened and the one next step. Never enumerate test results, issue counts, or report file paths unless the user explicitly asked for a report. VISUAL VERIFICATION: For UI work on a website or browser-based application, prefer the real browser_screenshot tool when it is available and supported by the current tab, especially when checking layout, styling, visual state, or interaction results.'
+  
+      at TestContext.<anonymous> (file:///E:/Users/maximus/Documents/GitHub/uganda-art-pulse/tools/browser-use/tests/desktop-ollama-provider.test.mjs:177:10)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'You are Browser-use Agent Chat. Complete the user task using the newest observation and the tools listed below.\n\nReturn one executable JSON decision: actions/toolCalls, optional short assistantText, optional update_plan, or browser_done. Never intentions, preamble, or long explanation; keep reasoning short.\n\nRouting: browser_* for page work; computer_* for native dialogs/pickers, native browser controls, strict canvases. agent_message only for concrete handoff/shared-resource decisions; never delegate ordinary work, send status, or claim a message unless it is in agentMessages.\n\nExecute, do not inventory: use current evidence once, then act. Repeat a read only when state genuinely changed or was never seen; unchanged results are context, not a cue to re-inspect. Batch independent actions with known inputs. On success advance to the next untested part. browser_done only once the WHOLE outcome is supported by evidence: with an active plan or multi-part goal, finishing one part means continue with the next part - never narrow the goal to the part you finished or end while your own summary lists remaining work; report a concrete blocker instead. Keep the plan current; continue from the first pending item.\n\nAvailable tools:\n[]\n\nREPLY STYLE — visible user-facing text (assistantText, done summaries, progress lines): The user is a designer, not an engineer. Lead with the outcome in one short sentence, then at most two or three short plain sentences. Everyday words only. Never put file paths, line numbers, function or tool names, HTTP status codes, JSON, protocol terms, or token/character counts in user-facing text — describe what the user can see and do instead ("The hero now fits phones", "The picture format was rejected — a PNG or JPG will work"). If something failed, say plainly what happened and the one next step. Never enumerate test results, issue counts, or report file paths unless the user explicitly asked for a report. VISUAL VERIFICATION: For UI work on a website or browser-based application, prefer the real browser_screenshot tool when it is available and supported by the current tab, especially when checking layout, styling, visual state, or interaction results.',
+    expected: /Reason briefly, never restate the task or history/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests\desktop-ollama-provider.test.mjs:306:1
+✖ provider repairs a duplicate-recovery action into a different grounded tool (1.6215ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (file:///E:/Users/maximus/Documents/GitHub/uganda-art-pulse/tools/browser-use/tests/desktop-ollama-provider.test.mjs:326:10)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\transport-retry.test.mjs:22:1
+✖ the retry ladder is the bounded Cline series (3.5763ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   20000,
+  +   40000,
+  +   60000,
+  +   120000,
+  +   180000,
+  +   180000
+  -   1000,
+  -   2000,
+  -   4000
+    ]
+  
+      at TestContext.<anonymous> (file:///E:/Users/maximus/Documents/GitHub/uganda-art-pulse/tools/browser-use/tests/transport-retry.test.mjs:23:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.start (node:internal/test_runner/test:1177:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 20000, 40000, 60000, 120000, 180000, 180000 ],
+    expected: [ 1000, 2000, 4000 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\transport-retry.test.mjs:89:1
+✖ recovery exhaustion stays internal and the next decision can finish (15.4994ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'awaiting_recovery'
+  - 'completed'
+  
+      at TestContext.<anonymous> (file:///E:/Users/maximus/Documents/GitHub/uganda-art-pulse/tools/browser-use/tests/transport-retry.test.mjs:112:10)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'awaiting_recovery',
+    expected: 'completed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

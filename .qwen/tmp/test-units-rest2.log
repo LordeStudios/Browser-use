@@ -1,0 +1,774 @@
+✔ tray-hidden selected tab dispatches CDP input without a visible pointer prerequisite (4.3944ms)
+✔ native press waits for visual arrival and starts click feedback at that coordinate (3.1278ms)
+✔ a superseded click cannot reclaim the pointer or press after a newer move (0.5038ms)
+✔ a timed-out visual arrival fails closed before native input (0.4672ms)
+✔ session cancellation during visual travel prevents a late held press (0.515ms)
+✔ session cancellation during a move prevents late visual completion from dispatching native input (0.3909ms)
+✔ cancellation during element resolution cannot create a fresh late click (1.5275ms)
+✔ session cancellation during scroll arrival prevents a late wheel event (9.7027ms)
+✔ session cancellation during click travel invalidates the whole click operation (0.4522ms)
+✔ session cancellation while press feedback paints rolls back the visual press (1.0064ms)
+✔ ending a session after standalone mouseDown clears both native and visual pressed state (0.6952ms)
+✔ invalidating a pressed pointer viewport explicitly releases the native button (0.5718ms)
+✔ background button cleanup uses the same tab-scoped CDP route and suppresses a late duplicate up (0.4235ms)
+✔ a selected button held across surface hide is released through CDP exactly once (0.5138ms)
+✔ cleanup joins an ordinary asynchronous CDP mouseUp instead of releasing twice (26.9387ms)
+✔ a new same-button press waits for the prior asynchronous release and remains tracked (15.875ms)
+✔ revoking during a same-button release wait cannot resurrect the delayed press (0.5605ms)
+✔ drag cancellation during initial travel cannot start a late drag (0.4513ms)
+✔ a superseded visual release still reports an already committed click (0.3983ms)
+✔ drag steps wait for the painted pointer coordinate instead of running native input ahead (109.1964ms)
+✔ a long low-step drag is divided into continuously active visual segments (1015.6838ms)
+✔ cancelling during a drag delay prevents the next stale visual step and duplicate release (274.4311ms)
+✔ a newer pointer action during a drag delay remains the last visual target (294.352ms)
+✔ a superseded move cannot dispatch its stale final native position (0.3626ms)
+✔ release remains an edge event when its visual movement is superseded (0.263ms)
+✔ session cleanup during a pending visual mouseUp owns the only native release (0.3196ms)
+✔ a pointer renderer failure during release cannot suppress native mouseUp (0.2374ms)
+✔ a renderer load that never settles cannot release late pointer input (1597.474ms)
+✔ an active pointer hides and recovers when its renderer stops acknowledging (711.3928ms)
+✔ an unresponsive child hides immediately and is replaced without waiting for another action (94.2689ms)
+✔ operation-scoped cancellation resolves only its own pending movement (31.6473ms)
+✔ resizing after a painted standalone press requests an explicit native release (16.539ms)
+✔ a resize callback that cancels the replacement operation cannot send it afterward (16.3836ms)
+✔ desktop lease is exclusive across owners and re-entrant for the holder (13.6636ms)
+✔ a released waiter aborts instead of stealing the lease when its run is cancelled (14.5558ms)
+✔ mutating native input takes the lease; read-only tools pass through (15.2301ms)
+✔ pool admits at most cap concurrent runs and queues the rest (126.6411ms)
+✔ pool enforces tab exclusivity (94.9001ms)
+✔ pool releases the lease and the tab when a run terminates (0.8158ms)
+✔ pool propagates a startup rejection instead of masking it with null.id (1.6849ms)
+✔ pool threads the subagent alias into the run identity and pool events (0.5104ms)
+✔ a failed tab allocation fails the spawn instead of sharing the selected tab (0.3243ms)
+✔ pool passes the complete provider configuration to a spawned run (0.4204ms)
+✔ a retained run keeps its instance and tab after termination until explicitly closed (0.5346ms)
+✔ retain:false keeps the legacy teardown (tab released at terminal) (0.2399ms)
+✔ a run whose start throws is never retained (0.3332ms)
+✔ retained residents are evicted FIFO beyond maxRetained, releasing their tabs (0.3406ms)
+✔ cancelRun cancels a tracked active run by id (7.9039ms)
+✔ pool forwards a per-worker workspace so each worker can run in its own worktree (0.4519ms)
+✔ pool cap ceiling is 32 so large swarms are a deliberate choice, not a hard wall (0.1355ms)
+✔ a detached tab reports why it cannot be captured instead of hanging (1.9732ms)
+✔ an attached tab still captures normally (47.101ms)
+✔ a stalled capture on a supposedly painted tab still rejects (4008.4702ms)
+✔ the tool dispatcher bounds any tool that never settles (4005.5857ms)
+✔ argument validation errors are not masked by the deadline (1.8833ms)
+✔ redactKey hides most of a Browser Use Cloud API key (1.0942ms)
+✔ createCloudProvider requires an API key (1.1483ms)
+✔ cloud provider requires an explicitly configured model (0.2723ms)
+✔ remote provider receives prior user and assistant turns on a follow-up (0.4472ms)
+✔ cloud provider uses the SDK-aligned long-running default and reports polling progress (0.6935ms)
+✔ cloud provider cancels only after its configured deadline (0.4906ms)
+✔ cloud provider cancellation stops the remote run (0.3224ms)
+✔ held mouse buttons and keys are released for the ending session only (4.014ms)
+✔ balanced input leaves nothing held and release stays idempotent (0.8891ms)
+✔ release tolerates a destroyed tab and still clears tracked state (0.2956ms)
+✔ closing a tab or shutting down releases every holder of that tab (0.5938ms)
+✔ routes input through the requested background tab without stealing selected-tab focus (1.432ms)
+✔ pointer actions use native input without executing page JavaScript (8.7362ms)
+✔ selected native input reattaches one transiently detached BrowserView before dispatch (0.4609ms)
+✔ selected input uses same-tab CDP when shell reattachment cannot restore the native view (0.4057ms)
+✔ scroll uses a valid native pointer and reports read-only movement evidence (2.8045ms)
+✔ scroll uses the viewport centre when no valid native pointer exists (0.9309ms)
+✔ scroll discards a pointer outside the current viewport (0.7698ms)
+✔ drag interpolates native input without executing page JavaScript (57.7501ms)
+✔ input is only ever dispatched to the requested bound tab (5.1798ms)
+✔ an occupied MCP port becomes a handled typed startup error and leaves the server retryable (26.2768ms)
+✔ the public Desktop GPT Action schema has the complete GPT importer component shape (1337.327ms)
+✔ the Claude headers helper endpoint issues the durable pairing header for every connection (86.2568ms)
+✔ a static pairing header bootstraps and recovers one opaque MCP session without a bearer handoff (68.321ms)
+✔ new-tab MCP creates an isolated background tab and preserves existing tabs (3.5226ms)
+✔ the legacy pairing endpoint can issue one bearer without re-issuing it on retry (21.6785ms)
+✔ tab changes and tab closure release input without ending the opaque MCP session (13.7653ms)
+✔ default opaque sessions survive pairing expiry and a year of idle fake-clock time (6.2197ms)
+✔ MCP ping returns an empty result only for an authenticated live session (3.1079ms)
+✔ a durable pairing offer recovers one session across connection retries without serializing secrets (5.4715ms)
+✔ the durable pairing code keeps working after the recovery window lapses (1.5764ms)
+✔ a lapsed recovery window re-pairs a statically configured host instead of failing it (1.5166ms)
+✔ cancelled offers fail closed while the durable code survives expiry and revocation (12.0823ms)
+✔ sessions are instance-bound, expire, and can be revoked (1.4021ms)
+✔ a paired session has unrestricted MCP tool access immediately (1.459ms)
+✔ state changes keep the desktop session list current for remote pairing (2.0606ms)
+✔ the bridge stays paired even when callers request legacy fast mode (1.3701ms)
+✔ session termination and target changes report separate input-release lifecycles (1.8836ms)
+✔ binding cleanup validates its callback and never blocks a target change (1.4357ms)
+✔ expired sessions release their input and a failing release never blocks cleanup (1.3226ms)
+✔ closing a tab unbinds it so later calls fail closed instead of targeting it (1.055ms)
+✔ session tab binding remains explicit while every tool stays available (1.1729ms)
+✔ desktop packaging builds and verifies both Windows executable artifacts (5.6601ms)
+✔ Electron is a development dependency required for packaging (1.042ms)
+✔ desktop package contains the repository-independent MCP runtime (0.3245ms)
+✔ Node builds package the checked-in upstream Browser Use source separately (46.7865ms)
+✖ desktop package includes the native AI chat agent implementation (129.2899ms)
+✔ opening Agent chat reserves a visible strip outside the native BrowserView without attaching an input shield (1.5313ms)
+✖ desktop defaults the local agent to the requested Minimax M3 model (3.8205ms)
+✔ desktop MCP reserves a stable, desktop-only port and preserves an explicit ephemeral test override (2.4778ms)
+✖ desktop sends clone-safe agent state and uses the current Electron console event shape (3.2635ms)
+✖ desktop agent shell keeps the compact dark reference controls wired to live state (78.1677ms)
+✔ desktop uses the Studio splitter contract for separate thought and reply fields (1.9943ms)
+✔ desktop splitter withholds markers split at every network boundary (3.9237ms)
+✔ desktop splitter recognizes encoded markers streamed one character at a time (0.5048ms)
+✔ desktop splitter retains alternating thinking and reply chronology (1.0157ms)
+ℹ tests 111
+ℹ suites 0
+ℹ pass 107
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12778.1514
+
+✖ failing tests:
+
+test at tests\desktop-package-contract.test.mjs:43:1
+✖ desktop package includes the native AI chat agent implementation (129.2899ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /appendConversationMessage\(run, 'user', task\)/. Input:
+  
+  "'use strict';\r\n" +
+    '\r\n' +
+    '// BROWSER_USE_CHAT_LIFECYCLE_ADAPTIVE_WAIT_STOP\r\n' +
+    '\r\n' +
+    "const crypto = require('node:crypto');\r\n" +
+    "const fs = require('node:fs');\r\n" +
+    "const path = require('node:path');\r\n" +
+    "const { execFileSync } = require('node:child_process');\r\n" +
+    "const { performance } = require('node:perf_hooks');\r\n" +
+    'const {\r\n' +
+    '  createCoordinatorState,\r\n' +
+    '  recordObservation,\r\n' +
+    '  actionHash,\r\n' +
+    '  canAttempt,\r\n' +
+    '  recordAction,\r\n' +
+    '  recordFacts,\r\n' +
+    '  madeProgress,\r\n' +
+    '  shouldCaptureAuto,\r\n' +
+    '  isMutation,\r\n' +
+    '  bumpNavigationEpoch,\r\n' +
+    '  staleAnchor,\r\n' +
+    '  fillGate,\r\n' +
+    '  constraintTamper,\r\n' +
+    '  presentationTamper,\r\n' +
+    '  completedWorkEntry,\r\n' +
+    '  recordRejectedFill,\r\n' +
+    '  unbackedActionClaims,\r\n' +
+    '  valueWriteLiterals,\r\n' +
+    '  firstWriteViolations,\r\n' +
+    '  parseNumberedRequirements,\r\n' +
+    '  settleRequirementLedger,\r\n' +
+    '  requirementCovered,\r\n' +
+    '  CONFLICT_PROTOCOL_ADVISORY,\r\n' +
+    '  hasCoordinatePair: coordinatorHasCoordinatePair\r\n' +
+    "} = require('./desktopAgentCoordinator.cjs');\r\n" +
+    "const { isLongReportRequest, normalizeReportInput, shouldRequireLongReport } = require('./reportFilePolicy.cjs');\r\n" +
+    "const { extractEmbeddedDecision, redactEmbeddedDecision } = require('./ollamaProvider.cjs');\r\n" +
+    "const { COMPUTER_TOOLS, isComputerTool, computerReadOnly, isCodingTask, normalizeControlMode } = require('../computer/computerCatalog.cjs');\r\n" +
+    "const { RETRY_DELAYS_MS, isTransportError, pauseForRetry } = require('./providers/retry.cjs');\r\n" +
+    "const { ProviderTurnLedger, boundedResult, normalizeLedgerSnapshot, normalizeObjectiveLedger, sanitizeLedgerValue } = require('./providerTurnLedger.cjs');\r\n" +
+    "const { createInteractionMemory, observeInteraction, prepareAction } = require('./interactionMemory.cjs');\r\n" +
+    '// GEN9 RUN NOTEBOOK: durable per-run session state (user rules, working\r\n' +
+    '// repos, credentials, commands, project facts, requirements, write trail).\r\n' +
+    '// The file on disk is the source of truth; the wire sees a pinned projection.\r\n' +
+    "const { createRunNotebook, notebookIndex: notebookIndexText, appendUserLine: notebookAppendUserLine } = require('./runNotebook.cjs');\r\n" +
+    "const { registerRepo, recordRepoMentions, renderRepoMapWire } = require('./workspacePin.cjs');\r\n" +
+    "const { normalizeDomAttachments, replaceDomReferences } = require('../renderer/domAttachments.cjs');\r\n" +
+    '\r\n' +
+    'const MAX_ATTACHMENT_TEXT_CHARS = 120_000;\r\n' +
+    'const MAX_ATTACHMENT_TEXT_TOTAL_CHARS = 240_000;\r\n' +
+    'const MAX_ATTACHMENT_IMAGE_BYTES = 8_000_000;\r\n' +
+    "const ATTACHMENT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);\r\n" +
+    'const COMPLETION_REVIEW_MUTATION_THRESHOLD = 3;\r\n' +
+    '// Stage A escalation ladder: watchdog fires (stall heartbeat, no-progress\r\n' +
+    '// results) park the run at this threshold — escalate (awaiting_recovery +\r\n' +
+    '// run.escalated + auto-resume), NEVER terminate. Any successful mutation\r\n' +
+    '// resets the count. Env-tunable 2-10 for probes.\r\n' +
+    'const ESCALATION_PARK_FIRES = Math.min(10, Math.max(2, Number(process.env.BROWSER_USE_ESCALATION_PARK_FIRES) || 4));\r\n' +
+    '\r\n' +
+    '// Stage B (harness merge v5): 8-class failure taxonomy over the EXISTING\r\n' +
+    '// recoverySource strings (kept byte-identical — tests and UI pin them).\r\n' +
+    '// Classification is additive: it labels each recovery, drives the recovery\r\n' +
+    '// directive, and feeds the recovery record. Unknown sources classify as\r\n' +
+    '// UNCLASSIFIED and behave exactly as before.\r\n' +
+    'const FAILURE_CLASSES = Object.freeze({\r\n' +
+    "  INVALID_INPUT: ['invalid_plan_update', 'agent_message_invalid', 'read_agent_result_invalid', 'research_objective_invalid', 'search_query_invalid', 'skill_unknown', 'subagent_close_invalid', 'wait_ms_invalid', 'computer_model_kind_invalid', 'computer_model_prompt_invalid'],\r\n" +
+    "  TRANSIENT: ['action_timeout', 'observation_timeout', 'output_budget', 'internal_error', 'fetch_failed', 'pointer_interrupted', 'computer_model_failed'],\r\n" +
+    "  STALE_STATE: ['stale_element', 'layout_changed', 'completion_evidence'],\r\n" +
+    "  SCOPE: ['workspace_scope'],\r\n" +
+    "  NO_EFFECT: ['browser_action'],\r\n" +
+    '  // E7 (gen3): a constraint-tamper bounce is a page conflict, not a lost\r\n' +
+    '  // effect — its class labels the recovery demand without changing any\r\n' +
+    '  // pre-existing classification.\r\n' +
+    "  CONFLICT: ['constraint_tamper'],\r\n" +
+    "  LOOP: ['action_loop', 'duplicate_action', 'missing_terminal_result'],\r\n" +
+    '  // E12 (gen4): a verified done whose summary cites evidence the tool record\r\n' +
+    '  // does not show — the same EVIDENCE_MISSING family as the screenshot gate.\r\n' +
+    "  EVIDENCE_MISSING: ['unverified_external_block', 'screenshot_claim_unverified', 'unbacked_claim', 'stale_task_acknowledgment', 'done_incomplete_work', 'completion_review', 'unsuccessful_done'],\r\n" +
+    "  PROVIDER_BLOCK: ['agent_provider_blocked', 'provider_unreachable', 'computer_model_provider_failed']\r\n" +
+    '});\r\n' +
+    'function classifyFailure(source) {\r\n' +
+    "  const key = String(source || '');\r\n" +
+    '  for (const [failureClass, sources] of Object.entries(FAILURE_CLASSES)) {\r\n' +
+    '    if (sources.includes(key)) return failureClass;\r\n' +
+    '  }\r\n' +
+    "  return 'UNCLASSIFIED';\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    '// E13 (gen4) moment-of-need bridge: the anti-rebuild sentence rides EVERY\r\n' +
+    '// completion_review bounce message itself. The gen1/gen2/gen-ab evidence\r\n' +
+    "// (arch1-timed-r2's double rebuild, legacy untimed-r2's five-bounce spiral,\r\n" +
+    "// gen-ab untimed-r3's evidence-demand-driven Task-A rebuild) shows\r\n" +
+    '// prompt-only placement fails at exactly this bounce — the gate is the site\r\n' +
+    "// that fires at the vulnerable moment, the same argument that justified E7's\r\n" +
+    '// fold into the fill-gate rejection.\r\n' +
+    "const COMPLETION_BRIDGE = 'Re-verify an uncertain claim with one corrected probe; never by re-executing a completed flow.';\r\n" +
+    '\r\n' +
+    '// Gen2 enforcement (E2): one-shot harness event notices. Harness events\r\n' +
+    '// (navigation, classified recovery, park-resume) arm a transient line; the\r\n' +
+    "// NEXT decision's context drains the queue and renders it once. Never\r\n" +
+    '// accumulated across decisions, never repeated, zero standing prompt bytes.\r\n' +
+    'const MAX_HARNESS_NOTICES = 4;\r\n' +
+    'function pushHarnessNotice(run, text) {\r\n' +
+    "  const line = String(text || '').replace(/\\s+/g, ' ').trim();\r\n" +
+    '  if (!line || !run) return;\r\n' +
+    '  const queue = Array.isArray(run.harnessNotices) ? run.harnessNotices : (run.harnessNotices = []);\r\n' +
+    '  queue.push(line);\r\n' +
+    '  if (queue.length > MAX_HARNESS_NOTICES) queue.splice(0, queue.length - MAX_HARNESS_NOTICES);\r\n' +
+    '  // E9 (gen4) delivery proof: every armed notice carries an id in a durable\r\n' +
+    '  // ledger, so its DELIVERY into a decision context can be published as a\r\n' +
+    '  // trace event (harness.notice.delivered) instead of being indistinguishable\r\n' +
+    '  // from a notice the model never saw (the gen3 arch1-timed-r2 ambiguity).\r\n' +
+    '  if (!Array.isArray(run.harnessNoticeLedger)) run.harnessNoticeLedger = [];\r\n' +
+    '  run.harnessNoticeSeq = (Number(run.harnessNoticeSeq) || 0) + 1;\r\n' +
+    '  run.harnessNoticeLedger.push({ id: `notice-${run.harnessNoticeSeq}`, text: line, armedAt: Date.now() });\r\n' +
+    '}\r\n' +
+    '// F3 (gen5) visual-evidence ledger: a durable record of every capture the run\r\n' +
+    '// actually produced — explicit screenshot tool calls, in-band observation\r\n' +
+    '// captures, and image attachments — each stamped with its history position\r\n' +
+    "// and coordinator revision. E12's screenshot-citation matching reads this\r\n" +
+    `// ledger, so a verified summary's "the post-submit screenshot" / "the fresh\r\n` +
+    '// screenshot" claims are checked against captures that REALLY happened at\r\n' +
+    '// trace positions that support the claim (a capture recorded before the last\r\n' +
+    '// submit is not post-submit evidence). Bounded; entries never expire (the\r\n' +
+    '// prose bar "evidence you captured does not expire" applies to the gate too).\r\n' +
+    'function recordVisualCapture(run, source) {\r\n' +
+    '  if (!run) return;\r\n' +
+    '  if (!Array.isArray(run.visualLedger)) run.visualLedger = [];\r\n' +
+    '  run.visualLedger.push({\r\n' +
+    '    at: Date.now(),\r\n' +
+    "    source: String(source || 'unknown').slice(0, 24),\r\n" +
+    '    revision: Number(run.coordinator?.observationRevision) || 0,\r\n' +
+    '    historyLength: Array.isArray(run.history) ? run.history.length : 0\r\n' +
+    '  });\r\n' +
+    '  if (run.visualLedger.length > 64) run.visualLedger.splice(0, run.visualLedger.length - 64);\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function noticeIdFor(run, line) {\r\n' +
+    '  const ledger = Array.isArray(run?.harnessNoticeLedger) ? run.harnessNoticeLedger : [];\r\n' +
+    "  return (ledger.find((entry) => entry?.text === line) || {}).id || 'notice-unknown';\r\n" +
+    '}\r\n' +
+    'function drainHarnessNotices(run) {\r\n' +
+    '  if (!run || !Array.isArray(run.harnessNotices) || !run.harnessNotices.length) return null;\r\n' +
+    '  return run.harnessNotices.splice(0);\r\n' +
+    '}\r\n' +
+    '// E1: successful calls in this set change the page so thoroughly that every\r\n' +
+    '// element index minted before them is void (navigation-epoch bump).\r\n' +
+    "const NAVIGATION_TOOL_NAMES = new Set(['browser_navigate', 'browser_new_tab', 'browser_select_tab', 'browser_focus_tab', 'browser_go_back']);\r\n" +
+    "// E5: ~10x a healthy decision's reasoning volume (MERGE evidence: the\r\n" +
+    '// 6.15 MB-thought run and the 5,646-char circular deliberations tripped\r\n' +
+    '// nothing because every decision carried tool calls).\r\n' +
+    'const THOUGHT_BUDGET_CHARS = 4_096;\r\n' +
+    'const MULTIPART_TASK_PATTERN = /\\b(?:and then|then|audit\\b[^.]{0,160}\\b(?:fix|apply|implement|change)|inspect\\b[^.]{0,160}\\b(?:fix|apply|implement|change)|detect\\b[^.]{0,160}\\b(?:fix|apply|implement|change))\\b/i;\r\n' +
+    '// Consecutive waits escalate cumulatively, so polling a long-running job\r\n' +
+    '// (a build, a dispatched agent, a render) waits minutes per decision instead\r\n' +
+    '// of burning one decision per 10 seconds. The model may also request any\r\n' +
+    '// duration up to MAX_BROWSER_WAIT_MS directly.\r\n' +
+    'const WAIT_BACKOFF_MS = Object.freeze([500, 1_000, 2_000, 4_000, 8_000, 10_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000]);\r\n' +
+    '// Pure reads and waits produce no mechanical effect for Laya to confirm â€”\r\n' +
+    '// verifying after them would only burn sidecar passes for nothing.\r\n' +
+    "const READ_ONLY_ACTION_NAMES = new Set(['browser_observe', 'browser_screenshot', 'browser_wait', 'browser_console_entries', 'browser_network_entries', 'browser_navigation_state', 'browser_tabs', 'browser_query', 'browser_extract', 'computer_observe', 'computer_screenshot', 'computer_window', 'research_task', 'web_search', 'skill_search', 'update_plan', 'chat_compact', 'notebook']);\r\n" +
+    'const MAX_BROWSER_WAIT_MS = 900_000;\r\n' +
+    '// LORDE_FAST_PATH allowlist:'... 361070 more characters
+  
+      at TestContext.<anonymous> (file:///E:/Users/maximus/Documents/GitHub/uganda-art-pulse/tools/browser-use/tests/desktop-package-contract.test.mjs:58:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '\'use strict\';\r\n\r\n// BROWSER_USE_CHAT_LIFECYCLE_ADAPTIVE_WAIT_STOP\r\n\r\nconst crypto = require(\'node:crypto\');\r\nconst fs = require(\'node:fs\');\r\nconst path = require(\'node:path\');\r\nconst { execFileSync } = require(\'node:child_process\');\r\nconst { performance } = require(\'node:perf_hooks\');\r\nconst {\r\n  createCoordinatorState,\r\n  recordObservation,\r\n  actionHash,\r\n  canAttempt,\r\n  recordAction,\r\n  recordFacts,\r\n  madeProgress,\r\n  shouldCaptureAuto,\r\n  isMutation,\r\n  bumpNavigationEpoch,\r\n  staleAnchor,\r\n  fillGate,\r\n  constraintTamper,\r\n  presentationTamper,\r\n  completedWorkEntry,\r\n  recordRejectedFill,\r\n  unbackedActionClaims,\r\n  valueWriteLiterals,\r\n  firstWriteViolations,\r\n  parseNumberedRequirements,\r\n  settleRequirementLedger,\r\n  requirementCovered,\r\n  CONFLICT_PROTOCOL_ADVISORY,\r\n  hasCoordinatePair: coordinatorHasCoordinatePair\r\n} = require(\'./desktopAgentCoordinator.cjs\');\r\nconst { isLongReportRequest, normalizeReportInput, shouldRequireLongReport } = require(\'./reportFilePolicy.cjs\');\r\nconst { extractEmbeddedDecision, redactEmbeddedDecision } = require(\'./ollamaProvider.cjs\');\r\nconst { COMPUTER_TOOLS, isComputerTool, computerReadOnly, isCodingTask, normalizeControlMode } = require(\'../computer/computerCatalog.cjs\');\r\nconst { RETRY_DELAYS_MS, isTransportError, pauseForRetry } = require(\'./providers/retry.cjs\');\r\nconst { ProviderTurnLedger, boundedResult, normalizeLedgerSnapshot, normalizeObjectiveLedger, sanitizeLedgerValue } = require(\'./providerTurnLedger.cjs\');\r\nconst { createInteractionMemory, observeInteraction, prepareAction } = require(\'./interactionMemory.cjs\');\r\n// GEN9 RUN NOTEBOOK: durable per-run session state (user rules, working\r\n// repos, credentials, commands, project facts, requirements, write trail).\r\n// The file on disk is the source of truth; the wire sees a pinned projection.\r\nconst { createRunNotebook, notebookIndex: notebookIndexText, appendUserLine: notebookAppendUserLine } = require(\'./runNotebook.cjs\');\r\nconst { registerRepo, recordRepoMentions, renderRepoMapWire } = require(\'./workspacePin.cjs\');\r\nconst { normalizeDomAttachments, replaceDomReferences } = require(\'../renderer/domAttachments.cjs\');\r\n\r\nconst MAX_ATTACHMENT_TEXT_CHARS = 120_000;\r\nconst MAX_ATTACHMENT_TEXT_TOTAL_CHARS = 240_000;\r\nconst MAX_ATTACHMENT_IMAGE_BYTES = 8_000_000;\r\nconst ATTACHMENT_IMAGE_TYPES = new Set([\'image/png\', \'image/jpeg\', \'image/webp\', \'image/gif\']);\r\nconst COMPLETION_REVIEW_MUTATION_THRESHOLD = 3;\r\n// Stage A escalation ladder: watchdog fires (stall heartbeat, no-progress\r\n// results) park the run at this threshold — escalate (awaiting_recovery +\r\n// run.escalated + auto-resume), NEVER terminate. Any successful mutation\r\n// resets the count. Env-tunable 2-10 for probes.\r\nconst ESCALATION_PARK_FIRES = Math.min(10, Math.max(2, Number(process.env.BROWSER_USE_ESCALATION_PARK_FIRES) || 4));\r\n\r\n// Stage B (harness merge v5): 8-class failure taxonomy over the EXISTING\r\n// recoverySource strings (kept byte-identical — tests and UI pin them).\r\n// Classification is additive: it labels each recovery, drives the recovery\r\n// directive, and feeds the recovery record. Unknown sources classify as\r\n// UNCLASSIFIED and behave exactly as before.\r\nconst FAILURE_CLASSES = Object.freeze({\r\n  INVALID_INPUT: [\'invalid_plan_update\', \'agent_message_invalid\', \'read_agent_result_invalid\', \'research_objective_invalid\', \'search_query_invalid\', \'skill_unknown\', \'subagent_close_invalid\', \'wait_ms_invalid\', \'computer_model_kind_invalid\', \'computer_model_prompt_invalid\'],\r\n  TRANSIENT: [\'action_timeout\', \'observation_timeout\', \'output_budget\', \'internal_error\', \'fetch_failed\', \'pointer_interrupted\', \'computer_model_failed\'],\r\n  STALE_STATE: [\'stale_element\', \'layout_changed\', \'completion_evidence\'],\r\n  SCOPE: [\'workspace_scope\'],\r\n  NO_EFFECT: [\'browser_action\'],\r\n  // E7 (gen3): a constraint-tamper bounce is a page conflict, not a lost\r\n  // effect — its class labels the recovery demand without changing any\r\n  // pre-existing classification.\r\n  CONFLICT: [\'constraint_tamper\'],\r\n  LOOP: [\'action_loop\', \'duplicate_action\', \'missing_terminal_result\'],\r\n  // E12 (gen4): a verified done whose summary cites evidence the tool record\r\n  // does not show — the same EVIDENCE_MISSING family as the screenshot gate.\r\n  EVIDENCE_MISSING: [\'unverified_external_block\', \'screenshot_claim_unverified\', \'unbacked_claim\', \'stale_task_acknowledgment\', \'done_incomplete_work\', \'completion_review\', \'unsuccessful_done\'],\r\n  PROVIDER_BLOCK: [\'agent_provider_blocked\', \'provider_unreachable\', \'computer_model_provider_failed\']\r\n});\r\nfunction classifyFailure(source) {\r\n  const key = String(source || \'\');\r\n  for (const [failureClass, sources] of Object.entries(FAILURE_CLASSES)) {\r\n    if (sources.includes(key)) return failureClass;\r\n  }\r\n  return \'UNCLASSIFIED\';\r\n}\r\n\r\n// E13 (gen4) moment-of-need bridge: the anti-rebuild sentence rides EVERY\r\n// completion_review bounce message itself. The gen1/gen2/gen-ab evidence\r\n// (arch1-timed-r2\'s double rebuild, legacy untimed-r2\'s five-bounce spiral,\r\n// gen-ab untimed-r3\'s evidence-demand-driven Task-A rebuild) shows\r\n// prompt-only placement fails at exactly this bounce — the gate is the site\r\n// that fires at the vulnerable moment, the same argument that justified E7\'s\r\n// fold into the fill-gate rejection.\r\nconst COMPLETION_BRIDGE = \'Re-verify an uncertain claim with one corrected probe; never by re-executing a completed flow.\';\r\n\r\n// Gen2 enforcement (E2): one-shot harness event notices. Harness events\r\n// (navigation, classified recovery, park-resume) arm a transient line; the\r\n// NEXT decision\'s context drains the queue and renders it once. Never\r\n// accumulated across decisions, never repeated, zero standing prompt bytes.\r\nconst MAX_HARNESS_NOTICES = 4;\r\nfunction pushHarnessNotice(run, text) {\r\n  const line = String(text || \'\').replace(/\\s+/g, \' \').trim();\r\n  if (!line || !run) return;\r\n  const queue = Array.isArray(run.harnessNotices) ? run.harnessNotices : (run.harnessNotices = []);\r\n  queue.push(line);\r\n  if (queue.length > MAX_HARNESS_NOTICES) queue.splice(0, queue.length - MAX_HARNESS_NOTICES);\r\n  // E9 (gen4) delivery proof: every armed notice carries an id in a durable\r\n  // ledger, so its DELIVERY into a decision context can be published as a\r\n  // trace event (harness.notice.delivered) instead of being indistinguishable\r\n  // from a notice the model never saw (the gen3 arch1-timed-r2 ambiguity).\r\n  if (!Array.isArray(run.harnessNoticeLedger)) run.harnessNoticeLedger = [];\r\n  run.harnessNoticeSeq = (Number(run.harnessNoticeSeq) || 0) + 1;\r\n  run.harnessNoticeLedger.push({ id: `notice-${run.harnessNoticeSeq}`, text: line, armedAt: Date.now() });\r\n}\r\n// F3 (gen5) visual-evidence ledger: a durable record of every capture the run\r\n// actually produced — explicit screenshot tool calls, in-band observation\r\n// captures, and image attachments — each stamped with its history position\r\n// and coordinator revision. E12\'s screenshot-citation matching reads this\r\n// ledger, so a verified summary\'s "the post-submit screenshot" / "the fresh\r\n// screenshot" claims are checked against captures that REALLY happened at\r\n// trace positions that support the claim (a capture recorded before the last\r\n// submit is not post-submit evidence). Bounded; entries never expire (the\r\n// prose bar "evidence you captured does not expire" applies to the gate too).\r\nfunction recordVisualCapture(run, source) {\r\n  if (!run) return;\r\n  if (!Array.isArray(run.visualLedger)) run.visualLedger = [];\r\n  run.visualLedger.push({\r\n    at: Date.now(),\r\n    source: String(source || \'unknown\').slice(0, 24),\r\n    revision: Number(run.coordinator?.observationRevision) || 0,\r\n    historyLength: Array.isArray(run.history) ? run.history.length : 0\r\n  });\r\n  if (run.visualLedger.length > 64) run.visualLedger.splice(0, run.visualLedger.length - 64);\r\n}\r\n\r\nfunction noticeIdFor(run, line) {\r\n  const ledger = Array.isArray(run?.harnessNoticeLedger) ? run.harnessNoticeLedger : [];\r\n  return (ledger.find((entry) => entry?.text === line) || {}).id || \'notice-unknown\';\r\n}\r\nfunction drainHarnessNotices(run) {\r\n  if (!run || !Array.isArray(run.harnessNotices) || !run.harnessNotices.length) return null;\r\n  return run.harnessNotices.splice(0);\r\n}\r\n// E1: successful calls in this set change the page so thoroughly that every\r\n// element index minted before them is void (navigation-epoch bump).\r\nconst NAVIGATION_TOOL_NAMES = new Set([\'browser_navigate\', \'browser_new_tab\', \'browser_select_tab\', \'browser_focus_tab\', \'browser_go_back\']);\r\n// E5: ~10x a healthy decision\'s reasoning volume (MERGE evidence: the\r\n// 6.15 MB-thought run and the 5,646-char circular deliberations tripped\r\n// nothing because every decision carried tool calls).\r\nconst THOUGHT_BUDGET_CHARS = 4_096;\r\nconst MULTIPART_TASK_PATTERN = /\\b(?:and then|then|audit\\b[^.]{0,160}\\b(?:fix|apply|implement|change)|inspect\\b[^.]{0,160}\\b(?:fix|apply|implement|change)|detect\\b[^.]{0,160}\\b(?:fix|apply|implement|change))\\b/i;\r\n// Consecutive waits escalate cumulatively, so polling a long-running job\r\n// (a build, a dispatched agent, a render) waits minutes per decision instead\r\n// of burning one decision per 10 seconds. The model may also request any\r\n// duration up to MAX_BROWSER_WAIT_MS directly.\r\nconst WAIT_BACKOFF_MS = Object.freeze([500, 1_000, 2_000, 4_000, 8_000, 10_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000]);\r\n// Pure reads and waits produce no mechanical effect for Laya to confirm â€”\r\n// verifying after them would only burn sidecar passes for nothing.\r\nconst READ_ONLY_ACTION_NAMES = new Set([\'browser_observe\', \'browser_screenshot\', \'browser_wait\', \'browser_console_entries\', \'browser_network_entries\', \'browser_navigation_state\', \'browser_tabs\', \'browser_query\', \'browser_extract\', \'computer_observe\', \'computer_screenshot\', \'computer_window\', \'research_task\', \'web_search\', \'skill_search\', \'update_plan\', \'chat_compact\', \'notebook\']);\r\nconst MAX_BROWSER_WAIT_MS = 900_000;\r\n// LORDE_FAST_PATH allowlist:'... 361070 more characters,
+    expected: /appendConversationMessage\(run, 'user', task\)/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests\desktop-package-contract.test.mjs:95:1
+✖ desktop defaults the local agent to the requested Minimax M3 model (3.8205ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /aiChatModel: process\.env\.OLLAMA_MODEL \|\| 'minimax-m3:cloud'/. Input:
+  
+  "const { app, BrowserWindow, BrowserView, ipcMain, session, clipboard, nativeImage, Menu, safeStorage, Tray, powerSaveBlocker, shell, screen, dialog } = require('electron');\n" +
+    "const path = require('node:path');\n" +
+    "const fs = require('node:fs');\n" +
+    "const crypto = require('node:crypto');\n" +
+    'const { randomUUID } = crypto;\n' +
+    "const os = require('node:os');\n" +
+    "const { pathToFileURL } = require('node:url');\n" +
+    "const { SessionBroker } = require('./mcp/sessionBroker.cjs');\n" +
+    "const { BrowserViewController } = require('./mcp/browserViewController.cjs');\n" +
+    "const { LocalMcpServer } = require('./mcp/localMcpServer.cjs');\n" +
+    "const { DeviceEmulator } = require('./mcp/deviceEmulator.cjs');\n" +
+    "const { AndroidDeviceManager } = require('./android/androidDeviceManager.cjs');\n" +
+    "const nativeAndroidWindow = require('./android/windowsNativeWindow.cjs');\n" +
+    "const { DebuggerLeaseManager } = require('./mcp/debuggerLeaseManager.cjs');\n" +
+    "const { TerminalBrokerClient } = require('./terminal/terminalBrokerClient.cjs');\n" +
+    "const { listDeviceProfiles, DESKTOP_ID } = require('../src/browser/deviceProfiles.cjs');\n" +
+    "const { buildElementPickerExpression } = require('../src/browser/elementPicker.cjs');\n" +
+    "const { buildTouchOverlayExpression } = require('../src/browser/touchOverlay.cjs');\n" +
+    "const { DesktopChatAgent, defaultResearchAgent } = require('./agent/desktopChatAgent.cjs');\n" +
+    "const { AgentPool, DesktopLease, leaseComputerTools } = require('./agent/agentPool.cjs');\n" +
+    "const { computeIdleSubagentCloses, computeIdleEmptyTabCloses } = require('./agent/idleSweeps.cjs');\n" +
+    "const { Scheduler } = require('./schedule/scheduler.cjs');\n" +
+    "const { SchedulerStore } = require('./schedule/schedulerStore.cjs');\n" +
+    "const { createOllamaProvider, preflightOllama } = require('./agent/ollamaProvider.cjs');\n" +
+    "const { createCloudProvider, redactKey } = require('./agent/cloudProvider.cjs');\n" +
+    "const { createOpenAiCompatibleProvider } = require('./agent/openAiCompatibleProvider.cjs');\n" +
+    "const { PROVIDER_LABELS, publicProviderStatus } = require('./agent/providers/descriptors.cjs');\n" +
+    "const { CredentialStore } = require('./store/credentialStore.cjs');\n" +
+    "const { runModelTask, inferModelKind, normalizeCustomModel, MODEL_KINDS } = require('./agent/mediaRouter.cjs');\n" +
+    "const { compactModelEntry, catalogResponse } = require('./agent/modelCatalog.cjs');\n" +
+    "const { probeModelsForCapability, loadProbeCache, probeCacheKey } = require('./agent/modelCapabilityProbe.cjs');\n" +
+    "const { createVisionDescriber } = require('./agent/visionDelegate.cjs');\n" +
+    "const { ChatHistoryStore } = require('./store/chatHistoryStore.cjs');\n" +
+    "const { SkillStore } = require('./record/skills.cjs');\n" +
+    "const { Recorder } = require('./record/recorder.cjs');\n" +
+    "const { isSafeStaticHtml } = require('./agent/reportFilePolicy.cjs');\n" +
+    "const { AgentPointerOverlay } = require('./pointer/agentPointerOverlay.cjs');\n" +
+    "const { normalizeControlMode } = require('./computer/computerCatalog.cjs');\n" +
+    '// Effort ladder for the chat agent (Auto/Minimal/Standard/Advanced pill).\n' +
+    "const normalizeAgentEffort = (value) => ['auto', 'minimal', 'standard', 'advanced'].includes(value) ? value : 'auto';\n" +
+    '\n' +
+    '// gen9 port (gen7 /cd): the agent-level DEFAULT working repo, set once via\n' +
+    '// /cd in the app chat (browser-use:set-default-workspace) when no conversation\n' +
+    '// is open. Applied as the workspace contract for the next conversation that\n' +
+    '// names no path — the user pins the repo ONCE and never types it again. A\n' +
+    '// FOCUS, never a boundary.\n' +
+    'let defaultWorkspaceRoot = null;\n' +
+    "function resolveWorkspaceContract(task = '') {\n" +
+    '  // The workspace follows the TASK: an absolute directory named in the task\n' +
+    "  // text becomes the run's DEFAULT scope from the first decision, so pointing\n" +
+    '  // the agent at a new repo works immediately — no retarget ceremony and no\n' +
+    '  // gate required (the default scope is a convenience, never an access\n' +
+    '  // boundary; out-of-root paths always execute). The studio contract stays\n' +
+    '  // only as the fallback for tasks that name no path.\n' +
+    `  for (const raw of (String(task || '').match(/[A-Za-z]:[\\\\/][^\\s"',;)\\]]+/g) || [])) {\n` +
+    "    const candidate = raw.replace(/[.,]+$/, '');\n" +
+    '    try {\n' +
+    '      if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {\n' +
+    '        return { root: path.resolve(candidate), target: path.resolve(candidate), url: null };\n' +
+    '      }\n' +
+    '    } catch { /* try the next mention */ }\n' +
+    '  }\n' +
+    '  // gen9 port: the pinned default from /cd (validated at set time) wins over\n' +
+    '  // the studio fallback for tasks that name no directory of their own.\n' +
+    '  if (defaultWorkspaceRoot) {\n' +
+    '    try {\n' +
+    '      if (fs.existsSync(defaultWorkspaceRoot) && fs.statSync(defaultWorkspaceRoot).isDirectory()) {\n' +
+    '        return { root: defaultWorkspaceRoot, target: defaultWorkspaceRoot, url: null };\n' +
+    '      }\n' +
+    '    } catch { /* fall through to the studio fallback */ }\n' +
+    '  }\n' +
+    "  const repoRoot = path.resolve(__dirname, '../..');\n" +
+    "  const studioTarget = path.join(repoRoot, 'studios', 'public', 'Apps', 'lorde-design-studio');\n" +
+    '  if (!fs.existsSync(studioTarget)) return null;\n' +
+    '  return {\n' +
+    '    root: repoRoot,\n' +
+    '    target: studioTarget,\n' +
+    "    url: 'http://127.0.0.1:3001/Apps/lorde-design-studio/'\n" +
+    '  };\n' +
+    '}\n' +
+    "const { normalizeUrl } = require('./urlUtils.cjs');\n" +
+    "const { HistoryStore } = require('./historyStore.cjs');\n" +
+    'let computerTools = null;\n' +
+    'let agentPool = null;\n' +
+    'let scheduler = null;\n' +
+    'let schedulerStore = null;\n' +
+    'let skillsStore = null;\n' +
+    'let recorder = null;\n' +
+    "// The provider config of the most recent chat run IS the application's active\n" +
+    '// model; Record & Learn reasons through it, never a separate selector.\n' +
+    'let lastRunProviderConfig = null;\n' +
+    '// Reused named OAuth popup BrowserWindows can trigger did-create-window more\n' +
+    '// than once. Keep listener ownership outside the Electron wrapper object;\n' +
+    '// assigning a custom property is not reliable across Electron versions and\n' +
+    '// caused MaxListenersExceededWarning during repeated Android/browser runs.\n' +
+    'const closedListenerWiredWindows = new WeakSet();\n' +
+    'const desktopLease = new DesktopLease();\n' +
+    'let leasedComputerToolsInstance = null;\n' +
+    '// Lazily-leased native backend: a Koffi child must not start at idle\n' +
+    '// Browser-only startup, so the real tools resolve only on first use. Mutating\n' +
+    '// native input takes the desktop lease; read-only tools pass through.\n' +
+    'function getLeasedComputerTools() {\n' +
+    '  if (!leasedComputerToolsInstance) {\n' +
+    '    const backend = {\n' +
+    '      execute: (name, input, owner, options) => getComputerTools().execute(name, input, owner, options),\n' +
+    '      observe: (...args) => getComputerTools().observe(...args),\n' +
+    '      releaseInput: (...args) => getComputerTools().releaseInput?.(...args),\n' +
+    '      releaseOwner: (...args) => getComputerTools().releaseOwner(...args),\n' +
+    '      close: (...args) => getComputerTools().close?.(...args)\n' +
+    '    };\n' +
+    '    leasedComputerToolsInstance = leaseComputerTools(backend, desktopLease);\n' +
+    '  }\n' +
+    '  return leasedComputerToolsInstance;\n' +
+    '}\n' +
+    '\n' +
+    '// LORDE_NAMED_SUBAGENTS_V364 — subagents are named workers TIED to their\n' +
+    '// spawning agent (Chat 1/2/3). Every agent can spawn as many as it likes;\n' +
+    '// each spawn gets a real alias (john, mary, ...) that addresses it for\n' +
+    '// agent_message while it runs, and its terminal findings are delivered back\n' +
+    '// into the spawning conversation automatically. Subagents keep full tool\n' +
+    '// access (browser + computer + files) exactly like any agent.\n' +
+    '//\n' +
+    '// LORDE_RESIDENT_SUBAGENTS_V365 — a finished subagent does NOT close. It\n' +
+    '// becomes a RESIDENT worker: its instance, tab, and conversation stay alive,\n' +
+    '// the spawning agent keeps assigning it follow-up tasks through agent_message\n' +
+    '// (each assignment continues the SAME conversation, so context accumulates),\n' +
+    '// and only an explicit subagent_close tears it down. The main agent manages\n' +
+    '// its workers; the harness never closes them behind its back.\n' +
+    "const SUBAGENT_NAME_POOL = ['john', 'mary', 'david', 'sara', 'peter', 'emma', 'paul', 'nina', 'mark', 'anna', 'tom', 'zara', 'omar', 'ivy', 'luke', 'rosa', 'hana', 'kofi', 'lena', 'tessa', 'raul'];\n" +
+    '// spawnId -> { spawnId, alias, parentRunId, task, label, status, runId,\n' +
+    '// instance, tabId, provider, settings }. Statuses: queued -> running ->\n' +
+    '// resident (or terminal) -> closed. A resident holds its instance + tab.\n' +
+    'const spawnRegistry = new Map();\n' +
+    '\n' +
+    'function nextSubagentAlias() {\n' +
+    '  const used = new Set();\n' +
+    '  // LORDE_RESIDENT_SUBAGENTS_V365 — residents keep their names: only closed\n' +
+    '  // records release an alias for reuse.\n' +
+    '  for (const record of spawnRegistry.values()) {\n' +
+    "    if (record.status !== 'closed') used.add(record.alias);\n" +
+    '  }\n' +
+    '  for (const entry of agentPool?.activeRuns || []) {\n' +
+    '    if (entry.alias) used.add(entry.alias);\n' +
+    '  }\n' +
+    '  for (const entry of agentPool?.retained?.values() || []) {\n' +
+    '    if (entry.alias) used.add(entry.alias);\n' +
+    '  }\n' +
+    '  const fresh = SUBAGENT_NAME_POOL.find((name) => !used.has(name));\n' +
+    '  if (fresh) return fresh;\n' +
+    '  const base = SUBAGENT_NAME_POOL[0];\n' +
+    '  let counter = 2;\n' +
+    '  while (used.has(`${base}-${counter}`)) counter += 1;\n' +
+    '  return `${base}-${counter}`;\n' +
+    '}\n' +
+    '\n' +
+    '// LORDE_SUBAGENT_WORKTREES_V365 — parallel file workers must not patch the\n' +
+    '// same working tree: each spawned subagent gets its own git worktree + branch\n' +
+    "// (Claude Code's isolation model). Two agents editing one file can no longer\n" +
+    '// fight over the hash guard; every worker owns a private copy and commits to\n' +
+    '// its branch. Graceful fallback: no git repo or git unavailable -> the shared\n' +
+    '// tree, exactly as before.\n' +
+    "const { execFile } = require('node:child_process');\n" +
+    'function gitExec(args, cwd) {\n' +
+    '  return new Promise((resolve, reject) => {\n' +
+    "    execFile('git', args, { cwd, windowsHide: true, timeout: 30000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {\n" +
+    "      if (error) reject(new Error(String(stderr || error.message || 'git failed').slice(0, 300)));\n" +
+    "      else resolve(String(stdout || '').trim());\n" +
+    '    });\n' +
+    '  });\n' +
+    '}\n' +
+    '\n' +
+    'async function createSubagentWorktree(parentWorkspace, alias) {\n' +
+    '  // Task-text-extracted roots can carry trailing punctuation ("...studio:")\n' +
+    '  // — git fatalled on them. Trim to a real, existing directory or fall back.\n' +
+    `  const root = String(parentWorkspace?.root || '').trim().replace(/[\\s:.,;'"]+$/, '');\n` +
+    "  if (!root || !require('node:fs').existsSync(ro"... 296103 more characters
+  
+      at TestContext.<anonymous> (file:///E:/Users/maximus/Documents/GitHub/uganda-art-pulse/tools/browser-use/tests/desktop-package-contract.test.mjs:98:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'const { app, BrowserWindow, BrowserView, ipcMain, session, clipboard, nativeImage, Menu, safeStorage, Tray, powerSaveBlocker, shell, screen, dialog } = require(\'electron\');\nconst path = require(\'node:path\');\nconst fs = require(\'node:fs\');\nconst crypto = require(\'node:crypto\');\nconst { randomUUID } = crypto;\nconst os = require(\'node:os\');\nconst { pathToFileURL } = require(\'node:url\');\nconst { SessionBroker } = require(\'./mcp/sessionBroker.cjs\');\nconst { BrowserViewController } = require(\'./mcp/browserViewController.cjs\');\nconst { LocalMcpServer } = require(\'./mcp/localMcpServer.cjs\');\nconst { DeviceEmulator } = require(\'./mcp/deviceEmulator.cjs\');\nconst { AndroidDeviceManager } = require(\'./android/androidDeviceManager.cjs\');\nconst nativeAndroidWindow = require(\'./android/windowsNativeWindow.cjs\');\nconst { DebuggerLeaseManager } = require(\'./mcp/debuggerLeaseManager.cjs\');\nconst { TerminalBrokerClient } = require(\'./terminal/terminalBrokerClient.cjs\');\nconst { listDeviceProfiles, DESKTOP_ID } = require(\'../src/browser/deviceProfiles.cjs\');\nconst { buildElementPickerExpression } = require(\'../src/browser/elementPicker.cjs\');\nconst { buildTouchOverlayExpression } = require(\'../src/browser/touchOverlay.cjs\');\nconst { DesktopChatAgent, defaultResearchAgent } = require(\'./agent/desktopChatAgent.cjs\');\nconst { AgentPool, DesktopLease, leaseComputerTools } = require(\'./agent/agentPool.cjs\');\nconst { computeIdleSubagentCloses, computeIdleEmptyTabCloses } = require(\'./agent/idleSweeps.cjs\');\nconst { Scheduler } = require(\'./schedule/scheduler.cjs\');\nconst { SchedulerStore } = require(\'./schedule/schedulerStore.cjs\');\nconst { createOllamaProvider, preflightOllama } = require(\'./agent/ollamaProvider.cjs\');\nconst { createCloudProvider, redactKey } = require(\'./agent/cloudProvider.cjs\');\nconst { createOpenAiCompatibleProvider } = require(\'./agent/openAiCompatibleProvider.cjs\');\nconst { PROVIDER_LABELS, publicProviderStatus } = require(\'./agent/providers/descriptors.cjs\');\nconst { CredentialStore } = require(\'./store/credentialStore.cjs\');\nconst { runModelTask, inferModelKind, normalizeCustomModel, MODEL_KINDS } = require(\'./agent/mediaRouter.cjs\');\nconst { compactModelEntry, catalogResponse } = require(\'./agent/modelCatalog.cjs\');\nconst { probeModelsForCapability, loadProbeCache, probeCacheKey } = require(\'./agent/modelCapabilityProbe.cjs\');\nconst { createVisionDescriber } = require(\'./agent/visionDelegate.cjs\');\nconst { ChatHistoryStore } = require(\'./store/chatHistoryStore.cjs\');\nconst { SkillStore } = require(\'./record/skills.cjs\');\nconst { Recorder } = require(\'./record/recorder.cjs\');\nconst { isSafeStaticHtml } = require(\'./agent/reportFilePolicy.cjs\');\nconst { AgentPointerOverlay } = require(\'./pointer/agentPointerOverlay.cjs\');\nconst { normalizeControlMode } = require(\'./computer/computerCatalog.cjs\');\n// Effort ladder for the chat agent (Auto/Minimal/Standard/Advanced pill).\nconst normalizeAgentEffort = (value) => [\'auto\', \'minimal\', \'standard\', \'advanced\'].includes(value) ? value : \'auto\';\n\n// gen9 port (gen7 /cd): the agent-level DEFAULT working repo, set once via\n// /cd in the app chat (browser-use:set-default-workspace) when no conversation\n// is open. Applied as the workspace contract for the next conversation that\n// names no path — the user pins the repo ONCE and never types it again. A\n// FOCUS, never a boundary.\nlet defaultWorkspaceRoot = null;\nfunction resolveWorkspaceContract(task = \'\') {\n  // The workspace follows the TASK: an absolute directory named in the task\n  // text becomes the run\'s DEFAULT scope from the first decision, so pointing\n  // the agent at a new repo works immediately — no retarget ceremony and no\n  // gate required (the default scope is a convenience, never an access\n  // boundary; out-of-root paths always execute). The studio contract stays\n  // only as the fallback for tasks that name no path.\n  for (const raw of (String(task || \'\').match(/[A-Za-z]:[\\\\/][^\\s"\',;)\\]]+/g) || [])) {\n    const candidate = raw.replace(/[.,]+$/, \'\');\n    try {\n      if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {\n        return { root: path.resolve(candidate), target: path.resolve(candidate), url: null };\n      }\n    } catch { /* try the next mention */ }\n  }\n  // gen9 port: the pinned default from /cd (validated at set time) wins over\n  // the studio fallback for tasks that name no directory of their own.\n  if (defaultWorkspaceRoot) {\n    try {\n      if (fs.existsSync(defaultWorkspaceRoot) && fs.statSync(defaultWorkspaceRoot).isDirectory()) {\n        return { root: defaultWorkspaceRoot, target: defaultWorkspaceRoot, url: null };\n      }\n    } catch { /* fall through to the studio fallback */ }\n  }\n  const repoRoot = path.resolve(__dirname, \'../..\');\n  const studioTarget = path.join(repoRoot, \'studios\', \'public\', \'Apps\', \'lorde-design-studio\');\n  if (!fs.existsSync(studioTarget)) return null;\n  return {\n    root: repoRoot,\n    target: studioTarget,\n    url: \'http://127.0.0.1:3001/Apps/lorde-design-studio/\'\n  };\n}\nconst { normalizeUrl } = require(\'./urlUtils.cjs\');\nconst { HistoryStore } = require(\'./historyStore.cjs\');\nlet computerTools = null;\nlet agentPool = null;\nlet scheduler = null;\nlet schedulerStore = null;\nlet skillsStore = null;\nlet recorder = null;\n// The provider config of the most recent chat run IS the application\'s active\n// model; Record & Learn reasons through it, never a separate selector.\nlet lastRunProviderConfig = null;\n// Reused named OAuth popup BrowserWindows can trigger did-create-window more\n// than once. Keep listener ownership outside the Electron wrapper object;\n// assigning a custom property is not reliable across Electron versions and\n// caused MaxListenersExceededWarning during repeated Android/browser runs.\nconst closedListenerWiredWindows = new WeakSet();\nconst desktopLease = new DesktopLease();\nlet leasedComputerToolsInstance = null;\n// Lazily-leased native backend: a Koffi child must not start at idle\n// Browser-only startup, so the real tools resolve only on first use. Mutating\n// native input takes the desktop lease; read-only tools pass through.\nfunction getLeasedComputerTools() {\n  if (!leasedComputerToolsInstance) {\n    const backend = {\n      execute: (name, input, owner, options) => getComputerTools().execute(name, input, owner, options),\n      observe: (...args) => getComputerTools().observe(...args),\n      releaseInput: (...args) => getComputerTools().releaseInput?.(...args),\n      releaseOwner: (...args) => getComputerTools().releaseOwner(...args),\n      close: (...args) => getComputerTools().close?.(...args)\n    };\n    leasedComputerToolsInstance = leaseComputerTools(backend, desktopLease);\n  }\n  return leasedComputerToolsInstance;\n}\n\n// LORDE_NAMED_SUBAGENTS_V364 — subagents are named workers TIED to their\n// spawning agent (Chat 1/2/3). Every agent can spawn as many as it likes;\n// each spawn gets a real alias (john, mary, ...) that addresses it for\n// agent_message while it runs, and its terminal findings are delivered back\n// into the spawning conversation automatically. Subagents keep full tool\n// access (browser + computer + files) exactly like any agent.\n//\n// LORDE_RESIDENT_SUBAGENTS_V365 — a finished subagent does NOT close. It\n// becomes a RESIDENT worker: its instance, tab, and conversation stay alive,\n// the spawning agent keeps assigning it follow-up tasks through agent_message\n// (each assignment continues the SAME conversation, so context accumulates),\n// and only an explicit subagent_close tears it down. The main agent manages\n// its workers; the harness never closes them behind its back.\nconst SUBAGENT_NAME_POOL = [\'john\', \'mary\', \'david\', \'sara\', \'peter\', \'emma\', \'paul\', \'nina\', \'mark\', \'anna\', \'tom\', \'zara\', \'omar\', \'ivy\', \'luke\', \'rosa\', \'hana\', \'kofi\', \'lena\', \'tessa\', \'raul\'];\n// spawnId -> { spawnId, alias, parentRunId, task, label, status, runId,\n// instance, tabId, provider, settings }. Statuses: queued -> running ->\n// resident (or terminal) -> closed. A resident holds its instance + tab.\nconst spawnRegistry = new Map();\n\nfunction nextSubagentAlias() {\n  const used = new Set();\n  // LORDE_RESIDENT_SUBAGENTS_V365 — residents keep their names: only closed\n  // records release an alias for reuse.\n  for (const record of spawnRegistry.values()) {\n    if (record.status !== \'closed\') used.add(record.alias);\n  }\n  for (const entry of agentPool?.activeRuns || []) {\n    if (entry.alias) used.add(entry.alias);\n  }\n  for (const entry of agentPool?.retained?.values() || []) {\n    if (entry.alias) used.add(entry.alias);\n  }\n  const fresh = SUBAGENT_NAME_POOL.find((name) => !used.has(name));\n  if (fresh) return fresh;\n  const base = SUBAGENT_NAME_POOL[0];\n  let counter = 2;\n  while (used.has(`${base}-${counter}`)) counter += 1;\n  return `${base}-${counter}`;\n}\n\n// LORDE_SUBAGENT_WORKTREES_V365 — parallel file workers must not patch the\n// same working tree: each spawned subagent gets its own git worktree + branch\n// (Claude Code\'s isolation model). Two agents editing one file can no longer\n// fight over the hash guard; every worker owns a private copy and commits to\n// its branch. Graceful fallback: no git repo or git unavailable -> the shared\n// tree, exactly as before.\nconst { execFile } = require(\'node:child_process\');\nfunction gitExec(args, cwd) {\n  return new Promise((resolve, reject) => {\n    execFile(\'git\', args, { cwd, windowsHide: true, timeout: 30000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {\n      if (error) reject(new Error(String(stderr || error.message || \'git failed\').slice(0, 300)));\n      else resolve(String(stdout || \'\').trim());\n    });\n  });\n}\n\nasync function createSubagentWorktree(parentWorkspace, alias) {\n  // Task-text-extracted roots can carry trailing punctuation ("...studio:")\n  // — git fatalled on them. Trim to a real, existing directory or fall back.\n  const root = String(parentWorkspace?.root || \'\').trim().replace(/[\\s:.,;\'"]+$/, \'\');\n  if (!root || !require(\'node:fs\').existsSync(ro'... 296103 more characters,
+    expected: /aiChatModel: process\.env\.OLLAMA_MODEL \|\| 'minimax-m3:cloud'/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests\desktop-package-contract.test.mjs:116:1
+✖ desktop sends clone-safe agent state and uses the current Electron console event shape (3.2635ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /latestObservation, visualEvidence, attachments/. Input:
+  
+  "'use strict';\r\n" +
+    '\r\n' +
+    '// BROWSER_USE_CHAT_LIFECYCLE_ADAPTIVE_WAIT_STOP\r\n' +
+    '\r\n' +
+    "const crypto = require('node:crypto');\r\n" +
+    "const fs = require('node:fs');\r\n" +
+    "const path = require('node:path');\r\n" +
+    "const { execFileSync } = require('node:child_process');\r\n" +
+    "const { performance } = require('node:perf_hooks');\r\n" +
+    'const {\r\n' +
+    '  createCoordinatorState,\r\n' +
+    '  recordObservation,\r\n' +
+    '  actionHash,\r\n' +
+    '  canAttempt,\r\n' +
+    '  recordAction,\r\n' +
+    '  recordFacts,\r\n' +
+    '  madeProgress,\r\n' +
+    '  shouldCaptureAuto,\r\n' +
+    '  isMutation,\r\n' +
+    '  bumpNavigationEpoch,\r\n' +
+    '  staleAnchor,\r\n' +
+    '  fillGate,\r\n' +
+    '  constraintTamper,\r\n' +
+    '  presentationTamper,\r\n' +
+    '  completedWorkEntry,\r\n' +
+    '  recordRejectedFill,\r\n' +
+    '  unbackedActionClaims,\r\n' +
+    '  valueWriteLiterals,\r\n' +
+    '  firstWriteViolations,\r\n' +
+    '  parseNumberedRequirements,\r\n' +
+    '  settleRequirementLedger,\r\n' +
+    '  requirementCovered,\r\n' +
+    '  CONFLICT_PROTOCOL_ADVISORY,\r\n' +
+    '  hasCoordinatePair: coordinatorHasCoordinatePair\r\n' +
+    "} = require('./desktopAgentCoordinator.cjs');\r\n" +
+    "const { isLongReportRequest, normalizeReportInput, shouldRequireLongReport } = require('./reportFilePolicy.cjs');\r\n" +
+    "const { extractEmbeddedDecision, redactEmbeddedDecision } = require('./ollamaProvider.cjs');\r\n" +
+    "const { COMPUTER_TOOLS, isComputerTool, computerReadOnly, isCodingTask, normalizeControlMode } = require('../computer/computerCatalog.cjs');\r\n" +
+    "const { RETRY_DELAYS_MS, isTransportError, pauseForRetry } = require('./providers/retry.cjs');\r\n" +
+    "const { ProviderTurnLedger, boundedResult, normalizeLedgerSnapshot, normalizeObjectiveLedger, sanitizeLedgerValue } = require('./providerTurnLedger.cjs');\r\n" +
+    "const { createInteractionMemory, observeInteraction, prepareAction } = require('./interactionMemory.cjs');\r\n" +
+    '// GEN9 RUN NOTEBOOK: durable per-run session state (user rules, working\r\n' +
+    '// repos, credentials, commands, project facts, requirements, write trail).\r\n' +
+    '// The file on disk is the source of truth; the wire sees a pinned projection.\r\n' +
+    "const { createRunNotebook, notebookIndex: notebookIndexText, appendUserLine: notebookAppendUserLine } = require('./runNotebook.cjs');\r\n" +
+    "const { registerRepo, recordRepoMentions, renderRepoMapWire } = require('./workspacePin.cjs');\r\n" +
+    "const { normalizeDomAttachments, replaceDomReferences } = require('../renderer/domAttachments.cjs');\r\n" +
+    '\r\n' +
+    'const MAX_ATTACHMENT_TEXT_CHARS = 120_000;\r\n' +
+    'const MAX_ATTACHMENT_TEXT_TOTAL_CHARS = 240_000;\r\n' +
+    'const MAX_ATTACHMENT_IMAGE_BYTES = 8_000_000;\r\n' +
+    "const ATTACHMENT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);\r\n" +
+    'const COMPLETION_REVIEW_MUTATION_THRESHOLD = 3;\r\n' +
+    '// Stage A escalation ladder: watchdog fires (stall heartbeat, no-progress\r\n' +
+    '// results) park the run at this threshold — escalate (awaiting_recovery +\r\n' +
+    '// run.escalated + auto-resume), NEVER terminate. Any successful mutation\r\n' +
+    '// resets the count. Env-tunable 2-10 for probes.\r\n' +
+    'const ESCALATION_PARK_FIRES = Math.min(10, Math.max(2, Number(process.env.BROWSER_USE_ESCALATION_PARK_FIRES) || 4));\r\n' +
+    '\r\n' +
+    '// Stage B (harness merge v5): 8-class failure taxonomy over the EXISTING\r\n' +
+    '// recoverySource strings (kept byte-identical — tests and UI pin them).\r\n' +
+    '// Classification is additive: it labels each recovery, drives the recovery\r\n' +
+    '// directive, and feeds the recovery record. Unknown sources classify as\r\n' +
+    '// UNCLASSIFIED and behave exactly as before.\r\n' +
+    'const FAILURE_CLASSES = Object.freeze({\r\n' +
+    "  INVALID_INPUT: ['invalid_plan_update', 'agent_message_invalid', 'read_agent_result_invalid', 'research_objective_invalid', 'search_query_invalid', 'skill_unknown', 'subagent_close_invalid', 'wait_ms_invalid', 'computer_model_kind_invalid', 'computer_model_prompt_invalid'],\r\n" +
+    "  TRANSIENT: ['action_timeout', 'observation_timeout', 'output_budget', 'internal_error', 'fetch_failed', 'pointer_interrupted', 'computer_model_failed'],\r\n" +
+    "  STALE_STATE: ['stale_element', 'layout_changed', 'completion_evidence'],\r\n" +
+    "  SCOPE: ['workspace_scope'],\r\n" +
+    "  NO_EFFECT: ['browser_action'],\r\n" +
+    '  // E7 (gen3): a constraint-tamper bounce is a page conflict, not a lost\r\n' +
+    '  // effect — its class labels the recovery demand without changing any\r\n' +
+    '  // pre-existing classification.\r\n' +
+    "  CONFLICT: ['constraint_tamper'],\r\n" +
+    "  LOOP: ['action_loop', 'duplicate_action', 'missing_terminal_result'],\r\n" +
+    '  // E12 (gen4): a verified done whose summary cites evidence the tool record\r\n' +
+    '  // does not show — the same EVIDENCE_MISSING family as the screenshot gate.\r\n' +
+    "  EVIDENCE_MISSING: ['unverified_external_block', 'screenshot_claim_unverified', 'unbacked_claim', 'stale_task_acknowledgment', 'done_incomplete_work', 'completion_review', 'unsuccessful_done'],\r\n" +
+    "  PROVIDER_BLOCK: ['agent_provider_blocked', 'provider_unreachable', 'computer_model_provider_failed']\r\n" +
+    '});\r\n' +
+    'function classifyFailure(source) {\r\n' +
+    "  const key = String(source || '');\r\n" +
+    '  for (const [failureClass, sources] of Object.entries(FAILURE_CLASSES)) {\r\n' +
+    '    if (sources.includes(key)) return failureClass;\r\n' +
+    '  }\r\n' +
+    "  return 'UNCLASSIFIED';\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    '// E13 (gen4) moment-of-need bridge: the anti-rebuild sentence rides EVERY\r\n' +
+    '// completion_review bounce message itself. The gen1/gen2/gen-ab evidence\r\n' +
+    "// (arch1-timed-r2's double rebuild, legacy untimed-r2's five-bounce spiral,\r\n" +
+    "// gen-ab untimed-r3's evidence-demand-driven Task-A rebuild) shows\r\n" +
+    '// prompt-only placement fails at exactly this bounce — the gate is the site\r\n' +
+    "// that fires at the vulnerable moment, the same argument that justified E7's\r\n" +
+    '// fold into the fill-gate rejection.\r\n' +
+    "const COMPLETION_BRIDGE = 'Re-verify an uncertain claim with one corrected probe; never by re-executing a completed flow.';\r\n" +
+    '\r\n' +
+    '// Gen2 enforcement (E2): one-shot harness event notices. Harness events\r\n' +
+    '// (navigation, classified recovery, park-resume) arm a transient line; the\r\n' +
+    "// NEXT decision's context drains the queue and renders it once. Never\r\n" +
+    '// accumulated across decisions, never repeated, zero standing prompt bytes.\r\n' +
+    'const MAX_HARNESS_NOTICES = 4;\r\n' +
+    'function pushHarnessNotice(run, text) {\r\n' +
+    "  const line = String(text || '').replace(/\\s+/g, ' ').trim();\r\n" +
+    '  if (!line || !run) return;\r\n' +
+    '  const queue = Array.isArray(run.harnessNotices) ? run.harnessNotices : (run.harnessNotices = []);\r\n' +
+    '  queue.push(line);\r\n' +
+    '  if (queue.length > MAX_HARNESS_NOTICES) queue.splice(0, queue.length - MAX_HARNESS_NOTICES);\r\n' +
+    '  // E9 (gen4) delivery proof: every armed notice carries an id in a durable\r\n' +
+    '  // ledger, so its DELIVERY into a decision context can be published as a\r\n' +
+    '  // trace event (harness.notice.delivered) instead of being indistinguishable\r\n' +
+    '  // from a notice the model never saw (the gen3 arch1-timed-r2 ambiguity).\r\n' +
+    '  if (!Array.isArray(run.harnessNoticeLedger)) run.harnessNoticeLedger = [];\r\n' +
+    '  run.harnessNoticeSeq = (Number(run.harnessNoticeSeq) || 0) + 1;\r\n' +
+    '  run.harnessNoticeLedger.push({ id: `notice-${run.harnessNoticeSeq}`, text: line, armedAt: Date.now() });\r\n' +
+    '}\r\n' +
+    '// F3 (gen5) visual-evidence ledger: a durable record of every capture the run\r\n' +
+    '// actually produced — explicit screenshot tool calls, in-band observation\r\n' +
+    '// captures, and image attachments — each stamped with its history position\r\n' +
+    "// and coordinator revision. E12's screenshot-citation matching reads this\r\n" +
+    `// ledger, so a verified summary's "the post-submit screenshot" / "the fresh\r\n` +
+    '// screenshot" claims are checked against captures that REALLY happened at\r\n' +
+    '// trace positions that support the claim (a capture recorded before the last\r\n' +
+    '// submit is not post-submit evidence). Bounded; entries never expire (the\r\n' +
+    '// prose bar "evidence you captured does not expire" applies to the gate too).\r\n' +
+    'function recordVisualCapture(run, source) {\r\n' +
+    '  if (!run) return;\r\n' +
+    '  if (!Array.isArray(run.visualLedger)) run.visualLedger = [];\r\n' +
+    '  run.visualLedger.push({\r\n' +
+    '    at: Date.now(),\r\n' +
+    "    source: String(source || 'unknown').slice(0, 24),\r\n" +
+    '    revision: Number(run.coordinator?.observationRevision) || 0,\r\n' +
+    '    historyLength: Array.isArray(run.history) ? run.history.length : 0\r\n' +
+    '  });\r\n' +
+    '  if (run.visualLedger.length > 64) run.visualLedger.splice(0, run.visualLedger.length - 64);\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function noticeIdFor(run, line) {\r\n' +
+    '  const ledger = Array.isArray(run?.harnessNoticeLedger) ? run.harnessNoticeLedger : [];\r\n' +
+    "  return (ledger.find((entry) => entry?.text === line) || {}).id || 'notice-unknown';\r\n" +
+    '}\r\n' +
+    'function drainHarnessNotices(run) {\r\n' +
+    '  if (!run || !Array.isArray(run.harnessNotices) || !run.harnessNotices.length) return null;\r\n' +
+    '  return run.harnessNotices.splice(0);\r\n' +
+    '}\r\n' +
+    '// E1: successful calls in this set change the page so thoroughly that every\r\n' +
+    '// element index minted before them is void (navigation-epoch bump).\r\n' +
+    "const NAVIGATION_TOOL_NAMES = new Set(['browser_navigate', 'browser_new_tab', 'browser_select_tab', 'browser_focus_tab', 'browser_go_back']);\r\n" +
+    "// E5: ~10x a healthy decision's reasoning volume (MERGE evidence: the\r\n" +
+    '// 6.15 MB-thought run and the 5,646-char circular deliberations tripped\r\n' +
+    '// nothing because every decision carried tool calls).\r\n' +
+    'const THOUGHT_BUDGET_CHARS = 4_096;\r\n' +
+    'const MULTIPART_TASK_PATTERN = /\\b(?:and then|then|audit\\b[^.]{0,160}\\b(?:fix|apply|implement|change)|inspect\\b[^.]{0,160}\\b(?:fix|apply|implement|change)|detect\\b[^.]{0,160}\\b(?:fix|apply|implement|change))\\b/i;\r\n' +
+    '// Consecutive waits escalate cumulatively, so polling a long-running job\r\n' +
+    '// (a build, a dispatched agent, a render) waits minutes per decision instead\r\n' +
+    '// of burning one decision per 10 seconds. The model may also request any\r\n' +
+    '// duration up to MAX_BROWSER_WAIT_MS directly.\r\n' +
+    'const WAIT_BACKOFF_MS = Object.freeze([500, 1_000, 2_000, 4_000, 8_000, 10_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000]);\r\n' +
+    '// Pure reads and waits produce no mechanical effect for Laya to confirm â€”\r\n' +
+    '// verifying after them would only burn sidecar passes for nothing.\r\n' +
+    "const READ_ONLY_ACTION_NAMES = new Set(['browser_observe', 'browser_screenshot', 'browser_wait', 'browser_console_entries', 'browser_network_entries', 'browser_navigation_state', 'browser_tabs', 'browser_query', 'browser_extract', 'computer_observe', 'computer_screenshot', 'computer_window', 'research_task', 'web_search', 'skill_search', 'update_plan', 'chat_compact', 'notebook']);\r\n" +
+    'const MAX_BROWSER_WAIT_MS = 900_000;\r\n' +
+    '// LORDE_FAST_PATH allowlist:'... 361070 more characters
+  
+      at TestContext.<anonymous> (file:///E:/Users/maximus/Documents/GitHub/uganda-art-pulse/tools/browser-use/tests/desktop-package-contract.test.mjs:120:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '\'use strict\';\r\n\r\n// BROWSER_USE_CHAT_LIFECYCLE_ADAPTIVE_WAIT_STOP\r\n\r\nconst crypto = require(\'node:crypto\');\r\nconst fs = require(\'node:fs\');\r\nconst path = require(\'node:path\');\r\nconst { execFileSync } = require(\'node:child_process\');\r\nconst { performance } = require(\'node:perf_hooks\');\r\nconst {\r\n  createCoordinatorState,\r\n  recordObservation,\r\n  actionHash,\r\n  canAttempt,\r\n  recordAction,\r\n  recordFacts,\r\n  madeProgress,\r\n  shouldCaptureAuto,\r\n  isMutation,\r\n  bumpNavigationEpoch,\r\n  staleAnchor,\r\n  fillGate,\r\n  constraintTamper,\r\n  presentationTamper,\r\n  completedWorkEntry,\r\n  recordRejectedFill,\r\n  unbackedActionClaims,\r\n  valueWriteLiterals,\r\n  firstWriteViolations,\r\n  parseNumberedRequirements,\r\n  settleRequirementLedger,\r\n  requirementCovered,\r\n  CONFLICT_PROTOCOL_ADVISORY,\r\n  hasCoordinatePair: coordinatorHasCoordinatePair\r\n} = require(\'./desktopAgentCoordinator.cjs\');\r\nconst { isLongReportRequest, normalizeReportInput, shouldRequireLongReport } = require(\'./reportFilePolicy.cjs\');\r\nconst { extractEmbeddedDecision, redactEmbeddedDecision } = require(\'./ollamaProvider.cjs\');\r\nconst { COMPUTER_TOOLS, isComputerTool, computerReadOnly, isCodingTask, normalizeControlMode } = require(\'../computer/computerCatalog.cjs\');\r\nconst { RETRY_DELAYS_MS, isTransportError, pauseForRetry } = require(\'./providers/retry.cjs\');\r\nconst { ProviderTurnLedger, boundedResult, normalizeLedgerSnapshot, normalizeObjectiveLedger, sanitizeLedgerValue } = require(\'./providerTurnLedger.cjs\');\r\nconst { createInteractionMemory, observeInteraction, prepareAction } = require(\'./interactionMemory.cjs\');\r\n// GEN9 RUN NOTEBOOK: durable per-run session state (user rules, working\r\n// repos, credentials, commands, project facts, requirements, write trail).\r\n// The file on disk is the source of truth; the wire sees a pinned projection.\r\nconst { createRunNotebook, notebookIndex: notebookIndexText, appendUserLine: notebookAppendUserLine } = require(\'./runNotebook.cjs\');\r\nconst { registerRepo, recordRepoMentions, renderRepoMapWire } = require(\'./workspacePin.cjs\');\r\nconst { normalizeDomAttachments, replaceDomReferences } = require(\'../renderer/domAttachments.cjs\');\r\n\r\nconst MAX_ATTACHMENT_TEXT_CHARS = 120_000;\r\nconst MAX_ATTACHMENT_TEXT_TOTAL_CHARS = 240_000;\r\nconst MAX_ATTACHMENT_IMAGE_BYTES = 8_000_000;\r\nconst ATTACHMENT_IMAGE_TYPES = new Set([\'image/png\', \'image/jpeg\', \'image/webp\', \'image/gif\']);\r\nconst COMPLETION_REVIEW_MUTATION_THRESHOLD = 3;\r\n// Stage A escalation ladder: watchdog fires (stall heartbeat, no-progress\r\n// results) park the run at this threshold — escalate (awaiting_recovery +\r\n// run.escalated + auto-resume), NEVER terminate. Any successful mutation\r\n// resets the count. Env-tunable 2-10 for probes.\r\nconst ESCALATION_PARK_FIRES = Math.min(10, Math.max(2, Number(process.env.BROWSER_USE_ESCALATION_PARK_FIRES) || 4));\r\n\r\n// Stage B (harness merge v5): 8-class failure taxonomy over the EXISTING\r\n// recoverySource strings (kept byte-identical — tests and UI pin them).\r\n// Classification is additive: it labels each recovery, drives the recovery\r\n// directive, and feeds the recovery record. Unknown sources classify as\r\n// UNCLASSIFIED and behave exactly as before.\r\nconst FAILURE_CLASSES = Object.freeze({\r\n  INVALID_INPUT: [\'invalid_plan_update\', \'agent_message_invalid\', \'read_agent_result_invalid\', \'research_objective_invalid\', \'search_query_invalid\', \'skill_unknown\', \'subagent_close_invalid\', \'wait_ms_invalid\', \'computer_model_kind_invalid\', \'computer_model_prompt_invalid\'],\r\n  TRANSIENT: [\'action_timeout\', \'observation_timeout\', \'output_budget\', \'internal_error\', \'fetch_failed\', \'pointer_interrupted\', \'computer_model_failed\'],\r\n  STALE_STATE: [\'stale_element\', \'layout_changed\', \'completion_evidence\'],\r\n  SCOPE: [\'workspace_scope\'],\r\n  NO_EFFECT: [\'browser_action\'],\r\n  // E7 (gen3): a constraint-tamper bounce is a page conflict, not a lost\r\n  // effect — its class labels the recovery demand without changing any\r\n  // pre-existing classification.\r\n  CONFLICT: [\'constraint_tamper\'],\r\n  LOOP: [\'action_loop\', \'duplicate_action\', \'missing_terminal_result\'],\r\n  // E12 (gen4): a verified done whose summary cites evidence the tool record\r\n  // does not show — the same EVIDENCE_MISSING family as the screenshot gate.\r\n  EVIDENCE_MISSING: [\'unverified_external_block\', \'screenshot_claim_unverified\', \'unbacked_claim\', \'stale_task_acknowledgment\', \'done_incomplete_work\', \'completion_review\', \'unsuccessful_done\'],\r\n  PROVIDER_BLOCK: [\'agent_provider_blocked\', \'provider_unreachable\', \'computer_model_provider_failed\']\r\n});\r\nfunction classifyFailure(source) {\r\n  const key = String(source || \'\');\r\n  for (const [failureClass, sources] of Object.entries(FAILURE_CLASSES)) {\r\n    if (sources.includes(key)) return failureClass;\r\n  }\r\n  return \'UNCLASSIFIED\';\r\n}\r\n\r\n// E13 (gen4) moment-of-need bridge: the anti-rebuild sentence rides EVERY\r\n// completion_review bounce message itself. The gen1/gen2/gen-ab evidence\r\n// (arch1-timed-r2\'s double rebuild, legacy untimed-r2\'s five-bounce spiral,\r\n// gen-ab untimed-r3\'s evidence-demand-driven Task-A rebuild) shows\r\n// prompt-only placement fails at exactly this bounce — the gate is the site\r\n// that fires at the vulnerable moment, the same argument that justified E7\'s\r\n// fold into the fill-gate rejection.\r\nconst COMPLETION_BRIDGE = \'Re-verify an uncertain claim with one corrected probe; never by re-executing a completed flow.\';\r\n\r\n// Gen2 enforcement (E2): one-shot harness event notices. Harness events\r\n// (navigation, classified recovery, park-resume) arm a transient line; the\r\n// NEXT decision\'s context drains the queue and renders it once. Never\r\n// accumulated across decisions, never repeated, zero standing prompt bytes.\r\nconst MAX_HARNESS_NOTICES = 4;\r\nfunction pushHarnessNotice(run, text) {\r\n  const line = String(text || \'\').replace(/\\s+/g, \' \').trim();\r\n  if (!line || !run) return;\r\n  const queue = Array.isArray(run.harnessNotices) ? run.harnessNotices : (run.harnessNotices = []);\r\n  queue.push(line);\r\n  if (queue.length > MAX_HARNESS_NOTICES) queue.splice(0, queue.length - MAX_HARNESS_NOTICES);\r\n  // E9 (gen4) delivery proof: every armed notice carries an id in a durable\r\n  // ledger, so its DELIVERY into a decision context can be published as a\r\n  // trace event (harness.notice.delivered) instead of being indistinguishable\r\n  // from a notice the model never saw (the gen3 arch1-timed-r2 ambiguity).\r\n  if (!Array.isArray(run.harnessNoticeLedger)) run.harnessNoticeLedger = [];\r\n  run.harnessNoticeSeq = (Number(run.harnessNoticeSeq) || 0) + 1;\r\n  run.harnessNoticeLedger.push({ id: `notice-${run.harnessNoticeSeq}`, text: line, armedAt: Date.now() });\r\n}\r\n// F3 (gen5) visual-evidence ledger: a durable record of every capture the run\r\n// actually produced — explicit screenshot tool calls, in-band observation\r\n// captures, and image attachments — each stamped with its history position\r\n// and coordinator revision. E12\'s screenshot-citation matching reads this\r\n// ledger, so a verified summary\'s "the post-submit screenshot" / "the fresh\r\n// screenshot" claims are checked against captures that REALLY happened at\r\n// trace positions that support the claim (a capture recorded before the last\r\n// submit is not post-submit evidence). Bounded; entries never expire (the\r\n// prose bar "evidence you captured does not expire" applies to the gate too).\r\nfunction recordVisualCapture(run, source) {\r\n  if (!run) return;\r\n  if (!Array.isArray(run.visualLedger)) run.visualLedger = [];\r\n  run.visualLedger.push({\r\n    at: Date.now(),\r\n    source: String(source || \'unknown\').slice(0, 24),\r\n    revision: Number(run.coordinator?.observationRevision) || 0,\r\n    historyLength: Array.isArray(run.history) ? run.history.length : 0\r\n  });\r\n  if (run.visualLedger.length > 64) run.visualLedger.splice(0, run.visualLedger.length - 64);\r\n}\r\n\r\nfunction noticeIdFor(run, line) {\r\n  const ledger = Array.isArray(run?.harnessNoticeLedger) ? run.harnessNoticeLedger : [];\r\n  return (ledger.find((entry) => entry?.text === line) || {}).id || \'notice-unknown\';\r\n}\r\nfunction drainHarnessNotices(run) {\r\n  if (!run || !Array.isArray(run.harnessNotices) || !run.harnessNotices.length) return null;\r\n  return run.harnessNotices.splice(0);\r\n}\r\n// E1: successful calls in this set change the page so thoroughly that every\r\n// element index minted before them is void (navigation-epoch bump).\r\nconst NAVIGATION_TOOL_NAMES = new Set([\'browser_navigate\', \'browser_new_tab\', \'browser_select_tab\', \'browser_focus_tab\', \'browser_go_back\']);\r\n// E5: ~10x a healthy decision\'s reasoning volume (MERGE evidence: the\r\n// 6.15 MB-thought run and the 5,646-char circular deliberations tripped\r\n// nothing because every decision carried tool calls).\r\nconst THOUGHT_BUDGET_CHARS = 4_096;\r\nconst MULTIPART_TASK_PATTERN = /\\b(?:and then|then|audit\\b[^.]{0,160}\\b(?:fix|apply|implement|change)|inspect\\b[^.]{0,160}\\b(?:fix|apply|implement|change)|detect\\b[^.]{0,160}\\b(?:fix|apply|implement|change))\\b/i;\r\n// Consecutive waits escalate cumulatively, so polling a long-running job\r\n// (a build, a dispatched agent, a render) waits minutes per decision instead\r\n// of burning one decision per 10 seconds. The model may also request any\r\n// duration up to MAX_BROWSER_WAIT_MS directly.\r\nconst WAIT_BACKOFF_MS = Object.freeze([500, 1_000, 2_000, 4_000, 8_000, 10_000, 15_000, 30_000, 60_000, 120_000, 300_000, 600_000]);\r\n// Pure reads and waits produce no mechanical effect for Laya to confirm â€”\r\n// verifying after them would only burn sidecar passes for nothing.\r\nconst READ_ONLY_ACTION_NAMES = new Set([\'browser_observe\', \'browser_screenshot\', \'browser_wait\', \'browser_console_entries\', \'browser_network_entries\', \'browser_navigation_state\', \'browser_tabs\', \'browser_query\', \'browser_extract\', \'computer_observe\', \'computer_screenshot\', \'computer_window\', \'research_task\', \'web_search\', \'skill_search\', \'update_plan\', \'chat_compact\', \'notebook\']);\r\nconst MAX_BROWSER_WAIT_MS = 900_000;\r\n// LORDE_FAST_PATH allowlist:'... 361070 more characters,
+    expected: /latestObservation, visualEvidence, attachments/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests\desktop-package-contract.test.mjs:125:1
+✖ desktop agent shell keeps the compact dark reference controls wired to live state (78.1677ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /agent-settings-tabs|data-agent-settings-tab|data-agent-settings-panel/. Input:
+  
+  '<!doctype html>\r\n' +
+    '<html lang="en">\r\n' +
+    '<head>\r\n' +
+    '  <meta charset="utf-8">\r\n' +
+    '  <meta name="viewport" content="width=device-width,initial-scale=1">\r\n' +
+    '  <title>Browser-use</title>\r\n' +
+    '  <link rel="stylesheet" href="styles.css">\r\n' +
+    '  <link rel="stylesheet" href="chat-reference.css">\r\n' +
+    '  <link rel="stylesheet" href="chrome-theme.css">\r\n' +
+    '  <link rel="stylesheet" href="chrome-layout.css">\r\n' +
+    '  <link rel="stylesheet" href="vendor/phosphor.css">\r\n' +
+    '</head>\r\n' +
+    '<body>\r\n' +
+    '  <header class="browser-chrome">\r\n' +
+    '    <div class="app-titlebar">\r\n' +
+    '      <!-- The recording ribbon lives INSIDE the drag region subtree: Electron\r\n' +
+    '           resolves -webkit-app-region matches in DOM order with the last\r\n' +
+    "           match winning, so a no-drag element placed before the titlebar's\r\n" +
+    '           drag rect (its previous position as a header sibling) was\r\n' +
+    '           overridden and its Stop button swallowed every real click. -->\r\n' +
+    '      <div class="recording-banner" id="recording-banner" hidden><span><i class="ph ph-video-camera" aria-hidden="true"></i> Recording <time id="recording-banner-time">00:00</time></span><button id="recording-banner-stop" type="button">Stop</button></div>\r\n' +
+    '      <nav class="chrome-menu" aria-label="Application menu"><button class="chrome-menu-button" data-app-menu="file" type="button">File</button><button class="chrome-menu-button" data-app-menu="edit" type="button">Edit</button><button class="chrome-menu-button" data-app-menu="view" type="button">View</button><button class="chrome-menu-button" data-app-menu="window" type="button">Window</button></nav>\r\n' +
+    '      <div class="app-title"><img src="../assets/browser-use-icon-32.png" alt=""><span>Browser-use</span></div>\r\n' +
+    '    </div>\r\n' +
+    '    <div class="tabs-row">\r\n' +
+    '      <div class="brand" aria-label="Lorde Studios"><span>LORDE</span><b>STUDIOS</b></div>\r\n' +
+    '      <div class="tabs" id="tabs" role="tablist" aria-label="Browser tabs"></div>\r\n' +
+    '      <button class="icon-button" id="new-tab" type="button" aria-label="New tab" title="New tab"><i class="ph ph-plus" aria-hidden="true"></i></button>\r\n' +
+    '    </div>\r\n' +
+    '    <div class="chrome-workspace">\r\n' +
+    '      <div class="toolbar">\r\n' +
+    '        <button class="icon-button" id="back" type="button" aria-label="Back" title="Back"><i class="ph ph-caret-left" aria-hidden="true"></i></button><button class="icon-button" id="forward" type="button" aria-label="Forward" title="Forward"><i class="ph ph-caret-right" aria-hidden="true"></i></button><button class="icon-button" id="reload" type="button" aria-label="Reload" title="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>\r\n' +
+    '        <div class="address-wrap"><form id="navigation-form"><input id="address" aria-label="Address" autocomplete="off" spellcheck="false" placeholder="Search or enter address"></form><button class="address-history-toggle" id="address-history-toggle" type="button" aria-label="Browse history" title="History"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i></button></div>\r\n' +
+    '        <span class="agent-state" id="agent-state" role="status" aria-live="polite"><i></i><span> Local MCP waiting</span></span>\r\n' +
+    '        <div class="device-control"><button class="icon-button" id="device-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="device-menu" aria-label="Device mode" title="Device mode"><i class="ph ph-device-mobile" aria-hidden="true"></i></button><div class="device-menu" id="device-menu" role="menu" aria-label="Device profiles" hidden></div></div>\r\n' +
+    '        <button class="icon-button" id="rotate-device" type="button" aria-label="Rotate device" title="Rotate device"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i></button>\r\n' +
+    '        <button class="icon-button" id="agent-toggle" type="button" aria-expanded="false" aria-controls="agent-panel" aria-label="Open AI chat" title="AI chat"><i class="ph ph-chat-centered-text" aria-hidden="true"></i><span class="agent-toggle-badge" id="agent-toggle-badge" hidden></span></button>\r\n' +
+    '        <button class="icon-button" id="terminal-toggle" type="button" aria-expanded="false" aria-controls="terminal-panel" aria-label="Toggle terminal" title="Terminal"><i class="ph ph-terminal-window" aria-hidden="true"></i><span class="terminal-activity-dot" id="terminal-activity-dot" title="An agent task is working in a terminal session" hidden></span></button>\r\n' +
+    '        <div class="download-control"><button class="icon-button" id="downloads-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="downloads-panel" aria-label="Downloads" title="Downloads"><i class="ph ph-download-simple" aria-hidden="true"></i><span class="download-badge" id="download-badge" hidden></span></button><div class="downloads-panel" id="downloads-panel" role="menu" aria-label="Downloads" hidden></div></div>\r\n' +
+    '        <button class="icon-button" id="console-toggle" type="button" aria-expanded="false" aria-controls="console-panel" aria-label="Open console" title="Console"><i class="ph ph-terminal" aria-hidden="true"></i></button><button class="icon-button" id="recording-toggle" type="button" aria-expanded="false" aria-controls="recording-panel" aria-label="Screen recorder" title="Screen recorder"><i class="ph ph-video-camera" aria-hidden="true"></i></button><button class="icon-button" id="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-panel" aria-label="Open Browser-use settings" title="Browser-use settings"><i class="ph ph-list" aria-hidden="true"></i></button>\r\n' +
+    '      </div>\r\n' +
+    '    </div>\r\n' +
+    '    <div class="load-bar" id="load-bar" hidden><i></i></div>\r\n' +
+    '  </header>\r\n' +
+    '  <div class="toast-container" id="toast-container" aria-live="polite"></div>\r\n' +
+    '\r\n' +
+    '  <aside class="drawer console drawers-placeholder" id="console-panel" aria-label="Console" hidden>\r\n' +
+    '    <div class="drawer-header"><strong>Console</strong><div><button class="plain-button" id="clear-console" type="button">Clear</button><button class="plain-button" data-close="console" type="button">Close</button></div></div>\r\n' +
+    '    <div class="console-tabs" role="tablist"><button class="is-active" data-filter="all" type="button">All</button><button data-filter="error" type="button">Errors</button><button data-filter="network" type="button">Network</button></div>\r\n' +
+    '    <p class="drawer-empty" id="console-empty">No console or network events yet.</p><div class="console-list" id="console-list"></div>\r\n' +
+    '  </aside>\r\n' +
+    '\r\n' +
+    '  <aside class="drawer agent-drawer" id="agent-panel" aria-label="AI chat" hidden>\r\n' +
+    '    <div class="agent-drawer-resize" id="agent-drawer-resize" role="separator" aria-label="Resize AI chat" aria-orientation="vertical" tabindex="0"></div>\r\n' +
+    '    <div class="agent-shell-head">\r\n' +
+    '      <div class="agent-title"><strong id="agent-conversation-title">New conversation</strong><small id="agent-tab-scope">No active tab</small><small id="agent-run-status">Ready</small></div>\r\n' +
+    '      <div class="agent-head-actions">\r\n' +
+    '        <button class="agent-icon-button" id="agent-pin" type="button" aria-label="Unpin chat" title="Unpin chat"><i class="ph ph-push-pin"></i></button><button class="agent-icon-button" id="agent-settings-toggle" type="button" aria-label="Open AI provider settings" title="AI provider settings" aria-expanded="false" aria-controls="agent-settings-screen"><i class="ph ph-gear-six" aria-hidden="true"></i></button>\r\n' +
+    '        <button class="agent-icon-button" id="agent-new-chat" type="button" aria-label="Start new chat" title="New chat"><i class="ph ph-plus" aria-hidden="true"></i></button>\r\n' +
+    '        <button class="agent-icon-button" id="agent-skills" type="button" aria-label="Open learned skills" title="Learned skills"><i class="ph ph-brain" aria-hidden="true"></i></button>\r\n' +
+    '        <button class="agent-icon-button" id="agent-schedules" type="button" aria-label="Open scheduled tasks" title="Schedules"><i class="ph ph-clock" aria-hidden="true"></i></button>\r\n' +
+    '        <button class="agent-icon-button" id="agent-history" type="button" aria-label="Open chat history" title="History"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i></button>\r\n' +
+    '        <button class="agent-icon-button" id="agent-copy-chat" type="button" aria-label="Copy whole chat" title="Copy whole chat"><i class="ph ph-copy" aria-hidden="true"></i></button>\r\n' +
+    '        <button class="agent-icon-button" data-close="agent" type="button" aria-label="Close AI chat" title="Close"><i class="ph ph-x" aria-hidden="true"></i></button>\r\n' +
+    '      </div>\r\n' +
+    '    </div>\r\n' +
+    '    <section class="agent-settings-screen" id="agent-settings-screen" aria-label="AI provider settings" hidden>\r\n' +
+    '      <header class="agent-settings-screen-head"><button class="agent-icon-button" id="agent-settings-close" type="button" aria-label="Back to chat" title="Back to chat"><i class="ph ph-arrow-left" aria-hidden="true"></i></button><strong>Settings</strong><span></span></header>\r\n' +
+    '      <nav class="agent-settings-tabs" aria-label="Settings sections"><button type="button" class="is-active" data-agent-settings-tab="providers">AI providers</button><button type="button" data-agent-settings-tab="devices">Devices</button></nav>\r\n' +
+    '      <form class="agent-settings-content" id="agent-provider-settings-form">\r\n' +
+    '        <div class="agent-settings-section" id="agent-android-section"><h2>Devices</h2><p class="agent-settings-note">Real Android devices use ADB + scrcpy. Simulated browser device mode remains separate.</p><label class="agent-provider-field"><span>Stream surface</span><select id="agent-android-stream-renderer"><option value="tab">Browser tab (agent-visible)</option><option value="native">Native compatibility window</option></select></label><div class="agent-android-stream-host" id="agent-android-stream-host" hidden aria-label="Android device stream"></div><div class="agent-android-actions"><button type="button" class="agent-provider-refresh" id="agent-android-refresh">Refresh devices</button><button type="button" class="agent-provider-refresh" id="agent-android-pair-toggle">Pair wireless</button></div><div class="agent-android-pair" id="agent'... 23062 more characters
+  
+      at TestContext.<anonymous> (file:///E:/Users/maximus/Documents/GitHub/uganda-art-pulse/tools/browser-use/tests/desktop-package-contract.test.mjs:141:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+      at Test.run (node:internal/test_runner/test:1372:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: `<!doctype html>\r\n<html lang="en">\r\n<head>\r\n  <meta charset="utf-8">\r\n  <meta name="viewport" content="width=device-width,initial-scale=1">\r\n  <title>Browser-use</title>\r\n  <link rel="stylesheet" href="styles.css">\r\n  <link rel="stylesheet" href="chat-reference.css">\r\n  <link rel="stylesheet" href="chrome-theme.css">\r\n  <link rel="stylesheet" href="chrome-layout.css">\r\n  <link rel="stylesheet" href="vendor/phosphor.css">\r\n</head>\r\n<body>\r\n  <header class="browser-chrome">\r\n    <div class="app-titlebar">\r\n      <!-- The recording ribbon lives INSIDE the drag region subtree: Electron\r\n           resolves -webkit-app-region matches in DOM order with the last\r\n           match winning, so a no-drag element placed before the titlebar's\r\n           drag rect (its previous position as a header sibling) was\r\n           overridden and its Stop button swallowed every real click. -->\r\n      <div class="recording-banner" id="recording-banner" hidden><span><i class="ph ph-video-camera" aria-hidden="true"></i> Recording <time id="recording-banner-time">00:00</time></span><button id="recording-banner-stop" type="button">Stop</button></div>\r\n      <nav class="chrome-menu" aria-label="Application menu"><button class="chrome-menu-button" data-app-menu="file" type="button">File</button><button class="chrome-menu-button" data-app-menu="edit" type="button">Edit</button><button class="chrome-menu-button" data-app-menu="view" type="button">View</button><button class="chrome-menu-button" data-app-menu="window" type="button">Window</button></nav>\r\n      <div class="app-title"><img src="../assets/browser-use-icon-32.png" alt=""><span>Browser-use</span></div>\r\n    </div>\r\n    <div class="tabs-row">\r\n      <div class="brand" aria-label="Lorde Studios"><span>LORDE</span><b>STUDIOS</b></div>\r\n      <div class="tabs" id="tabs" role="tablist" aria-label="Browser tabs"></div>\r\n      <button class="icon-button" id="new-tab" type="button" aria-label="New tab" title="New tab"><i class="ph ph-plus" aria-hidden="true"></i></button>\r\n    </div>\r\n    <div class="chrome-workspace">\r\n      <div class="toolbar">\r\n        <button class="icon-button" id="back" type="button" aria-label="Back" title="Back"><i class="ph ph-caret-left" aria-hidden="true"></i></button><button class="icon-button" id="forward" type="button" aria-label="Forward" title="Forward"><i class="ph ph-caret-right" aria-hidden="true"></i></button><button class="icon-button" id="reload" type="button" aria-label="Reload" title="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>\r\n        <div class="address-wrap"><form id="navigation-form"><input id="address" aria-label="Address" autocomplete="off" spellcheck="false" placeholder="Search or enter address"></form><button class="address-history-toggle" id="address-history-toggle" type="button" aria-label="Browse history" title="History"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i></button></div>\r\n        <span class="agent-state" id="agent-state" role="status" aria-live="polite"><i></i><span> Local MCP waiting</span></span>\r\n        <div class="device-control"><button class="icon-button" id="device-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="device-menu" aria-label="Device mode" title="Device mode"><i class="ph ph-device-mobile" aria-hidden="true"></i></button><div class="device-menu" id="device-menu" role="menu" aria-label="Device profiles" hidden></div></div>\r\n        <button class="icon-button" id="rotate-device" type="button" aria-label="Rotate device" title="Rotate device"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i></button>\r\n        <button class="icon-button" id="agent-toggle" type="button" aria-expanded="false" aria-controls="agent-panel" aria-label="Open AI chat" title="AI chat"><i class="ph ph-chat-centered-text" aria-hidden="true"></i><span class="agent-toggle-badge" id="agent-toggle-badge" hidden></span></button>\r\n        <button class="icon-button" id="terminal-toggle" type="button" aria-expanded="false" aria-controls="terminal-panel" aria-label="Toggle terminal" title="Terminal"><i class="ph ph-terminal-window" aria-hidden="true"></i><span class="terminal-activity-dot" id="terminal-activity-dot" title="An agent task is working in a terminal session" hidden></span></button>\r\n        <div class="download-control"><button class="icon-button" id="downloads-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="downloads-panel" aria-label="Downloads" title="Downloads"><i class="ph ph-download-simple" aria-hidden="true"></i><span class="download-badge" id="download-badge" hidden></span></button><div class="downloads-panel" id="downloads-panel" role="menu" aria-label="Downloads" hidden></div></div>\r\n        <button class="icon-button" id="console-toggle" type="button" aria-expanded="false" aria-controls="console-panel" aria-label="Open console" title="Console"><i class="ph ph-terminal" aria-hidden="true"></i></button><button class="icon-button" id="recording-toggle" type="button" aria-expanded="false" aria-controls="recording-panel" aria-label="Screen recorder" title="Screen recorder"><i class="ph ph-video-camera" aria-hidden="true"></i></button><button class="icon-button" id="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-panel" aria-label="Open Browser-use settings" title="Browser-use settings"><i class="ph ph-list" aria-hidden="true"></i></button>\r\n      </div>\r\n    </div>\r\n    <div class="load-bar" id="load-bar" hidden><i></i></div>\r\n  </header>\r\n  <div class="toast-container" id="toast-container" aria-live="polite"></div>\r\n\r\n  <aside class="drawer console drawers-placeholder" id="console-panel" aria-label="Console" hidden>\r\n    <div class="drawer-header"><strong>Console</strong><div><button class="plain-button" id="clear-console" type="button">Clear</button><button class="plain-button" data-close="console" type="button">Close</button></div></div>\r\n    <div class="console-tabs" role="tablist"><button class="is-active" data-filter="all" type="button">All</button><button data-filter="error" type="button">Errors</button><button data-filter="network" type="button">Network</button></div>\r\n    <p class="drawer-empty" id="console-empty">No console or network events yet.</p><div class="console-list" id="console-list"></div>\r\n  </aside>\r\n\r\n  <aside class="drawer agent-drawer" id="agent-panel" aria-label="AI chat" hidden>\r\n    <div class="agent-drawer-resize" id="agent-drawer-resize" role="separator" aria-label="Resize AI chat" aria-orientation="vertical" tabindex="0"></div>\r\n    <div class="agent-shell-head">\r\n      <div class="agent-title"><strong id="agent-conversation-title">New conversation</strong><small id="agent-tab-scope">No active tab</small><small id="agent-run-status">Ready</small></div>\r\n      <div class="agent-head-actions">\r\n        <button class="agent-icon-button" id="agent-pin" type="button" aria-label="Unpin chat" title="Unpin chat"><i class="ph ph-push-pin"></i></button><button class="agent-icon-button" id="agent-settings-toggle" type="button" aria-label="Open AI provider settings" title="AI provider settings" aria-expanded="false" aria-controls="agent-settings-screen"><i class="ph ph-gear-six" aria-hidden="true"></i></button>\r\n        <button class="agent-icon-button" id="agent-new-chat" type="button" aria-label="Start new chat" title="New chat"><i class="ph ph-plus" aria-hidden="true"></i></button>\r\n        <button class="agent-icon-button" id="agent-skills" type="button" aria-label="Open learned skills" title="Learned skills"><i class="ph ph-brain" aria-hidden="true"></i></button>\r\n        <button class="agent-icon-button" id="agent-schedules" type="button" aria-label="Open scheduled tasks" title="Schedules"><i class="ph ph-clock" aria-hidden="true"></i></button>\r\n        <button class="agent-icon-button" id="agent-history" type="button" aria-label="Open chat history" title="History"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i></button>\r\n        <button class="agent-icon-button" id="agent-copy-chat" type="button" aria-label="Copy whole chat" title="Copy whole chat"><i class="ph ph-copy" aria-hidden="true"></i></button>\r\n        <button class="agent-icon-button" data-close="agent" type="button" aria-label="Close AI chat" title="Close"><i class="ph ph-x" aria-hidden="true"></i></button>\r\n      </div>\r\n    </div>\r\n    <section class="agent-settings-screen" id="agent-settings-screen" aria-label="AI provider settings" hidden>\r\n      <header class="agent-settings-screen-head"><button class="agent-icon-button" id="agent-settings-close" type="button" aria-label="Back to chat" title="Back to chat"><i class="ph ph-arrow-left" aria-hidden="true"></i></button><strong>Settings</strong><span></span></header>\r\n      <nav class="agent-settings-tabs" aria-label="Settings sections"><button type="button" class="is-active" data-agent-settings-tab="providers">AI providers</button><button type="button" data-agent-settings-tab="devices">Devices</button></nav>\r\n      <form class="agent-settings-content" id="agent-provider-settings-form">\r\n        <div class="agent-settings-section" id="agent-android-section"><h2>Devices</h2><p class="agent-settings-note">Real Android devices use ADB + scrcpy. Simulated browser device mode remains separate.</p><label class="agent-provider-field"><span>Stream surface</span><select id="agent-android-stream-renderer"><option value="tab">Browser tab (agent-visible)</option><option value="native">Native compatibility window</option></select></label><div class="agent-android-stream-host" id="agent-android-stream-host" hidden aria-label="Android device stream"></div><div class="agent-android-actions"><button type="button" class="agent-provider-refresh" id="agent-android-refresh">Refresh devices</button><button type="button" class="agent-provider-refresh" id="agent-android-pair-toggle">Pair wireless</button></div><div class="agent-android-pair" id="agent`... 23062 more characters,
+    expected: /agent-settings-tabs|data-agent-settings-tab|data-agent-settings-panel/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }

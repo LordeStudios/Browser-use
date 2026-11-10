@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<title>No Internet Connection</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #181b23; --card: #1e222d;
+    --text: #e8eaf0; --text-dim: #8b92a5; --text-faint: #5a6178;
+    --accent: #c8ff00; --red: #ff5c5c;
+    --font: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  ::selection { background: var(--accent); color: #000; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .container { text-align: center; max-width: 520px; padding: 40px; }
+  .icon { font-size: 80px; margin-bottom: 24px; animation: float 3s ease-in-out infinite; }
+  @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+  h1 { font-size: 28px; font-weight: 700; margin-bottom: 12px; }
+  .sub { color: var(--text-dim); font-size: 16px; line-height: 1.6; margin-bottom: 32px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #000; border: none; border-radius: 50px;
+    padding: 14px 32px; font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: transform 0.15s, background 0.15s;
+  }
+  .btn:hover { transform: scale(1.05); background: #b8ef00; }
+  .btn svg { width: 18px; height: 18px; }
+  .tips { margin-top: 40px; text-align: left; background: var(--card); border-radius: 12px; padding: 20px 24px; border: 1px solid rgba(255,255,255,0.06); }
+  .tips h3 { font-size: 14px; color: var(--text-dim); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tip { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; font-size: 14px; color: var(--text-dim); line-height: 1.5; }
+  .tip-icon { color: var(--accent); flex-shrink: 0; margin-top: 2px; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon"><svg width="80" height="80" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="28" stroke="#ff8c42" stroke-width="3" opacity="0.3"/><path d="M32 44v-4M32 36a4 4 0 100-8 4 4 0 000 8z" stroke="#ff8c42" stroke-width="2.5" stroke-linecap="round"/><path d="M22 28a14 14 0 0120 0" stroke="#ff8c42" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 3"/><path d="M16 22a22 22 0 0132 0" stroke="#ff8c42" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="4 3"/><line x1="20" y1="18" x2="44" y2="46" stroke="#ff5c5c" stroke-width="3" stroke-linecap="round"/></svg></div>
+    <h1>No Internet Connection</h1>
+    <div class="sub">It looks like you're not connected to the internet. Check your network connection and try again.</div>
+    <button class="btn" id="retry-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+      Try Again
+    </button>
+    <div class="tips">
+      <h3>Troubleshooting tips</h3>
+      <div class="tip"><span class="tip-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg></span> Check that your Wi-Fi or Ethernet cable is connected</div>
+      <div class="tip"><span class="tip-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg></span> Restart your router or modem</div>
+      <div class="tip"><span class="tip-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg></span> Make sure airplane mode is turned off</div>
+      <div class="tip"><span class="tip-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg></span> Try a different network if available</div>
+    </div>
+  </div>
+
+<script>
+  // LORDE_ERROR_RETRY_V2 — the failed URL arrives in the query string. The
+  // old Try Again used location.reload(), which only reloaded this error
+  // page itself and left the user stuck. Retry now returns to the failed
+  // address; the page also shows the failed URL and the network error.
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var target = q.get('url') || '';
+    var message = q.get('message') || '';
+    var code = q.get('code') || '';
+    var urlEl = document.querySelector('[data-failed-url]');
+    if (urlEl) urlEl.textContent = target || 'Unknown address';
+    var msgEl = document.querySelector('[data-error-message]');
+    if (msgEl && message) msgEl.textContent = message + (code ? ' (error ' + code + ')' : '');
+    var retry = document.getElementById('retry-btn');
+    if (retry) retry.addEventListener('click', function () {
+      if (target && /^https?:\/\//i.test(target)) location.href = target;
+      else location.reload();
+    });
+    var home = document.getElementById('home-btn');
+    if (home) home.addEventListener('click', function () { location.href = q.get('home') || '/'; });
+    if (target) {
+      var info = document.createElement('div');
+      info.style.cssText = 'margin-top:22px;font-size:13px;line-height:1.6;color:#8b92a5;word-break:break-all;';
+      var label = document.createElement('div');
+      label.textContent = 'Address: ' + target;
+      info.appendChild(label);
+      if (message) {
+        var m = document.createElement('div');
+        m.style.marginTop = '4px';
+        m.textContent = message + (code ? ' (error ' + code + ')' : '');
+        info.appendChild(m);
+      }
+      var container = document.querySelector('.container') || document.body;
+      container.appendChild(info);
+    }
+  })();
+</script>
+</body>
+</html>

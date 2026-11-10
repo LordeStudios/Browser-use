@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Browser-use Overlay Layer</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    html, body {
+      background: transparent !important;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    .overlay-backdrop {
+      position: absolute;
+      inset: 0;
+      background: transparent;
+      pointer-events: auto;
+    }
+    .overlay-backdrop[hidden] {
+      display: none !important;
+    }
+    .overlay-backdrop.has-preview {
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      box-sizing: border-box;
+      background: rgba(1, 5, 7, .72);
+      backdrop-filter: blur(9px) saturate(.72);
+    }
+    .device-menu-overlay {
+      position: fixed;
+      top: 0;
+      z-index: 80;
+      min-width: 220px;
+      padding: 5px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bu-surface);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      pointer-events: auto;
+    }
+    .device-menu-overlay[hidden] {
+      display: none !important;
+    }
+    /* Reuses the chrome's .history-row styles from styles.css; only placement
+       differs, fixed, anchored just below the address bar. */
+    .history-menu-overlay {
+      position: fixed;
+      z-index: 80;
+      max-width: min(520px, calc(100vw - 16px));
+      max-height: 320px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--panel-strong);
+      box-shadow: var(--shadow);
+      padding: 5px;
+      pointer-events: auto;
+    }
+    .history-menu-overlay[hidden] {
+      display: none !important;
+    }
+    .drawer-overlay {
+      position: fixed;
+      z-index: 90;
+      right: 10px;
+      top: 8px;
+      width: min(500px, calc(100vw - 20px));
+      bottom: 10px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--bu-surface);
+      box-shadow: var(--shadow);
+      padding: 0 14px 14px;
+      pointer-events: auto;
+    }
+    .drawer-overlay[hidden] {
+      display: none !important;
+    }
+    .preview-overlay {
+      position: relative;
+      z-index: 140;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      width: min(1120px, calc(100vw - 44px));
+      height: min(820px, calc(100vh - 44px));
+      overflow: hidden;
+      border: 1px solid #344247;
+      border-radius: 14px;
+      background: #080d0f;
+      color: #edf3f4;
+      box-shadow: 0 30px 110px rgba(0, 0, 0, .82);
+      pointer-events: auto;
+    }
+    .preview-overlay[hidden] { display: none !important; }
+    .preview-header { display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 0 10px 0 17px; border-bottom: 1px solid #263237; background: #0d1518; }
+    .preview-heading { min-width: 0; flex: 1; }
+    .preview-heading strong { display: block; overflow: hidden; color: #f4f8f8; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+    .preview-heading small { display: block; margin-top: 3px; color: #92a0a3; font-size: 10px; }
+    .preview-actions { display: flex; align-items: center; gap: 6px; }
+    .preview-actions button { min-height: 34px; padding: 0 11px; border: 1px solid #334146; border-radius: 8px; background: #152024; color: #e2e9ea; font: inherit; font-size: 12px; font-weight: 600; }
+    .preview-actions button:hover { border-color: #65767b; background: #1c2a2f; color: #fff; }
+    .preview-actions .preview-close { display: grid; width: 34px; padding: 0; place-items: center; font-size: 22px; font-weight: 400; }
+    .preview-surface { min-height: 0; overflow: auto; background: #030607; }
+    .preview-image-wrap { display: grid; min-width: 100%; min-height: 100%; margin: 0; place-items: center; }
+    .preview-image { display: block; max-width: 100%; height: auto; margin: auto; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+    .preview-video { display: block; max-width: 100%; max-height: 78vh; margin: auto; box-shadow: 0 0 0 1px rgba(255,255,255,.08); background: #000; }
+    .preview-text { box-sizing: border-box; min-width: 100%; min-height: 100%; margin: 0; padding: 30px; color: #e4ebec; font: 13px/1.58 "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; }
+    .preview-html { display: block; width: 100%; height: 100%; border: 0; background: var(--bu-surface); }
+    .preview-download-status { color: #c8ff00 !important; }
+    /* Author `display: block` on the panes overrides the UA `[hidden]` rule,
+       so a text preview also rendered the removed-src image (broken icon) and
+       the empty iframe above the content, and a screenshot preview scrolled
+       down into the empty panes beneath it. */
+    .preview-image-wrap[hidden],
+    .preview-video[hidden],
+    .preview-text[hidden],
+    .preview-html[hidden] { display: none !important; }
+  </style>
+  <link rel="stylesheet" href="chrome-theme.css">
+  <link rel="stylesheet" href="settings.css">
+  <link rel="stylesheet" href="vendor/phosphor.css">
+</head>
+<body>
+  <div class="overlay-backdrop" id="overlay-backdrop" hidden>
+    <section class="about-popup" id="about-popup" role="dialog" aria-modal="true" aria-labelledby="about-name" hidden>
+      <button class="about-close" id="about-close" type="button" aria-label="Close About" title="Close About"><i class="ph ph-x" aria-hidden="true"></i></button>
+      <img class="about-icon" src="../assets/browser-use-icon.png" alt="">
+      <h1 id="about-name">Browser-use</h1>
+      <p class="about-version">Version <span id="about-version"></span></p>
+      <div class="about-brand"><span>LORDE</span><b>STUDIOS</b></div>
+      <p class="about-copyright" id="about-copyright"></p>
+      <button class="about-done" id="about-done" type="button">Done</button>
+    </section>
+    <section class="drawer-overlay recorder-panel" id="recording-panel" aria-label="Screen recorder" hidden>
+      <header class="drawer-header"><strong><i class="ph ph-video-camera" aria-hidden="true"></i> Screen recorder</strong><button class="plain-button" id="recording-close" type="button">Close</button></header>
+      <form id="recording-form" class="recorder-form">
+        <div class="recorder-segment" role="radiogroup" aria-label="Recording source">
+          <label><input type="radio" name="recording-mode" value="window" checked><span><i class="ph ph-app-window" aria-hidden="true"></i>Browser-use window</span></label>
+          <label><input type="radio" name="recording-mode" value="screen"><span><i class="ph ph-monitor" aria-hidden="true"></i>Full screen</span></label>
+          <label><input type="radio" name="recording-mode" value="tab"><span><i class="ph ph-globe" aria-hidden="true"></i>Web tab</span></label>
+        </div>
+        <div class="recorder-field" id="recording-tab-field" hidden><span>Tab to record</span><select id="recording-tab" aria-label="Tab to record"></select></div>
+        <div class="recorder-fields">
+          <label class="recorder-field"><span>Speed</span><select id="recording-speed"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label>
+          <label class="recorder-field"><span>FPS</span><select id="recording-fps"><option>10</option><option selected>30</option><option>60</option></select></label>
+          <label class="recorder-field"><span>Quality</span><select id="recording-quality"><option value="360">360p</option><option value="480">480p</option><option value="720">720p</option><option value="1080" selected>1080p</option><option value="1440">1440p</option><option value="2160">4K</option></select></label>
+        </div>
+        <div class="recorder-field"><span>Duration</span>
+          <div class="recorder-run">
+            <label class="recorder-duration"><input type="radio" name="recording-duration" value="auto" checked>Auto</label>
+            <label class="recorder-duration"><input type="radio" name="recording-duration" value="custom"><input id="recording-minutes" type="number" min="1" max="1440" step="1" value="10" aria-label="Custom minutes">min</label>
+          </div>
+        </div>
+        <label class="recorder-audio"><input id="recording-audio" type="checkbox"><span><strong>Record audio</strong><small>System sound, 128 kbps · 1x speed only</small></span></label>
+        <div class="recorder-path">
+          <input id="recording-path" type="text" readonly placeholder="Videos folder" aria-label="Save path">
+          <button id="recording-browse" type="button" class="recorder-browse" title="Change save folder" aria-label="Change save folder"><i class="ph ph-folder-open" aria-hidden="true"></i></button>
+        </div>
+        <button id="recording-start" class="recorder-start" type="submit"><i class="ph ph-video-camera" aria-hidden="true"></i><span id="recording-start-label">Start recording</span></button>
+        <p class="recorder-status" id="recording-status" role="status"></p>
+      </form>
+    </section>
+
+    <!-- Device Menu -->
+    <div class="device-menu-overlay" id="device-menu" role="menu" aria-label="Device profiles" hidden></div>
+
+    <!-- Address history dropdown. Rendered here, not in the chrome DOM ,
+         because the page is a native BrowserView that paints above chrome
+         markup; only another BrowserView can appear above it. -->
+    <div class="history-menu-overlay" id="history-menu" role="menu" aria-label="Recent history" hidden></div>
+
+    <section class="downloads-panel downloads-overlay" id="downloads-panel" aria-label="Downloads" hidden></section>
+
+    <!-- Console Drawer -->
+    <aside class="drawer-overlay console" id="console-panel" aria-label="Console" hidden>
+      <div class="drawer-header">
+        <strong>Console</strong>
+        <div>
+          <button class="plain-button" id="clear-console" type="button">Clear</button>
+          <button class="plain-button" id="close-console" type="button">Close</button>
+        </div>
+      </div>
+      <div class="console-tabs" role="tablist">
+        <button class="is-active" data-filter="all" type="button">All</button>
+        <button data-filter="error" type="button">Errors</button>
+        <button data-filter="warning" type="button">Warnings</button>
+        <button data-filter="network" type="button">Network</button>
+      </div>
+      <p class="drawer-empty" id="console-empty">No console or network events yet.</p>
+      <div class="console-list" id="console-list"></div>
+    </aside>
+
+    <!-- Compact settings workspace -->
+    <aside class="drawer-overlay settings settings-workspace" id="settings-panel" aria-label="Settings" hidden>
+      <header class="settings-appbar">
+        <div class="settings-appbar-title"><span class="settings-appbar-icon" aria-hidden="true"><i class="ph ph-sliders-horizontal"></i></span><strong id="settings-heading">Settings</strong><small>Browser-use controls</small></div>
+        <span class="settings-appbar-status" id="settings-save-state" data-state="saved" role="status" aria-live="polite">Saved</span>
+        <button class="settings-close" id="close-settings" data-close="settings" type="button" aria-label="Close settings" title="Close settings"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </header>
+      <div class="settings-layout">
+        <nav class="settings-nav" aria-label="Settings sections" role="tablist">
+          <button class="settings-nav-item is-active" id="settings-section-mcp-tab" type="button" role="tab" aria-selected="true" aria-controls="settings-section-mcp" data-settings-section="mcp"><i class="ph ph-plugs-connected" aria-hidden="true"></i><span>MCP</span></button>
+          <button class="settings-nav-item" id="settings-section-gpt-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-section-gpt" data-settings-section="gpt"><i class="ph ph-robot" aria-hidden="true"></i><span>GPT Actions</span></button>
+          <button class="settings-nav-item" id="settings-section-developer-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-section-developer" data-settings-section="developer"><i class="ph ph-wrench" aria-hidden="true"></i><span>Developer</span></button>
+        </nav>
+        <div class="settings-scroll">
+          <form id="settings-form" class="settings-form">
+            <section class="settings-section is-active" id="settings-section-mcp" data-settings-panel="mcp" role="tabpanel" aria-labelledby="settings-section-mcp-tab">
+              <div class="settings-section-heading"><h2>Secure MCP</h2><p>Pair a host and bind one browser tab.</p></div>
+              <div class="settings-card"><div class="settings-card-heading"><div><strong>Control mode</strong><small>Choose browser or computer control.</small></div><label class="settings-select-wrap"><span class="sr-only">Control mode</span><select id="mcp-control-mode" name="mcpControlMode"><option value="browser">Browser only</option><option value="agi">AGI, computer control</option></select></label></div><div class="settings-connected-run"><button type="button" class="mode-tab is-active" id="mode-tab-global" role="tab" aria-selected="true"><i class="ph ph-shield-check" aria-hidden="true"></i><span>Secure paired MCP</span></button><span class="settings-status-chip" id="mcp-listening-chip">Checking</span></div></div>
+              <div class="settings-card" id="global-mcp-panel"><div class="settings-card-heading"><div><strong>Connection</strong><small id="mcp-note">Create a pairing offer, then copy the agent prompt.</small></div><span class="settings-status-chip settings-status-chip-muted" id="mcp-pairing-state">Not paired</span></div><div class="settings-action-grid"><button class="settings-button settings-button-primary" id="copy-mcp" type="button" disabled><i class="ph ph-copy" aria-hidden="true"></i><span>Copy connection</span></button><button class="settings-button" id="create-pairing" type="button"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i><span>New pairing</span></button><button class="settings-button" id="copy-claude-code-mcp" type="button" disabled title="Copy the Claude Code MCP installer"><i class="ph ph-terminal-window" aria-hidden="true"></i><span>Claude Code</span></button></div><details class="settings-details"><summary>Connection details</summary><code id="mcp-command">Starting local MCP service...</code></details></div>
+              <div class="settings-card"><div class="settings-card-heading"><div><strong>Paired hosts</strong><small>Access is scoped to the tab selected by each host.</small></div></div><div class="mcp-sessions" id="mcp-sessions"></div></div>
+            </section>
+            <section class="settings-section" id="settings-section-gpt" data-settings-panel="gpt" role="tabpanel" aria-labelledby="settings-section-gpt-tab" hidden>
+              <div class="settings-section-heading"><h2>GPT Actions</h2><p>Publish an OpenAPI bridge for a Custom GPT.</p></div>
+              <div class="settings-card"><label class="settings-switch-row"><span><strong>Enable bridge</strong><small>Requires an HTTPS origin routed to this app.</small></span><input id="gpt-action-enabled" name="gptActionEnabled" type="checkbox"><span class="settings-switch" aria-hidden="true"></span></label><label class="settings-field"><span>Public origin</span><input id="gpt-action-public-origin" name="gptActionPublicOrigin" type="url" required autocomplete="off" spellcheck="false" placeholder="https://gpt-browser.lordemaximus.com"></label></div>
+              <div class="settings-card settings-output-card"><div class="settings-output-row"><span><i class="ph ph-brackets-curly" aria-hidden="true"></i> OpenAPI URL</span><button class="settings-copy" id="copy-gpt-openapi" type="button">Copy</button></div><code id="gpt-openapi-url">Starting local service...</code><div class="settings-output-row"><span><i class="ph ph-key" aria-hidden="true"></i> API key</span><button class="settings-copy" id="copy-gpt-key" type="button">Copy</button></div><code id="gpt-api-key">Unavailable</code><details class="settings-details"><summary>Action setup</summary><code id="gpt-action-schema">Starting local service...</code><button class="settings-button settings-button-primary settings-details-action" id="copy-gpt-schema" type="button"><i class="ph ph-copy" aria-hidden="true"></i><span>Copy setup</span></button></details></div>
+            </section>
+            <section class="settings-section" id="settings-section-developer" data-settings-panel="developer" role="tabpanel" aria-labelledby="settings-section-developer-tab" hidden>
+              <div class="settings-section-heading"><h2>Developer</h2><p>Inspect the active managed tab.</p></div>
+              <div class="settings-card settings-developer-card"><div><strong>Chromium DevTools</strong><small>Open or close DevTools for the active tab.</small></div><button class="settings-button settings-button-primary" id="open-devtools" type="button"><i class="ph ph-arrow-square-out" aria-hidden="true"></i><span>Toggle</span></button></div>
+            </section>
+          </form>
+        </div>
+      </div>
+      <footer class="settings-actionbar"><span id="settings-action-hint">Changes save when submitted.</span><button class="save-button settings-button settings-button-primary" type="submit" form="settings-form"><i class="ph ph-check" aria-hidden="true"></i><span>Save</span></button></footer>
+    </aside>
+    <section class="preview-overlay" id="preview-overlay" role="dialog" aria-modal="true" aria-labelledby="preview-title" hidden>
+      <header class="preview-header">
+        <div class="preview-heading"><strong id="preview-title">Preview</strong><small id="preview-meta"></small></div>
+        <div class="preview-actions">
+          <button id="preview-download" type="button">Download</button>
+          <button class="preview-close" id="preview-close" type="button" aria-label="Close preview" title="Close">×</button>
+        </div>
+      </header>
+      <div class="preview-surface" id="preview-surface">
+        <figure class="preview-image-wrap" id="preview-image-wrap" hidden><img class="preview-image" id="preview-image" alt="Captured browser screenshot"><video class="preview-video" id="preview-video" controls playsinline hidden></video></figure>
+        <pre class="preview-text" id="preview-text" hidden></pre>
+        <iframe class="preview-html" id="preview-html" title="Saved HTML report" sandbox="" hidden></iframe>
+      </div>
+    </section>
+    <div class="toast-container" id="toast-container" aria-live="polite"></div>
+  </div>
+  <script src="surfaceControls.js"></script>
+  <script src="overlay.js"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>browser-use checkout fixture</title>
+<style>
+ body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+ fieldset { margin: 1rem 0; border: 1px solid #ccc; padding: 1rem; }
+ .step { display: none; }
+ .step.active { display: block; }
+ .error { color: #c00; font-size: 0.9rem; display: none; }
+ .error.visible { display: block; }
+ button { padding: 0.5rem 1rem; margin-right: 0.5rem; }
+ input, select { padding: 0.4rem; margin: 0.2rem 0; width: 100%; box-sizing: border-box; }
+</style>
+</head>
+<body>
+<h1>Checkout</h1>
+<div id="cart" class="step active">
+  <p>Items in cart: <strong>2</strong></p>
+  <button id="to-shipping">Enter shipping</button>
+</div>
+<div id="shipping" class="step">
+  <fieldset>
+    <legend>Shipping</legend>
+    <input id="name" placeholder="Full name">
+    <span id="name-error" class="error">Name is required</span>
+    <input id="address" placeholder="Street address">
+    <input id="city" placeholder="City">
+    <select id="country"><option value="">Select country</option><option value="us">United States</option><option value="ug">Uganda</option></select>
+    <span id="country-error" class="error">Country is required</span>
+  </fieldset>
+  <button id="to-payment">Continue to payment</button>
+</div>
+<div id="payment" class="step">
+  <fieldset>
+    <legend>Payment</legend>
+    <input id="card" placeholder="Card number" maxlength="16">
+    <span id="card-error" class="error">Enter 16 digits</span>
+    <input id="expiry" placeholder="MM/YY" maxlength="5">
+    <input id="cvv" placeholder="CVV" maxlength="4">
+  </fieldset>
+  <button id="place-order">Place order</button>
+</div>
+<div id="done" class="step">
+  <h2>Order confirmed</h2>
+  <p id="order-id"></p>
+</div>
+<script>
+function show(id){ document.querySelectorAll('.step').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+function val(id){ return document.getElementById(id).value.trim(); }
+function setError(id, show){ document.getElementById(id).classList.toggle('visible', show); }
+document.getElementById('to-shipping').addEventListener('click', ()=>show('shipping'));
+document.getElementById('to-payment').addEventListener('click', ()=>{
+  let ok=true;
+  if(!val('name')){ setError('name-error', true); ok=false; } else setError('name-error', false);
+  if(!val('country')){ setError('country-error', true); ok=false; } else setError('country-error', false);
+  if(ok) show('payment');
+});
+document.getElementById('place-order').addEventListener('click', ()=>{
+  const card = val('card').replace(/\s/g,'');
+  if(card.length!==16 || !/^\d+$/.test(card)){ setError('card-error', true); return; }
+  setError('card-error', false);
+  const id = 'ORD-' + Math.random().toString(36).slice(2,10).toUpperCase();
+  document.getElementById('order-id').textContent = id;
+  show('done');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Browser-use Pairing",
+  "version": "0.1.0",
+  "description": "Explicitly pair one Chrome tab with the local Browser-use realtime controller.",
+  "permissions": ["activeTab", "tabs", "debugger"],
+  "action": {
+    "default_title": "Pair this tab with Browser-use",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  }
+}

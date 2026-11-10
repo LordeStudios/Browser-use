@@ -1,0 +1,84 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>browser-use conditional form fixture</title>
+<style>
+ body { font-family: system-ui, sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+ .hidden { display: none; }
+ .group { margin: 1rem 0; }
+ .error { color: #c00; display: none; }
+ .error.visible { display: block; }
+ input, select { width: 100%; padding: 0.4rem; box-sizing: border-box; }
+ button { padding: 0.5rem 1rem; }
+ #summary { border: 1px solid #ccc; padding: 1rem; }
+</style>
+</head>
+<body>
+<h1>Conditional form</h1>
+<form id="main-form">
+  <div class="group">
+    <label>Account type</label>
+    <select id="account-type">
+      <option value="" disabled selected>Choose...</option>
+      <option value="personal">Personal</option>
+      <option value="business">Business</option>
+    </select>
+  </div>
+  <div id="business-fields" class="hidden">
+    <div class="group">
+      <input id="company" placeholder="Company name">
+      <span id="company-error" class="error">Company name is required for business accounts</span>
+    </div>
+    <div class="group">
+      <input id="tax-id" placeholder="Tax ID (9 digits)" maxlength="9">
+      <span id="tax-id-error" class="error">Tax ID must be 9 digits</span>
+    </div>
+  </div>
+  <div class="group">
+    <input id="email" type="email" placeholder="Email">
+    <span id="email-error" class="error">Valid email required</span>
+  </div>
+  <div class="group">
+    <input id="file-name" readonly placeholder="No file selected">
+    <button type="button" id="pick-file">Pick file (simulated)</button>
+  </div>
+  <button id="submit-form">Submit</button>
+</form>
+<div id="summary" class="hidden">
+  <h2>Submitted</h2>
+  <pre id="summary-data"></pre>
+</div>
+<script>
+const account = document.getElementById('account-type');
+const business = document.getElementById('business-fields');
+const fileName = document.getElementById('file-name');
+account.addEventListener('change', ()=>{
+  business.classList.toggle('hidden', account.value !== 'business');
+});
+document.getElementById('pick-file').addEventListener('click', ()=>{
+  fileName.value = 'document.pdf';
+  fileName.dataset.picked = 'true';
+});
+function show(id, showEl){ document.getElementById(id).classList.toggle('visible', showEl); }
+function val(id){ return document.getElementById(id).value.trim(); }
+document.getElementById('submit-form').addEventListener('click', (e)=>{
+  e.preventDefault();
+  let ok = true;
+  if(!val('email') || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val('email'))){ show('email-error', true); ok=false; } else show('email-error', false);
+  if(account.value==='business'){
+    if(!val('company')){ show('company-error', true); ok=false; } else show('company-error', false);
+    const tid = val('tax-id');
+    if(tid.length!==9 || !/^\d+$/.test(tid)){ show('tax-id-error', true); ok=false; } else show('tax-id-error', false);
+  }
+  if(!fileName.dataset.picked){ ok=false; fileName.placeholder='Please pick a file'; fileName.style.borderColor='#c00'; }
+  if(!ok) return;
+  const data = { account: account.value, email: val('email'), file: fileName.value };
+  if(account.value==='business'){ data.company = val('company'); data.taxId = val('tax-id'); }
+  document.getElementById('summary-data').textContent = JSON.stringify(data, null, 2);
+  document.getElementById('summary').classList.remove('hidden');
+});
+</script>
+</body>
+</html>

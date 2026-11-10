@@ -1,0 +1,2 @@
+export const defaultAllowedRisks=['read','browser-control'];
+export function assertPermission(tool,config={}){const allowed=config.allowDangerous?['read','browser-control','browser-edit','external-navigation','dangerous']:(config.allowedRisks||defaultAllowedRisks); if(!allowed.includes(tool.risk)) throw new Error(`Permission denied for ${tool.name}; risk ${tool.risk} not allowed`); return true;}

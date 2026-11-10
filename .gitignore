@@ -13,3 +13,10 @@ scratch/
 # node_modules (root .gitignore also covers this, belt-and-suspenders)
 node_modules/
 
+
+# Runtime artifacts and heavy binaries (fork addition)
+logs/
+output/
+cli-runs/
+*.exe
+sea-prep.blob

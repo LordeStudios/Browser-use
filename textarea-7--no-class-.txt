@@ -1,0 +1,97 @@
+
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* LORDE_UPGRADE_V248_PREVIEW_TEXT_MARGIN_PARITY_STOP: preview/export runs in a fresh iframe where user-agent margins on p/h1-h6 push absolute-positioned text layers down. Reset them so exported/preview typography matches the canvas exactly. */
+p, h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+}
+
+.lorde-design-page {
+  min-height: 100vh;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+[data-page-frame="true"] {
+  min-height: 100vh;
+  height: auto;
+  overflow: visible;
+  border-radius: 0;
+  /* V195 single-page rule: short pages fill the viewport; tall pages scroll naturally */
+}
+
+.lds-background-video,
+.lds-background-image {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  display: block;
+}
+
+.lds-page-root {
+  position: relative;
+  display: block;
+  background: #ffffff;
+  color: #111111;
+  overflow: visible;
+  width: 100%;
+  max-width: 100%;
+}
+
+.lds-shape-7ea89b92 {
+  position: absolute;
+  display: block;
+  top: 0%;
+  width: 1000px;
+  height: 790px;
+  min-height: 790px;
+  background: #ff9f43;
+  border: 0;
+  border-radius: 0px;
+  box-shadow: none;
+  overflow: hidden;
+  right: 6.8856%;
+  z-index: 1;
+}
+
+.lds-text-3beab302 {
+  position: absolute;
+  display: block;
+  left: 299px;
+  top: 104px;
+  width: 280px;
+  height: 48px;
+  color: #111111;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  background: transparent;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: normal;
+  border: 0;
+  border-radius: 0px;
+  box-shadow: none;
+  white-space: nowrap;
+  z-index: 2;
+  min-height: 48px;
+}

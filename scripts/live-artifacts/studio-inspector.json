@@ -1,0 +1,385 @@
+{
+  "name": "studio-inspector",
+  "startedAt": "2026-09-23T08:11:49.065Z",
+  "events": [
+    {
+      "at": 25,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 45,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 65,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 86,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 107,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 128,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 148,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 168,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 188,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 209,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 231,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 251,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 271,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 291,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 312,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 335,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 356,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 376,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 396,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 417,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 437,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 458,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 481,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 502,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 523,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 543,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 563,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 583,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 604,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 624,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 644,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 664,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 684,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 704,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 725,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 745,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 765,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 785,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 806,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 826,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 846,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 866,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 887,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 907,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 927,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 947,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 968,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 988,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1008,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1028,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1048,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1068,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1089,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1109,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1129,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1149,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1169,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1190,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1210,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1231,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1251,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1271,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1292,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1312,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1332,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1352,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1373,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1393,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1413,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1433,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1453,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1474,
+      "status": "running",
+      "decisions": []
+    },
+    {
+      "at": 1494,
+      "status": "completed",
+      "decisions": [
+        {
+          "text": "Fixed and verified. Root cause: mobile-interaction-repair.css (the ≤760px rules that turn the inspector into a full-screen drawer) was only injected by the lazily-loaded AI assistant module, so fresh mobile sessions never got it and the inspector rendered shrink-wrapped tiny. Fix: load that stylesheet statically via a link tag in index.html — already committed in the main tree (e15a133c 'fix(studio): inspector tiny on mobile — load mobile-interaction-repair.css statically'), no further source changes needed. Verified at a 390px-wide mobile viewport using a same-origin test frame (real window r",
+          "calls": ""
+        }
+      ]
+    }
+  ],
+  "failures": [],
+  "configured": {
+    "connectionId": "710c7a52-70cb-421c-9a80-7f562e2c662e",
+    "controlMode": "agi",
+    "layaEnabled": true
+  },
+  "start": "started",
+  "screenshot": "E:\\Users\\maximus\\Documents\\GitHub\\uganda-art-pulse\\tools\\browser-use\\scripts\\live-artifacts\\studio-inspector-desktop.png",
+  "finalStateTail": "h only: create this branch\",\"message\":\"For commit only: the commit message\",\"create\":\"For checkout only: create the branch (-b)\"}}]},\"text\":\"Cleanup confirmed and everything reconciles. The test iframe is removed, the window is back at its original size (viewport is 1424px again), and the desktop screenshot shows the studio's normal layout — left tool rail, canvas, and the inspector docked on the right at its usual width.\",\"calls\":[{\"id\":\"call_c405009a965a413e82f8312e\",\"name\":\"browser_done\",\"input\":{\"summary\":\"Fixed and verified. Root cause: mobile-interaction-repair.css (the ≤760px rules that turn the inspector into a full-screen drawer) was only injected by the lazily-loaded AI assistant module, so fresh mobile sessions never got it and the inspector rendered shrink-wrapped tiny. Fix: load that stylesheet statically via a link tag in index.html — already committed in the main tree (e15a133c 'fix(studio): inspector tiny on mobile — load mobile-interaction-repair.css statically'), no further source changes needed. Verified at a 390px-wide mobile viewport using a same-origin test frame (real window resize is clamped by the window manager above the breakpoint): the repair stylesheet is served and active, and with the inspector toggled open it fills the full 390px width as a fixed scrollable drawer (390x688 below the header, right panel 390x744, no horizontal overflow, fields properly sized — confirmed both numerically and visually). Desktop is unaffected: the inspector renders normally at 944px and at the restored 1424px viewport. Test iframe removed and browser window restored to its original size.\",\"success\":\"true\",\"verified\":\"true\"}}],\"results\":[{\"id\":\"call_c405009a965a413e82f8312e\",\"content\":\"{\\\"ok\\\":true,\\\"summary\\\":\\\"Fixed and verified. Root cause: mobile-interaction-repair.css (the ≤760px rules that turn the inspector into a full-screen drawer) was only injected by the lazily-loaded AI assistant module, so fresh mobile sessions never got it and the inspector rendered shrink-wrapped tiny. Fix: load that stylesheet statically via a link tag in index.html — already committed in the main tree (e15a133c 'fix(studio): inspector tiny on mobile — load mobile-interaction-repair.css statically'), no further source changes needed. Verified at a 390px-wide mobile viewport using a same-origin test frame (real window resize is clamped by the window manager above the breakpoint): the repair stylesheet is served and active, and with the inspector toggled open it fills the full 390px width as a fixed scrollable drawer (390x688 below the header, right panel 390x744, no horizontal overflow, fields properly sized — confirmed both numerically and visually). Desktop is unaffected: the inspector renders normally at 944px and at the restored 1424px viewport. Test iframe removed and browser window restored to its original size.\\\",\\\"success\\\":true,\\\"verified\\\":true,\\\"final\\\":false}\"}],\"metadata\":{}}],\"seenMessages\":[\"1790151113966\"],\"compactions\":5},\"attachments\":[]}"
+}

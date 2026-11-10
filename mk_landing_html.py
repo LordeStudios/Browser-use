@@ -1,0 +1,33 @@
+﻿html = """<main class="lds-page lds-page-root" id="page-root" data-lds-node-id="page-root" data-name="Page 1" data-page-frame="true" data-page-id="page-home" data-route="/" data-frame-name="Page 1" data-layout-mode="manual" data-width-sizing="fixed" data-height-sizing="fixed" data-constraint-h="left" data-constraint-v="top">
+  <section style="position:absolute;left:0;top:0;width:1180px;height:820px;background:linear-gradient(135deg,#FF9F43 0%,#FF6B6B 100%);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:60px;box-sizing:border-box;overflow:hidden;">
+    <h1 style="margin:0 0 18px;font-family:Inter,system-ui,sans-serif;font-size:80px;font-weight:900;color:#fff;text-shadow:0 4px 20px rgba(0,0,0,0.25);">CrunchyBites</h1>
+    <p style="margin:0 0 40px;font-family:Inter,system-ui,sans-serif;font-size:30px;font-weight:500;color:#fff;max-width:700px;text-shadow:0 2px 10px rgba(0,0,0,0.2);">Delicious snacks delivered fresh to your door.</p>
+    <button style="padding:20px 48px;font-family:Inter,system-ui,sans-serif;font-size:22px;font-weight:800;background:#fff;color:#E85D04;border:none;border-radius:50px;cursor:pointer;box-shadow:0 8px 30px rgba(0,0,0,0.25);">Order Now</button>
+  </section>
+  <section style="position:absolute;left:0;top:820px;width:1180px;padding:70px 60px;background:#fff;box-sizing:border-box;text-align:center;">
+    <h2 style="margin:0 0 50px;font-family:Inter,system-ui,sans-serif;font-size:46px;font-weight:800;color:#2d1b0e;">Our Favorite Snacks</h2>
+    <div style="display:flex;gap:40px;justify-content:center;flex-wrap:wrap;">
+      <div style="width:280px;text-align:center;">
+        <img src="https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=400&h=400&fit=crop" alt="Chips" style="width:220px;height:220px;object-fit:cover;border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,0.15);margin-bottom:18px;">
+        <h3 style="margin:0 0 8px;font-family:Inter,system-ui,sans-serif;font-size:24px;font-weight:700;color:#2d1b0e;">Crispy Chips</h3>
+        <p style="margin:0;font-family:Inter,system-ui,sans-serif;font-size:16px;color:#6b4f3a;">Lightly salted, perfectly crunchy.</p>
+      </div>
+      <div style="width:280px;text-align:center;">
+        <img src="https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400&h=400&fit=crop" alt="Cookies" style="width:220px;height:220px;object-fit:cover;border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,0.15);margin-bottom:18px;">
+        <h3 style="margin:0 0 8px;font-family:Inter,system-ui,sans-serif;font-size:24px;font-weight:700;color:#2d1b0e;">Golden Cookies</h3>
+        <p style="margin:0;font-family:Inter,system-ui,sans-serif;font-size:16px;color:#6b4f3a;">Baked with real butter.</p>
+      </div>
+      <div style="width:280px;text-align:center;">
+        <img src="https://images.unsplash.com/photo-1606923829579-0cb9d4cf4a81?w=400&h=400&fit=crop" alt="Nuts" style="width:220px;height:220px;object-fit:cover;border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,0.15);margin-bottom:18px;">
+        <h3 style="margin:0 0 8px;font-family:Inter,system-ui,sans-serif;font-size:24px;font-weight:700;color:#2d1b0e;">Roasted Nuts</h3>
+        <p style="margin:0;font-family:Inter,system-ui,sans-serif;font-size:16px;color:#6b4f3a;">Protein-packed and seasoned.</p>
+      </div>
+    </div>
+  </section>
+  <footer style="position:absolute;left:0;top:1340px;width:1180px;padding:40px;background:#2d1b0e;box-sizing:border-box;text-align:center;">
+    <p style="margin:0;font-family:Inter,system-ui,sans-serif;font-size:18px;color:#fff;">© 2026 CrunchyBites. Made with love for snack lovers.</p>
+  </footer>
+</main>"""
+with open('landing.html','w',encoding='utf-8') as f:
+    f.write(html)
+print('wrote landing.html', len(html))

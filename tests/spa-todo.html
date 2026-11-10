@@ -1,0 +1,87 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>browser-use SPA todo fixture</title>
+<style>
+ body { font-family: system-ui, sans-serif; max-width: 480px; margin: 2rem auto; padding: 0 1rem; }
+ input[type="text"] { width: 70%; padding: 0.5rem; }
+ button { padding: 0.5rem 1rem; }
+ li { margin: 0.5rem 0; cursor: pointer; }
+ li.done { text-decoration: line-through; color: #888; }
+ .nav { margin-bottom: 1rem; }
+ .nav button { margin-right: 0.5rem; }
+ .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="nav">
+  <button id="nav-home">Home</button>
+  <button id="nav-about">About</button>
+</div>
+<div id="home-page">
+  <h1>Todo SPA</h1>
+  <div>
+    <input id="todo-input" type="text" placeholder="Add task"/>
+    <button id="add-btn">Add</button>
+  </div>
+  <ul id="todo-list"></ul>
+  <div>
+    <button id="filter-all">All</button>
+    <button id="filter-active">Active</button>
+    <button id="filter-completed">Completed</button>
+  </div>
+  <p id="todo-count">0 items</p>
+</div>
+<div id="about-page" class="hidden">
+  <h1>About</h1>
+  <p id="about-text">This is a vanilla JS SPA fixture for browser-use automation testing.</p>
+</div>
+<script>
+let todos = JSON.parse(sessionStorage.getItem('bu-todos') || '[]');
+let filter = 'all';
+function save(){ sessionStorage.setItem('bu-todos', JSON.stringify(todos)); }
+function render(){
+  const list = document.getElementById('todo-list');
+  list.innerHTML = '';
+  const visible = todos.filter(t=>{
+    if(filter==='active') return !t.done;
+    if(filter==='completed') return t.done;
+    return true;
+  });
+  visible.forEach(t=>{
+    const li = document.createElement('li');
+    li.id = 'todo-' + t.id;
+    li.textContent = t.text;
+    if(t.done) li.classList.add('done');
+    li.onclick = ()=>{ t.done = !t.done; save(); render(); };
+    list.appendChild(li);
+  });
+  document.getElementById('todo-count').textContent = visible.length + ' items';
+}
+document.getElementById('add-btn').addEventListener('click', ()=>{
+  const input = document.getElementById('todo-input');
+  const text = input.value.trim();
+  if(!text) return;
+  todos.push({ id: Date.now(), text, done: false });
+  input.value = '';
+  save();
+  render();
+});
+document.getElementById('todo-input').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('add-btn').click(); });
+document.getElementById('filter-all').addEventListener('click', ()=>{ filter='all'; render(); });
+document.getElementById('filter-active').addEventListener('click', ()=>{ filter='active'; render(); });
+document.getElementById('filter-completed').addEventListener('click', ()=>{ filter='completed'; render(); });
+document.getElementById('nav-home').addEventListener('click', ()=>{
+  document.getElementById('home-page').classList.remove('hidden');
+  document.getElementById('about-page').classList.add('hidden');
+});
+document.getElementById('nav-about').addEventListener('click', ()=>{
+  document.getElementById('home-page').classList.add('hidden');
+  document.getElementById('about-page').classList.remove('hidden');
+});
+render();
+</script>
+</body>
+</html>

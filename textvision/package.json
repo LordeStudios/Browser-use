@@ -1,0 +1,12 @@
+{
+  "name": "textvision",
+  "version": "0.1.0",
+  "description": "TextVision - universal visual information codec for text-only AI models. Encodes images into dense structured text (TEXTVISION/1.0), supports progressive INSPECT retrieval, reconstruction with loss metrics, and deterministic exact-pixel access.",
+  "main": "index.js",
+  "bin": { "textvision": "cli.js" },
+  "scripts": {
+    "test": "node test.js"
+  },
+  "license": "MIT",
+  "private": true
+}

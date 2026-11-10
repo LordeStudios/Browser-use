@@ -1,0 +1,15 @@
+{
+  "scrcpy": {
+    "version": "5.0.1",
+    "source": "https://github.com/Genymobile/scrcpy/releases/tag/v5.0.1",
+    "asset": "scrcpy-win64-v5.0.1.zip",
+    "license": "Apache-2.0"
+  },
+  "platformTools": {
+    "source": "https://developer.android.com/tools/releases/platform-tools",
+    "asset": "platform-tools-latest-windows.zip",
+    "licenseNotice": "PLATFORM-TOOLS-NOTICE.txt"
+  },
+  "integrated": true,
+  "externalInstallRequired": false
+}

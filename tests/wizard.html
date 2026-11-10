@@ -1,0 +1,73 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>browser-use wizard fixture</title>
+<style>
+ body { font-family: system-ui, sans-serif; max-width: 560px; margin: 2rem auto; padding: 0 1rem; }
+ .step { display: none; }
+ .step.active { display: block; }
+ .error { color: crimson; font-size: 0.9rem; min-height: 1.2rem; }
+ .success { color: green; font-weight: bold; }
+ button { padding: 0.5rem 1rem; margin-top: 1rem; }
+ input, select { padding: 0.4rem; width: 100%; box-sizing: border-box; margin: 0.25rem 0 0.75rem; }
+ label { font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Project setup wizard</h1>
+<div id="wizard">
+  <div class="step active" data-step="1">
+    <label>Project name</label>
+    <input id="project-name" type="text"/>
+    <div id="name-error" class="error"></div>
+    <button id="next-1">Next</button>
+  </div>
+  <div class="step" data-step="2">
+    <label>Region</label>
+    <select id="region"><option value="">Select region</option><option value="us">US East</option><option value="eu">EU West</option><option value="asia">Asia Pacific</option></select>
+    <div id="region-error" class="error"></div>
+    <label>Enable analytics</label>
+    <input id="analytics" type="checkbox" style="width:auto"/>
+    <div><button id="next-2">Next</button> <button id="back-2">Back</button></div>
+  </div>
+  <div class="step" data-step="3">
+    <p>Review:</p>
+    <div id="review"></div>
+    <div id="done-error" class="error"></div>
+    <div><button id="finish">Finish</button> <button id="back-3">Back</button></div>
+  </div>
+</div>
+<div id="result"></div>
+<script>
+const wizard = document.getElementById('wizard');
+const steps = [...wizard.querySelectorAll('.step')];
+let state = {};
+function showStep(n){
+  steps.forEach(s=>s.classList.toggle('active', Number(s.dataset.step)===n));
+}
+document.getElementById('next-1').addEventListener('click',()=>{
+  const v = document.getElementById('project-name').value.trim();
+  if(v.length<3){ document.getElementById('name-error').textContent='Name must be at least 3 chars'; return; }
+  state.name=v; document.getElementById('name-error').textContent='';
+  showStep(2);
+});
+document.getElementById('back-2').addEventListener('click',()=>showStep(1));
+document.getElementById('next-2').addEventListener('click',()=>{
+  const r = document.getElementById('region').value;
+  if(!r){ document.getElementById('region-error').textContent='Select a region'; return; }
+  state.region=r; state.analytics=document.getElementById('analytics').checked;
+  document.getElementById('region-error').textContent='';
+  document.getElementById('review').innerHTML = `<b>${state.name}</b><br/>Region: ${state.region.toUpperCase()}<br/>Analytics: ${state.analytics?'on':'off'}`;
+  showStep(3);
+});
+document.getElementById('back-3').addEventListener('click',()=>showStep(2));
+document.getElementById('finish').addEventListener('click',()=>{
+  if(!state.name||!state.region){ document.getElementById('done-error').textContent='Incomplete'; return; }
+  document.getElementById('wizard').style.display='none';
+  document.getElementById('result').innerHTML = '<div class="success">Project "' + state.name + '" created in ' + state.region.toUpperCase() + '</div>';
+});
+</script>
+</body>
+</html>

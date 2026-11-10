@@ -1,0 +1,1 @@
+import { browserTools } from './browserTools.js'; export function createToolRegistry(){const tools=new Map(); for(const t of browserTools()) tools.set(t.name,t); return {tools,list:()=>[...tools.values()].map(({run,...t})=>t),get:n=>tools.get(n),has:n=>tools.has(n)};}

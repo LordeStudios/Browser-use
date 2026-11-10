@@ -1,26 +1,35 @@
 const fs = require('fs');
-const p = 'desktop/renderer/app.js';
-let c = fs.readFileSync(p, 'utf8');
-const lines = c.split('\n');
-let patched = false;
-for (let i = 0; i < lines.length; i++) {
-  if (lines[i].includes('chip.append(label, preview);') && i > 0 && lines[i - 1].includes('openReportPreviewInChat')) {
-    const indent = '      ';
-    const newLines = [
-      indent + '} else if (attachment.path && /\\.(html?|txt|md|csv|json|xml|svg)$/i.test(attachment.name)) {',
-      indent + "  const preview = document.createElement('button'); preview.type = 'button'; preview.className = 'agent-attachment-preview'; preview.textContent = 'Open';",
-      indent + "  preview.setAttribute('aria-label', 'Open ' + attachment.name);",
-      indent + "  preview.addEventListener('click', () => openReportPreview({ path: attachment.path }));",
-      indent + "  chip.append(label, preview);"
-    ];
-    lines.splice(i, 0, ...newLines);
-    patched = true;
-    break;
-  }
+const path = require('path');
+
+const target = path.join(process.cwd(), 'desktop', 'renderer', 'app.js');
+const source = fs.readFileSync(target, 'utf8');
+const startMarker = "    if (attachment.kind === 'image' && ['image/png', 'image/jpeg', 'image/webp'].includes(attachment.mimeType)) {";
+const endMarker = "    } else {\n      chip.append(label);\n    }";
+const start = source.indexOf(startMarker);
+const end = source.indexOf(endMarker, start);
+if (start < 0 || end < 0 || end < start) {
+  throw new Error(`Attachment preview block not found in ${target}`);
 }
-if (patched) {
-  fs.writeFileSync(p, lines.join('\n'), 'utf8');
-  console.log('PATCHED OK');
-} else {
-  console.log('TARGET NOT FOUND');
+
+const canonical = [
+  startMarker,
+  "      const preview = document.createElement('button'); preview.type = 'button'; preview.className = 'agent-attachment-preview'; preview.textContent = 'Preview'; preview.setAttribute('aria-label', `Preview ${attachment.name}`);",
+  "      preview.addEventListener('click', () => openScreenshotPreview({ data: String(attachment.dataUrl || '').split(',')[1] || '', mimeType: attachment.mimeType }));",
+  '      chip.append(label, preview);',
+  "    } else if (attachment.path && /\\.(html?|txt)$/i.test(attachment.name)) {",
+  "      const preview = document.createElement('button'); preview.type = 'button'; preview.className = 'agent-attachment-preview'; preview.textContent = 'Open';",
+  "      preview.setAttribute('aria-label', 'Open ' + attachment.name);",
+  "      preview.addEventListener('click', () => openReportPreviewInChat({ path: attachment.path }));",
+  '      chip.append(label, preview);',
+  endMarker
+].join('\n');
+
+const currentBlock = source.slice(start, end + endMarker.length);
+if (currentBlock === canonical) {
+  console.log('ALREADY PATCHED');
+  process.exit(0);
 }
+
+const updated = source.slice(0, start) + canonical + source.slice(end + endMarker.length);
+fs.writeFileSync(target, updated, 'utf8');
+console.log('PATCHED OK');

@@ -1,0 +1,7 @@
+{
+  "main": "src/seaBootstrap.cjs",
+  "output": "browser-use.blob",
+  "disableExperimentalSEAWarning": true,
+  "useSnapshot": false,
+  "useCodeCache": false
+}

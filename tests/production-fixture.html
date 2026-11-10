@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Browser-use production fixture</title>
+</head>
+<body>
+  <main>
+    <h1>Browser-use diagnostics fixture</h1>
+    <label for="name">Name</label>
+    <input id="name" name="name" autocomplete="off">
+    <button id="submit" type="button">Submit</button>
+    <output id="result" aria-live="polite"></output>
+  </main>
+  <script>
+    document.querySelector('#submit').addEventListener('click', async () => {
+      const value = document.querySelector('#name').value;
+      document.querySelector('#result').textContent = `Submitted: ${value}`;
+      console.warn('fixture warning', value);
+      console.error('fixture console error');
+      try {
+        const response = await fetch('/api/fail');
+        if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      } catch (error) {
+        console.error('fixture request error', error.message);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Browser-use agent pointer</title>
+  <link rel="stylesheet" href="agent-pointer.css">
+</head>
+<body>
+  <div id="browser-use-agent-contact" aria-hidden="true"></div>
+  <div id="browser-use-agent-pointer" aria-hidden="true" data-current-x="0" data-current-y="0" data-target-x="0" data-target-y="0" data-sequence="0" data-click-count="0">
+    <div id="browser-use-agent-pointer-tip">
+      <svg width="22" height="29" viewBox="0 0 22 29" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2.25 2.1L20 16.2L11.65 18.35L6.7 27L2.25 2.1Z" fill="#09090B" stroke="#FFFFFF" stroke-width="1.7" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  </div>
+  <script type="module" src="agent-pointer.js"></script>
+</body>
+</html>

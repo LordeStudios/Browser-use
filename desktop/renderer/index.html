@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Browser-use</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="chat-reference.css">
+  <link rel="stylesheet" href="skills.css">
+  <link rel="stylesheet" href="chrome-theme.css">
+  <link rel="stylesheet" href="chrome-layout.css">
+  <link rel="stylesheet" href="vendor/phosphor.css">
+</head>
+<body>
+  <header class="browser-chrome">
+    <div class="app-titlebar">
+      <!-- The recording ribbon lives INSIDE the drag region subtree: Electron
+           resolves -webkit-app-region matches in DOM order with the last
+           match winning, so a no-drag element placed before the titlebar's
+           drag rect (its previous position as a header sibling) was
+           overridden and its Stop button swallowed every real click. -->
+      <div class="recording-banner" id="recording-banner" hidden><span><i class="ph ph-video-camera" aria-hidden="true"></i> Recording <time id="recording-banner-time">00:00</time></span><button id="recording-banner-stop" type="button">Stop</button></div>
+      <nav class="chrome-menu" aria-label="Application menu"><button class="chrome-menu-button" data-app-menu="file" type="button">File</button><button class="chrome-menu-button" data-app-menu="edit" type="button">Edit</button><button class="chrome-menu-button" data-app-menu="view" type="button">View</button><button class="chrome-menu-button" data-app-menu="window" type="button">Window</button></nav>
+      <div class="app-title"><img src="../assets/browser-use-icon-32.png" alt=""><span>Browser-use</span></div>
+    </div>
+    <div class="tabs-row">
+      <div class="brand" aria-label="Lorde Studios"><span>LORDE</span><b>STUDIOS</b></div>
+      <div class="tabs" id="tabs" role="tablist" aria-label="Browser tabs"></div>
+      <button class="icon-button" id="new-tab" type="button" aria-label="New tab" title="New tab"><i class="ph ph-plus" aria-hidden="true"></i></button>
+    </div>
+    <div class="chrome-workspace">
+      <div class="toolbar">
+        <button class="icon-button" id="back" type="button" aria-label="Back" title="Back"><i class="ph ph-caret-left" aria-hidden="true"></i></button><button class="icon-button" id="forward" type="button" aria-label="Forward" title="Forward"><i class="ph ph-caret-right" aria-hidden="true"></i></button><button class="icon-button" id="reload" type="button" aria-label="Reload" title="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+        <div class="address-wrap"><form id="navigation-form"><input id="address" aria-label="Address" autocomplete="off" spellcheck="false" placeholder="Search or enter address"></form><button class="address-history-toggle" id="address-history-toggle" type="button" aria-label="Browse history" title="History"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i></button></div>
+        <span class="agent-state" id="agent-state" role="status" aria-live="polite"><i></i><span> Local MCP waiting</span></span>
+        <div class="device-control"><button class="icon-button" id="device-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="device-menu" aria-label="Device mode" title="Device mode"><i class="ph ph-device-mobile" aria-hidden="true"></i></button><div class="device-menu" id="device-menu" role="menu" aria-label="Device profiles" hidden></div></div>
+        <button class="icon-button" id="rotate-device" type="button" aria-label="Rotate device" title="Rotate device"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i></button>
+        <button class="icon-button" id="agent-toggle" type="button" aria-expanded="false" aria-controls="agent-panel" aria-label="Open AI chat" title="AI chat"><i class="ph ph-chat-centered-text" aria-hidden="true"></i><span class="agent-toggle-badge" id="agent-toggle-badge" hidden></span></button>
+        <button class="icon-button" id="terminal-toggle" type="button" aria-expanded="false" aria-controls="terminal-panel" aria-label="Toggle terminal" title="Terminal"><i class="ph ph-terminal-window" aria-hidden="true"></i><span class="terminal-activity-dot" id="terminal-activity-dot" title="An agent task is working in a terminal session" hidden></span></button>
+        <div class="download-control"><button class="icon-button" id="downloads-toggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="downloads-panel" aria-label="Downloads" title="Downloads"><i class="ph ph-download-simple" aria-hidden="true"></i><span class="download-badge" id="download-badge" hidden></span></button><div class="downloads-panel" id="downloads-panel" role="menu" aria-label="Downloads" hidden></div></div>
+        <button class="icon-button" id="console-toggle" type="button" aria-expanded="false" aria-controls="console-panel" aria-label="Open console" title="Console"><i class="ph ph-terminal" aria-hidden="true"></i></button><button class="icon-button" id="recording-toggle" type="button" aria-expanded="false" aria-controls="recording-panel" aria-label="Screen recorder" title="Screen recorder"><i class="ph ph-video-camera" aria-hidden="true"></i></button><button class="icon-button" id="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-panel" aria-label="Open Browser-use settings" title="Browser-use settings"><i class="ph ph-list" aria-hidden="true"></i></button>
+      </div>
+    </div>
+    <div class="load-bar" id="load-bar" hidden><i></i></div>
+  </header>
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <aside class="drawer console drawers-placeholder" id="console-panel" aria-label="Console" hidden>
+    <div class="drawer-header"><strong>Console</strong><div><button class="plain-button" id="clear-console" type="button">Clear</button><button class="plain-button" data-close="console" type="button">Close</button></div></div>
+    <div class="console-tabs" role="tablist"><button class="is-active" data-filter="all" type="button">All</button><button data-filter="error" type="button">Errors</button><button data-filter="network" type="button">Network</button></div>
+    <p class="drawer-empty" id="console-empty">No console or network events yet.</p><div class="console-list" id="console-list"></div>
+  </aside>
+
+  <aside class="drawer agent-drawer" id="agent-panel" aria-label="AI chat" hidden>
+    <div class="agent-drawer-resize" id="agent-drawer-resize" role="separator" aria-label="Resize AI chat" aria-orientation="vertical" tabindex="0"></div>
+    <div class="agent-shell-head">
+      <div class="agent-title"><strong id="agent-conversation-title">New conversation</strong><small id="agent-tab-scope">No active tab</small><small id="agent-run-status">Ready</small></div>
+      <div class="agent-head-actions">
+        <button class="agent-icon-button" id="agent-pin" type="button" aria-label="Unpin chat" title="Unpin chat"><i class="ph ph-push-pin"></i></button><button class="agent-icon-button" id="agent-settings-toggle" type="button" aria-label="Open AI provider settings" title="AI provider settings" aria-expanded="false" aria-controls="agent-settings-screen"><i class="ph ph-gear-six" aria-hidden="true"></i></button>
+        <button class="agent-icon-button" id="agent-new-chat" type="button" aria-label="Start new chat" title="New chat"><i class="ph ph-plus" aria-hidden="true"></i></button>
+        <button class="agent-icon-button" id="agent-skills" type="button" aria-label="Open learned skills" title="Learned skills"><i class="ph ph-brain" aria-hidden="true"></i></button>
+        <button class="agent-icon-button" id="agent-schedules" type="button" aria-label="Open scheduled tasks" title="Schedules"><i class="ph ph-clock" aria-hidden="true"></i></button>
+        <button class="agent-icon-button" id="agent-history" type="button" aria-label="Open chat history" title="History"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i></button>
+        <button class="agent-icon-button" id="agent-copy-chat" type="button" aria-label="Copy whole chat" title="Copy whole chat"><i class="ph ph-copy" aria-hidden="true"></i></button>
+        <button class="agent-icon-button" data-close="agent" type="button" aria-label="Close AI chat" title="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </div>
+    </div>
+    <section class="agent-settings-screen" id="agent-settings-screen" aria-label="AI provider settings" hidden>
+      <header class="agent-settings-screen-head"><button class="agent-icon-button" id="agent-settings-close" type="button" aria-label="Back to chat" title="Back to chat"><i class="ph ph-arrow-left" aria-hidden="true"></i></button><strong>Settings</strong><span></span></header>
+      <nav class="agent-settings-tabs" aria-label="Settings sections"><button type="button" class="is-active" data-agent-settings-tab="providers">AI providers</button><button type="button" data-agent-settings-tab="devices">Devices</button></nav>
+      <form class="agent-settings-content" id="agent-provider-settings-form">
+        <div class="agent-settings-section" id="agent-android-section"><h2>Devices</h2><p class="agent-settings-note">Real Android devices use ADB + scrcpy. Simulated browser device mode remains separate.</p><label class="agent-provider-field"><span>Stream surface</span><select id="agent-android-stream-renderer"><option value="tab">Browser tab (agent-visible)</option><option value="native">Native compatibility window</option></select></label><div class="agent-android-stream-host" id="agent-android-stream-host" hidden aria-label="Android device stream"></div><div class="agent-android-actions"><button type="button" class="agent-provider-refresh" id="agent-android-refresh">Refresh devices</button><button type="button" class="agent-provider-refresh" id="agent-android-pair-toggle">Pair wireless</button></div><div class="agent-android-pair" id="agent-android-pair" hidden><input id="agent-android-address" placeholder="192.168.1.10:37099" autocomplete="off"><input id="agent-android-pairing-code" placeholder="Pairing code" autocomplete="off"><button type="button" class="agent-provider-save" id="agent-android-pair-submit">Pair</button><button type="button" class="agent-provider-refresh" id="agent-android-connect-submit">Connect</button></div><div class="agent-connection-list" id="agent-android-device-list"><p>No Android devices discovered.</p></div></div>
+        <div class="agent-settings-section"><h2>Connections</h2><div class="agent-connection-list" id="agent-connection-list"><p>No saved connections yet. Set up a provider above and save.</p></div></div>
+        <div class="agent-settings-section"><div class="agent-settings-section-head"><h2>Provider config</h2><button class="agent-provider-clear" id="agent-provider-delete" type="button" aria-label="Delete selected connection" title="Delete selected connection"><i class="ph ph-trash" aria-hidden="true"></i></button></div>
+        <label class="agent-provider-field"><span>Provider</span><button class="agent-provider-select-trigger" id="agent-provider-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="agent-provider-brand" id="agent-provider-brand"></span><strong id="agent-provider-select-label">Ollama Local</strong><i class="ph ph-caret-down" aria-hidden="true"></i></button><p class="agent-provider-auth-note" id="agent-provider-auth-note"></p><div class="agent-provider-select-menu" id="agent-provider-select-menu" role="listbox" hidden></div><select id="agent-provider-select" aria-label="AI provider" hidden><option value="ollama">Ollama Local</option><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="gemini">Google Gemini</option><option value="deepseek">DeepSeek</option><option value="grok">xAI</option><option value="perplexity">Perplexity</option><option value="openrouter">OpenRouter</option><option value="xkiro">xKiro</option><option value="groq">Groq</option><option value="cloud">Browser Use Cloud</option></select></label>
+        <label class="agent-provider-field"><span>Connection name</span><input id="agent-provider-name" type="text" placeholder="My provider connection" autocomplete="off"></label>
+        <label class="agent-provider-field" id="agent-provider-baseurl-field"><span>Base URL</span><input id="agent-provider-baseurl" type="url" placeholder="http://127.0.0.1:11434" autocomplete="off" spellcheck="false"></label>
+        <label class="agent-provider-field" id="agent-provider-key-field"><span>API Key</span><span class="agent-provider-key-wrap"><input id="agent-provider-key" type="password" placeholder="Enter provider API key" autocomplete="off" spellcheck="false"><button id="agent-provider-key-toggle" type="button" title="Toggle API key visibility" aria-label="Toggle API key visibility"><i class="ph ph-eye" aria-hidden="true"></i></button></span><a id="agent-provider-signup-link" target="_blank" rel="noopener noreferrer" hidden>Don’t have an account?</a></label>
+        <div class="agent-provider-actions"><button class="agent-provider-clear" id="agent-provider-clear" type="button" title="Clear API key" aria-label="Clear API key"><i class="ph ph-trash" aria-hidden="true"></i></button><button class="agent-provider-save" id="agent-provider-save" type="submit"><i class="ph ph-check" aria-hidden="true"></i><span>Save &amp; Test</span></button></div>
+        <output class="agent-provider-test-status" id="agent-provider-test-status" aria-live="polite">Save the connection to discover its available models.</output></div>
+        <div class="agent-settings-section" id="laya-model-section">
+          <h2>System One</h2>
+          <label class="agent-provider-field"><span>Brain</span><select id="system-one-brain" aria-label="System One brain"><option value="off">Off — strong model only</option><option value="laya">Laya — local engine</option><option value="jev">Jev — TypeSafe cloud</option></select></label>
+          <div id="jev-settings-fields" hidden>
+            <label class="agent-provider-field"><span>Base URL</span><input id="jev-base-url" type="url" value="https://api.typesafe.ai/v1" autocomplete="off" spellcheck="false"></label>
+            <label class="agent-provider-field"><span>Model</span><input id="jev-model-id" type="text" value="jev-latest" autocomplete="off" spellcheck="false"></label>
+            <label class="agent-provider-field"><span>API key</span><span class="agent-provider-key-wrap"><input id="jev-api-key" type="password" placeholder="Stored securely" autocomplete="off" spellcheck="false"><button id="jev-api-key-toggle" type="button" title="Show key" aria-label="Show key"><i class="ph ph-eye" aria-hidden="true"></i></button></span></label>
+            <div class="agent-provider-actions"><button class="agent-provider-clear" id="jev-api-key-clear" type="button" title="Remove key" aria-label="Remove key"><i class="ph ph-trash" aria-hidden="true"></i></button><button class="agent-provider-save" id="jev-settings-save" type="button"><i class="ph ph-check" aria-hidden="true"></i><span>Save</span></button></div>
+          </div>
+          <div id="laya-settings-fields" hidden>
+            <ul class="laya-deps" id="laya-deps-list"><li>Checking dependencies…</li></ul>
+            <p class="mcp-note" id="laya-deps-hint" hidden></p>
+            <button class="plain-button" id="laya-model-download" type="button" disabled title="Enabled when every dependency is present">Download the full model (~850MB)</button>
+            <p class="mcp-note" id="laya-model-status"></p>
+          </div>
+          <output class="agent-provider-test-status" id="jev-settings-status" aria-live="polite"></output>
+        </div>
+      </form>
+    </section>
+    <section class="agent-history-screen" id="agent-history-view" aria-label="Chat history" hidden><div class="agent-history-screen-head"><div><span class="agent-kicker">CONVERSATIONS</span><strong>History</strong></div><button class="agent-icon-button" id="agent-history-close" type="button" aria-label="Close history"><i class="ph ph-x" aria-hidden="true"></i></button></div><div class="agent-history-list" id="agent-history-list"></div></section>
+    <section class="agent-history-screen agent-schedules-screen" id="agent-schedules-view" aria-label="Scheduled tasks" hidden>
+      <div class="agent-history-screen-head"><div><span class="agent-kicker">TASKS</span><strong>Scheduled tasks</strong></div><div class="agent-screen-actions"><button class="agent-icon-button" id="agent-schedule-add" type="button" aria-label="Add scheduled task" title="Add task"><i class="ph ph-plus" aria-hidden="true"></i></button><button class="agent-icon-button" id="agent-schedules-close" type="button" aria-label="Close schedules"><i class="ph ph-x" aria-hidden="true"></i></button></div></div>
+      <div class="agent-schedules-body"><div class="agent-schedule-editor-host" id="agent-schedule-editor-host" hidden></div><div class="agent-history-list" id="agent-schedules-list"></div></div>
+    </section>
+    <section class="agent-history-screen" id="agent-record-view" aria-label="Recording" hidden>
+      <div class="agent-history-screen-head"><div><span class="agent-kicker" id="record-kicker">RECORDING</span><strong id="record-view-title">Recording</strong></div><button class="agent-icon-button" id="agent-record-close" type="button" aria-label="Close recording panel"><i class="ph ph-x" aria-hidden="true"></i></button></div>
+      <div class="agent-history-list" id="record-status-body">
+        <p class="record-status-line" id="record-status-line">Press ● Record, then simply do the task in any app. Nothing is remembered until you approve it.</p>
+      </div>
+      <div class="agent-history-list" id="record-proposal-body" hidden></div>
+    </section>
+    <section class="agent-history-screen skills-screen" id="agent-skills-view" aria-label="Skills" hidden>
+  <header class="skills-head">
+    <div class="skills-head-title">
+      <div class="skills-title-row">
+        <button class="skills-back" id="skills-back" type="button" aria-label="Back to skills" hidden><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+        <h2 id="skills-title">Skills</h2>
+      </div>
+      <p class="skills-summary" id="skills-summary" aria-live="polite">Loading skills…</p>
+    </div>
+    <div class="skills-head-actions">
+      <button class="agent-provider-save agent-record-task-button" id="agent-record" type="button"><i class="ph ph-record" aria-hidden="true"></i><span>Record task</span></button>
+      <button class="agent-icon-button" id="agent-skill-add" type="button" aria-label="New skill" title="New skill"><i class="ph ph-plus" aria-hidden="true"></i></button>
+      <button class="agent-icon-button" id="agent-skills-close" type="button" aria-label="Close skills"><i class="ph ph-x" aria-hidden="true"></i></button>
+    </div>
+  </header>
+  <div class="skills-toolbar" id="skills-toolbar">
+    <label class="skills-search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><span class="sr-only">Search skills</span><input id="skills-search" type="search" placeholder="Search by name or description" autocomplete="off"></label>
+    <div class="skills-filters" id="skills-filters" role="tablist" aria-label="Filter skills"></div>
+  </div>
+  <div class="skills-body" id="agent-skills-list" aria-live="polite"></div>
+</section>
+    <div class="agent-transcript" id="agent-transcript" aria-live="polite"></div>
+    <div class="connection-notice" id="connection-notice" role="status" aria-live="polite" hidden></div>
+    <div class="agent-approval" id="agent-approval" hidden></div>
+    <div class="agent-progress-strip" id="agent-progress-strip">
+    <section class="agent-plan agent-goal" id="agent-goal" aria-label="Agent goals" hidden>
+      <button class="agent-plan-toggle" id="agent-goal-toggle" type="button" aria-expanded="false" aria-controls="agent-goal-list"><span class="agent-plan-title" id="agent-goal-title">Goal</span><span class="agent-plan-count" id="agent-goal-count"></span></button>
+      <button class="agent-goal-edit" id="agent-goal-edit" type="button" aria-label="Edit goals" title="Edit goals"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
+      <div class="agent-plan-list" id="agent-goal-list" hidden></div>
+      <div class="agent-plan-editor" id="agent-goal-editor" hidden>
+        <textarea id="agent-goal-textarea" rows="6" spellcheck="false" aria-label="Edit goals, one goal per line"></textarea>
+        <div class="agent-plan-editor-actions"><button type="button" id="agent-goal-cancel" class="agent-plan-editor-button">Cancel</button><button type="button" id="agent-goal-save" class="agent-plan-editor-button is-primary">Save</button></div>
+      </div>
+    </section>
+    <section class="agent-plan" id="agent-plan" aria-label="Agent tasks" hidden>
+      <button class="agent-plan-toggle" id="agent-plan-toggle" type="button" aria-expanded="false" aria-controls="agent-plan-list"><span class="agent-plan-title" id="agent-plan-title">Working plan</span><span class="agent-plan-count" id="agent-plan-count">0/0</span><span class="agent-plan-chevron" aria-hidden="true"><i class="ph ph-caret-down"></i></span></button>
+      <div class="agent-plan-list" id="agent-plan-list" hidden></div>
+    </section>
+    </div>
+    <button class="agent-scroll-bottom" id="agent-scroll-bottom" type="button" aria-label="Scroll to bottom" hidden>
+      <span class="agent-scroll-bottom-label">Scroll to bottom</span>
+      <span class="agent-scroll-bottom-circle"><i class="ph ph-arrow-down" aria-hidden="true"></i><span class="agent-scroll-bottom-badge" hidden></span></span>
+    </button>
+    <div class="agent-queued" id="agent-queued" hidden>
+      <i class="ph ph-list-plus" aria-hidden="true"></i>
+      <span class="agent-queued-text" id="agent-queued-text"></span>
+      <button class="agent-queued-remove" id="agent-queued-remove" type="button" aria-label="Discard queued message"><i class="ph ph-x" aria-hidden="true"></i></button>
+    </div>
+    <form class="agent-composer" id="agent-form">
+      <label class="sr-only" for="agent-task">Ask the browser agent to perform a task. Press Enter to send; Shift+Enter inserts a new line.</label>
+      <div class="agent-slash-menu" id="agent-slash-menu" role="listbox" aria-label="Chat commands" hidden></div>
+      <div id="agent-task" class="agent-task-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-keyshortcuts="Enter Shift+Enter" aria-label="Ask the browser agent to perform a task. Press Enter to send; Shift+Enter inserts a new line." data-placeholder="Reply to continue this session"></div>
+      <div class="agent-attachments" id="agent-attachments" hidden></div>
+      <output class="agent-attachment-status" id="agent-attachment-status" aria-live="polite" hidden></output>
+      <div class="agent-composer-footer">
+        <div class="agent-composer-meta">
+          <button class="agent-attach-button" id="agent-attach" type="button" aria-label="Attach files" title="Attach files"><i class="ph ph-paperclip" aria-hidden="true"></i></button>
+          <button class="agent-dom-select-button" id="agent-dom-select" type="button" aria-label="Select DOM elements to attach" aria-pressed="false" title="Select elements in the page to attach them as cards"><i class="ph ph-cursor-click" aria-hidden="true"></i></button>
+          <input id="agent-file-input" type="file" multiple hidden>
+          <div class="agent-model-control"><button id="agent-model-toggle" class="agent-select-button" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="agent-model-dot"></span><span id="agent-model-label">Configured model</span><span class="agent-select-chevron" aria-hidden="true"><i class="ph ph-caret-down"></i></span></button><div class="agent-model-menu" id="agent-model-menu" role="listbox" hidden></div></div>
+          <div class="agent-mode-control" id="agent-mode-control">
+            <button id="agent-mode-toggle" class="agent-mode-pill" type="button" aria-haspopup="menu" aria-expanded="false" title="Agent mode, permissions, and effort"><span id="agent-mode-label">Browser</span><span class="agent-effort-label" id="agent-effort-label" aria-hidden="true">Auto</span><span class="agent-laya-badge" id="agent-laya-badge" hidden title="Laya verify on">&#9889;</span><span class="agent-permission-badge" id="agent-permission-badge" aria-hidden="true"></span></button>
+            <div class="agent-mode-menu" id="agent-mode-menu" role="menu" aria-label="Agent mode, permissions, and effort" hidden>
+              <div class="agent-mode-section" role="group" aria-label="Mode">
+                <span class="agent-mode-section-label">Mode</span>
+                <button type="button" class="agent-mode-option" data-agent-mode="browser" role="menuitemradio" aria-checked="false"><i class="ph ph-browser" aria-hidden="true"></i><span>Browser use</span></button>
+                <button type="button" class="agent-mode-option" data-agent-mode="agi" role="menuitemradio" aria-checked="false"><i class="ph ph-desktop" aria-hidden="true"></i><span>Web + computer use</span></button>
+              </div>
+              <div class="agent-mode-section" role="group" aria-label="Permissions">
+                <span class="agent-mode-section-label">Permissions</span>
+                <button type="button" class="agent-mode-option" data-agent-permission="unattended" role="menuitemradio" aria-checked="false"><span class="agent-permission-badge is-static" data-perm-icon="unattended" aria-hidden="true"></span><span>Full access</span></button>
+                <button type="button" class="agent-mode-option" data-agent-permission="confirm-sensitive" role="menuitemradio" aria-checked="false"><span class="agent-permission-badge is-static" data-perm-icon="confirm-sensitive" aria-hidden="true"></span><span>Always ask</span></button>
+              </div>
+              <div class="agent-mode-section" role="group" aria-label="Effort">
+                <span class="agent-mode-section-label">Effort</span>
+                <button type="button" class="agent-mode-option" data-agent-effort="auto" role="menuitemradio" aria-checked="false" title="Starts quick and only reasons deeper when the task proves it needs to"><i class="ph ph-sparkle" aria-hidden="true"></i><span>Auto</span></button>
+                <button type="button" class="agent-mode-option" data-agent-effort="minimal" role="menuitemradio" aria-checked="false" title="Direct and very quick, acts immediately with no deliberation"><i class="ph ph-lightning" aria-hidden="true"></i><span>Minimal</span></button>
+                <button type="button" class="agent-mode-option" data-agent-effort="standard" role="menuitemradio" aria-checked="false" title="Balanced, brief reasoning, about twice as fast as Advanced"><i class="ph ph-scales" aria-hidden="true"></i><span>Standard</span></button>
+                <button type="button" class="agent-mode-option" data-agent-effort="advanced" role="menuitemradio" aria-checked="false" title="Deepest reasoning, the previous default behavior"><i class="ph ph-brain" aria-hidden="true"></i><span>Advanced</span></button>
+              </div>
+              <div class="agent-mode-section" role="group" aria-label="System One verifier">
+                <span class="agent-mode-section-label">System One</span>
+                <button type="button" class="agent-mode-option" data-laya="off" role="menuitemradio" aria-checked="true" title="The strong model verifies and makes every decision itself"><i class="ph ph-circle" aria-hidden="true"></i><span>Off</span></button>
+                <button type="button" class="agent-mode-option" data-laya="laya" role="menuitemradio" aria-checked="false" title="Use the local Laya System One engine for fast typed verification"><i class="ph ph-gauge" aria-hidden="true"></i><span>Laya</span></button>
+                <button type="button" class="agent-mode-option" data-laya="jev" role="menuitemradio" aria-checked="false" title="Jev — TypeSafe cloud; add a key under Settings → System One"><i class="ph ph-cloud-arrow-down" aria-hidden="true"></i><span>Jev</span></button>
+              </div>
+              <div class="agent-mode-section" role="group" aria-label="Provider">
+                <span class="agent-mode-section-label">Provider</span>
+                <button type="button" class="agent-mode-option" data-provider="on" role="menuitemradio" aria-checked="true" title="The configured strong API model plans every decision (default)"><i class="ph ph-cloud" aria-hidden="true"></i><span>Strong model plans</span></button>
+                <button type="button" class="agent-mode-option" data-provider="off" role="menuitemradio" aria-checked="false" title="No API model: the local System One engine plans and executes directly for mechanical tasks and stress testing. No API key needed; failures are reported loudly."><i class="ph ph-cpu" aria-hidden="true"></i><span>System One</span></button>
+              </div>
+            </div>
+          </div>
+          <select id="agent-control-mode" aria-label="Agent control mode" hidden><option value="browser">Browser only</option><option value="agi">AGI</option></select>
+          <select id="agent-permission" aria-label="Agent permission" hidden><option value="unattended">Full access</option><option value="confirm-sensitive">Ask</option></select>
+          <select id="agent-effort" aria-label="Agent reasoning effort" hidden><option value="auto">Auto</option><option value="minimal">Minimal</option><option value="standard">Standard</option><option value="advanced">Advanced</option></select>
+          <input id="agent-laya-state" type="hidden" value="off">
+          <input id="agent-provider-state" type="hidden" value="on">
+        </div>
+        <div class="agent-submit-actions"><button class="agent-run-action-button" id="agent-run-action" type="button" aria-haspopup="menu" aria-expanded="false" aria-hidden="true" tabindex="-1" title="Deliver this message while the task runs"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i></button><div class="agent-run-action-menu" id="agent-run-action-menu" role="menu" aria-label="Deliver the typed message" hidden><button type="button" class="agent-run-action-option" data-run-action="queue" role="menuitem"><i class="ph ph-list-plus" aria-hidden="true"></i><span>Queue the message</span></button><button type="button" class="agent-run-action-option" data-run-action="fast-forward" role="menuitem"><i class="ph ph-fast-forward" aria-hidden="true"></i><span>Fast-forward</span></button></div><span class="agent-submit-stack"><button class="agent-send-button" id="agent-send" type="submit" aria-label="Send task" title="Send task"><i class="ph ph-arrow-up" aria-hidden="true"></i></button><button class="agent-cancel-button" id="agent-cancel" type="button" aria-label="Stop agent" title="Stop agent" hidden><i class="ph ph-stop" aria-hidden="true"></i></button></span></div>
+      </div>
+    </form>
+  </aside>
+
+  <aside class="drawer settings drawers-placeholder" id="settings-panel" aria-label="Settings" hidden inert></aside>
+  <section class="terminal-panel" id="terminal-panel" aria-label="Terminal" hidden>
+    <div class="terminal-resize" id="terminal-resize" role="separator" aria-label="Resize terminal" aria-orientation="horizontal" tabindex="0"></div>
+    <div class="terminal-header">
+      <strong>Terminal</strong>
+      <select id="terminal-session-select" class="terminal-session-select" aria-label="Terminal session" hidden></select>
+      <button class="terminal-icon-button" id="terminal-session-close" type="button" aria-label="Close this terminal session" title="Close this terminal session (kills its shell and frees the slot)" hidden><i class="ph ph-x"></i></button>
+      <span class="terminal-backend" id="terminal-backend"></span>
+      <span class="terminal-state-chip" id="terminal-state-chip" role="status" data-phase="starting">Starting</span>
+      <span class="terminal-mode-note" id="terminal-mode-note" role="status" hidden>Read-only · agent task running</span>
+      <div class="terminal-actions">
+        <button class="plain-button" id="terminal-recover" type="button" title="Continue this exited Claude Code session in the same folder" hidden>Recover</button>
+        <button class="plain-button" id="terminal-screenshot" type="button" title="Capture the page and copy the file path">Screenshot</button>
+        <button class="plain-button" id="terminal-select" type="button" title="Pick an element in the page and insert its selector">Select</button>
+        <button class="plain-button" id="terminal-reset" type="button" title="Restart the shell in this terminal">Reset</button>
+        <button class="plain-button" id="terminal-detach" type="button" title="Move the terminal into its own window">Detach</button>
+        <button class="plain-button" id="terminal-close" type="button">Close</button>
+      </div>
+    </div>
+    <div class="terminal-surface" id="terminal-surface"></div>
+  </section>
+  <link rel="stylesheet" href="vendor/xterm.css">
+  <script src="vendor/xterm.js"></script>
+  <script src="vendor/addon-fit.js"></script>
+  <script src="vendor/addon-webgl.js"></script>
+  <script src="terminal.js"></script>
+  <script src="surfaceControls.js"></script>
+  <script src="tabStrip.js"></script>
+  <script src="attachments.cjs"></script>
+  <script src="domAttachments.cjs"></script>
+  <script src="toolTarget.cjs"></script>
+  <script src="chatCommands.cjs"></script>
+  <script src="skillsView.cjs"></script>
+  <script src="app.js"></script>
+</body>
+</html>

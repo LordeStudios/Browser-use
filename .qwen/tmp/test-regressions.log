@@ -1,0 +1,18 @@
+✔ a text-only capability flag keeps screenshots off the wire and delegates the viewing (47.5255ms)
+✔ an attachment image is withheld from a text-only model just like observation screenshots (2.2224ms)
+✔ a failed capability metadata read keeps the reactive path and the run continues (1.9977ms)
+✔ an explicitly vision-capable model keeps receiving screenshots (no regression) (3.8216ms)
+✔ a 402 billing error fails the run fast instead of looping identical recoveries (25.8704ms)
+✔ externalProviderBlock classifies 402 wallet wording with the account guidance (0.9068ms)
+✔ a scheduled 402 outcome is non-retryable (0.7525ms)
+✔ the coding gate no longer fires on a browser task whose quoted fill value contains test (1.2473ms)
+✔ a browser run with a quoted person name finishes without the invented coding requirement (31.9323ms)
+✔ an optional capability probe failing does not abort the run (2.4184ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2766.4557

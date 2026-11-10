@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Browser-use pairing</title>
+    <style>
+      body { width: 300px; margin: 0; padding: 16px; background: #101116; color: #f5f7ff; font: 14px/1.4 system-ui, sans-serif; }
+      h1 { font-size: 16px; margin: 0 0 8px; }
+      p { color: #b9c1d8; margin: 0 0 14px; }
+      button { width: 100%; border: 0; border-radius: 8px; padding: 10px 12px; background: #e84b5b; color: white; cursor: pointer; font-weight: 700; }
+      #status { min-height: 20px; margin-top: 10px; color: #aeb8d0; overflow-wrap: anywhere; }
+    </style>
+  </head>
+  <body>
+    <h1>Pair this tab</h1>
+    <p>Approve exactly this active Chrome tab for local Browser-use control. Pairing does not grant other tabs.</p>
+    <button id="pair">Create pairing offer</button>
+    <div id="status" role="status"></div>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

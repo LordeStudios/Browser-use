@@ -1,0 +1,56 @@
+appId: com.lorde.browseruse
+productName: Browser-use
+artifactName: Browser-use-${version}-setup.${ext}
+# node-pty publishes N-API prebuilds that work under Electron directly. Its
+# Windows source rebuild invokes an upstream winpty helper absent from many
+# developer machines, so rebuilding would turn a working PTY into a packaging
+# failure. The packaged app has a runtime piped-shell fallback if a prebuild is
+# ever unavailable on a target system.
+npmRebuild: false
+directories:
+  output: desktop-release
+# Browser-use icon generated from the supplied desktop/assets/icon-source.png.
+win:
+  icon: desktop/assets/browser-use-icon.ico
+  target:
+    - target: dir
+      arch:
+        - x64
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+files:
+  - desktop/**/*
+  - src/**/*
+  - laya-server/**/*
+  - package.json
+  - node_modules/chrome-remote-interface/**/*
+  - node_modules/playwright-core/**/*
+  - node_modules/ws/**/*
+  # The terminal front end is vendored into desktop/renderer, but node-pty is a
+  # native module and must ship with its prebuilds or the terminal silently
+  # falls back to the reduced piped shell in packaged builds.
+  - node_modules/node-pty/**/*
+  - node_modules/koffi/**/*
+  - node_modules/@koromix/koffi-win32-x64/**/*
+  - "!node_modules/.cache/**/*"
+  - "!node_modules/electron/**/*"
+  - "!node_modules/electron-builder/**/*"
+  - "!node_modules/postject/**/*"
+# A .node binary inside an asar cannot be dlopen'd, so node-pty is unpacked
+# alongside the archive instead.
+asarUnpack:
+  - node_modules/node-pty/**/*
+  - node_modules/@koromix/koffi-win32-x64/**/*
+  # adb/scrcpy are native child processes and cannot execute from inside asar.
+  - desktop/android/bin/**/*
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+portable:
+  artifactName: Browser-use-${version}-portable.${ext}

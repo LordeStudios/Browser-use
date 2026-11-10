@@ -1,0 +1,99 @@
+✖ restores a saved conversation without replacing its first prompt with its title (41.0842ms)
+✖ turns decision and recovery limits into one internal checkpoint then continues (19.9479ms)
+✖ continues a completed conversation without clearing its run identity or history (22.4558ms)
+✔ requires approval before browser history navigation (20.0216ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 1
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1031.2297
+
+✖ failing tests:
+
+test at tests\desktop-ai-chat-agent.test.mjs:314:1
+✖ restores a saved conversation without replacing its first prompt with its title (41.0842ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  ... Skipped lines
+  
+    [
+      [
+        'user',
+        'Original user prompt'
+      ],
+  ...
+      ],
+  +   [
+  +     'user',
+  +     'USER ADDITION — this message EXTENDS the running work: it is an appended requirement or update, NOT a change of direction. Keep pursuing the earlier tasks and their outcomes alongside it.\n' +
+  +       'Added objective: "Continue from there"\n' +
+  +       'Fold it in: APPEND plan item(s) for what this adds (update_plan keeps existing items), update only the items it modifies, and leave every item the message does not mention untouched.\n' +
+  +       'The first browser_done must satisfy the WHOLE plan — the carried items and the additions. Drop prior work only if THIS message explicitly cancels it, and name what you dropped.'
+  +   ]
+    ]
+  
+      at TestContext.<anonymous> (file:///E:/Users/maximus/Documents/GitHub/uganda-art-pulse/tools/browser-use/tests/desktop-ai-chat-agent.test.mjs:358:10)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'user', 'Original user prompt' ], [ 'assistant', 'Original assistant reply' ], [ 'user', 'Continue from there' ], [ 'user', 'USER ADDITION — this message EXTENDS the running work: it is an appended requirement or update, NOT a change of direction. Keep pursuing the earlier tasks and their outcomes alongside it.\nAdded objective: "Continue from there"\nFold it in: APPEND plan item(s) for what this adds (update_plan keeps existing items), update only the items it modifies, and leave every item the message does not mention untouched.\nThe first browser_done must satisfy the WHOLE plan — the carried items and the additions. Drop prior work only if THIS message explicitly cancels it, and name what you dropped.' ] ],
+    expected: [ [ 'user', 'Original user prompt' ], [ 'assistant', 'Original assistant reply' ], [ 'user', 'Continue from there' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\desktop-ai-chat-agent.test.mjs:577:1
+✖ turns decision and recovery limits into one internal checkpoint then continues (19.9479ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///E:/Users/maximus/Documents/GitHub/uganda-art-pulse/tools/browser-use/tests/desktop-ai-chat-agent.test.mjs:604:10)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\desktop-ai-chat-agent.test.mjs:653:1
+✖ continues a completed conversation without clearing its run identity or history (22.4558ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  ... Skipped lines
+  
+    [
+      [
+        'user',
+        'Inspect page'
+      ],
+  ...
+        'user',
+  +     'USER ADDITION — this message EXTENDS the running work: it is an appended requirement or update, NOT a change of direction. Keep pursuing the earlier tasks and their outcomes alongside it.\n' +
+  +       'Added objective: "Now summarize it"\n' +
+  +       'Fold it in: APPEND plan item(s) for what this adds (update_plan keeps existing items), update only the items it modifies, and leave every item the message does not mention untouched.\n' +
+  +       'The first browser_done must satisfy the WHOLE plan — the carried items and the additions. Drop prior work only if THIS message explicitly cancels it, and name what you dropped.'
+  -     'TURN BOUNDARY'
+      ],
+      [
+        'assistant',
+        'Follow-up answer.'
+      ]
+  
+      at TestContext.<anonymous> (file:///E:/Users/maximus/Documents/GitHub/uganda-art-pulse/tools/browser-use/tests/desktop-ai-chat-agent.test.mjs:674:10)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'user', 'Inspect page' ], [ 'assistant', 'First answer.' ], [ 'user', 'Now summarize it' ], [ 'user', 'USER ADDITION — this message EXTENDS the running work: it is an appended requirement or update, NOT a change of direction. Keep pursuing the earlier tasks and their outcomes alongside it.\nAdded objective: "Now summarize it"\nFold it in: APPEND plan item(s) for what this adds (update_plan keeps existing items), update only the items it modifies, and leave every item the message does not mention untouched.\nThe first browser_done must satisfy the WHOLE plan — the carried items and the additions. Drop prior work only if THIS message explicitly cancels it, and name what you dropped.' ], [ 'assistant', 'Follow-up answer.' ] ],
+    expected: [ [ 'user', 'Inspect page' ], [ 'assistant', 'First answer.' ], [ 'user', 'Now summarize it' ], [ 'user', 'TURN BOUNDARY' ], [ 'assistant', 'Follow-up answer.' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

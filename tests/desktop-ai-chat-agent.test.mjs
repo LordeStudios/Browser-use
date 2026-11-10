@@ -58,6 +58,21 @@ test('answers a simple question without forcing a tool call or recovery loop', a
   assert.equal(run.history.filter((entry) => entry.tool === 'agent_recovery').length, 0);
 });
 
+test('a non-reasoning provider produces no empty thought archive record', async () => {
+  const controller = createController();
+  const events = [];
+  const agent = new DesktopChatAgent({
+    controller,
+    getSelectedTabId: () => 'tab-1',
+    emit: (event) => events.push(event),
+    createProvider: () => ({ async complete() { return { done: { summary: 'Finished.', success: true, verified: true } }; } })
+  });
+  const run = await agent.start({ task: 'Finish without streamed reasoning', provider: { id: 'mock', model: 'mock' } });
+  assert.equal(run.status, 'completed');
+  assert.equal(events.filter((event) => event.type === 'assistant.thought').length, 0);
+  assert.equal(agent.run.thinkingArchive.length, 0);
+});
+
 test('repeated actionless narration settles the thought card and arms one runtime notice', async () => {
   const controller = createController();
   const events = [];
@@ -530,7 +545,7 @@ test('carries prior reasoning and semantic completed work into the next decision
   assert.equal(run.coordinator.completedWork.length, 1);
 });
 
-test('reviews completion after a nontrivial mutation sequence instead of stopping on the first done proposal', async () => {
+test('a nontrivial mutation sequence records the completion-review concern without blocking the run', async () => {
   const controller = createController();
   let revision = 0;
   controller.domSnapshot = async (tabId) => ({
@@ -566,14 +581,16 @@ test('reviews completion after a nontrivial mutation sequence instead of stoppin
 
   const run = await agent.start({ task: 'Complete all three visible changes', provider: { id: 'mock' } });
 
+  // Owner policy (2026-11-02): verification never blocks a genuine run. The
+  // completion review's concern is recorded on the ACCEPTED result instead of
+  // bouncing the first done proposal — the bounce is what turned verification
+  // into a fabrication trap. The concern is still delivered, so the model can
+  // verify; nothing blocks and no error is shown.
   assert.equal(run.status, 'completed');
-  assert.equal(reviewSeen, true);
   const doneEntries = run.history.filter((entry) => entry.tool === 'browser_done');
-  assert.equal(doneEntries.length, 2);
-  assert.equal(doneEntries[0].output.ok, false);
-  assert.equal(doneEntries[0].output.recoverySource, 'completion_review');
-  assert.equal(doneEntries[1].output.ok, true);
-  assert.equal(run.result.verified, true);
+  assert.equal(doneEntries.length, 1, 'the run closes on its own done — no review bounce');
+  assert.equal(doneEntries[0].output.ok, true);
+  assert.match(String(doneEntries[0].output.verificationNote || ''), /Completion is a proposal|audit the whole/i, 'the review concern is still recorded');
 });
 
 test.skip('turns decision and recovery limits into one internal checkpoint then continues', async () => {
@@ -2667,6 +2684,40 @@ test('three read-only decisions trigger an evidence nudge; a mutation resets it'
   // had not been reset); the terminal done decision then counts as one final
   // read-only turn.
   assert.equal(run.readOnlyDecisionStreak, 1);
+});
+
+// ---- Read-only enforcement cap (run.txt req #2) ---------------------------
+
+test('read-only decisions past the cap are rejected with the enforcement demand, not another advisory', async () => {
+  const controller = createController();
+  controller.searchFiles = async () => ({ files: [] });
+  const toolResults = [];
+  const agent = new DesktopChatAgent({
+    controller, getSelectedTabId: () => 'tab-1', getControlMode: () => 'agi',
+    getComputerTools: () => ({ observe: async () => ({}), execute: async (name, input) => ({ content: 'evidence', path: 'C:/fixture.txt' }), releaseOwner: async () => {}, releaseInput: async () => {} }),
+    emit: (type, payload) => { if (type === 'tool.result') toolResults.push(payload); },
+    createProvider: () => ({ async complete() {
+      // Keep returning a read-only decision forever (no mutation, no done).
+      return { toolCalls: [{ name: 'computer_read', input: { path: 'C:/fixture/main.js' } }] };
+    } })
+  });
+
+  const started = agent.start({ task: 'Fix the code', provider: { id: 'mock' }, settings: { controlMode: 'agi' } });
+  // Run until the enforcement gate fires (the read-only streak must clear the
+  // cap), then cancel. The gate is the thing under test, not the deadline.
+  for (let i = 0; i < 400; i += 1) {
+    if (toolResults.some((t) => t.output?.recoverySource === 'read_only_cap')) break;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  agent.cancel(agent.state().id);
+  const run = await started;
+
+  const readOnlyCaps = toolResults.filter((t) => t.output?.recoverySource === 'read_only_cap');
+  assert.ok(readOnlyCaps.length > 0, 'past the cap, a read-only call is rejected with read_only_cap');
+  assert.match(readOnlyCaps[0].output.error, /READ-ONLY CAP/);
+  assert.match(readOnlyCaps[0].output.error, /computer_patch/);
+  // The rejection is a recoverable, recorded failure — never a silent drop.
+  assert.equal(readOnlyCaps[0].output.recoverable, true);
 });
 
 // ---- Turn boundary for follow-up tasks ------------------------------------

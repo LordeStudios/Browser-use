@@ -1,0 +1,401 @@
+{
+  "id": "page-root",
+  "type": "page",
+  "tag": "main",
+  "name": "Page 1",
+  "content": "",
+  "props": {
+    "pageFrame": true,
+    "pageId": "page-home",
+    "route": "/",
+    "frameName": "Page 1",
+    "pageKind": "visible",
+    "lockedAsRootPage": true,
+    "pageCollectionHost": true,
+    "pageCollectionVersion": 1,
+    "pageFrameClearanceVersion": 1,
+    "lordePrototype": {
+      "interactions": [],
+      "overlays": [],
+      "defaultTransition": "fade",
+      "mode": "designer",
+      "lastUpdated": "2026-07-30T19:41:49.554Z"
+    },
+    "lordeProject": {
+      "pages": [
+        {
+          "id": "page-home",
+          "route": "/",
+          "name": "Page 1",
+          "frameName": "Page 1",
+          "nodeId": "page-root",
+          "x": 18,
+          "y": 16,
+          "width": 1180,
+          "height": 820,
+          "root": true,
+          "hidden": false,
+          "sourcePath": "",
+          "kind": "visible",
+          "layerRefs": [
+            "shape-7ea89b92",
+            "text-3beab302"
+          ],
+          "outgoingLinks": []
+        }
+      ],
+      "connectors": [],
+      "headerFooter": {
+        "enabled": false,
+        "guideDefaultsVersion": 0,
+        "headerLine": 0.16666666666666666,
+        "footerLine": 0.8,
+        "headerMemberIds": [],
+        "footerMemberIds": [],
+        "pageVisibility": {
+          "page-home": {
+            "header": true,
+            "footer": true
+          }
+        }
+      },
+      "animations": [],
+      "animationStartFrame": 1,
+      "animationEndFrame": 120,
+      "animationFps": 30,
+      "transitEditor": {
+        "enabled": false,
+        "kind": "loading",
+        "duration": 2200,
+        "currentTime": 0,
+        "selectedElementId": "",
+        "canvas": {
+          "width": 390,
+          "height": 240,
+          "background": "#180052"
+        },
+        "elements": [],
+        "loadingDesignSchema": null,
+        "pointerDesignSchema": null,
+        "transitionDesignSchema": null,
+        "designSchema": null
+      },
+      "loadingScreen": {
+        "enabled": false,
+        "title": "Loading visual atmosphere",
+        "subtitle": "Preparing the page",
+        "duration": 1400,
+        "style": "premium-orb",
+        "background": "#05070b",
+        "accent": "#00ff88",
+        "textColor": "#f8fafc",
+        "dotCount": 5,
+        "templateName": "Kinetic shapes",
+        "templateId": "kinetic-shapes",
+        "selectionMode": "unset"
+      },
+      "pageTransition": {
+        "enabled": false,
+        "style": "fade-slide",
+        "duration": 420,
+        "easing": "cubic-bezier(.2,.8,.2,1)",
+        "direction": "up",
+        "distance": 24,
+        "blur": 0,
+        "overlayColor": "rgba(5,7,11,0.82)",
+        "templateName": "Soft fade",
+        "presetId": "fade"
+      },
+      "customPointer": {
+        "enabled": false,
+        "style": "default",
+        "color": "#00ff88",
+        "size": 24,
+        "assetUrl": "",
+        "assetName": "",
+        "presetId": "graphite",
+        "states": {
+          "cursor": {
+            "assetUrl": "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2234%22%20height%3D%2234%22%20viewBox%3D%220%200%2048%2048%22%3E%3Cpath%20d%3D%22M5%204l2%2033%208-8%206%2014%207-3-6-14h13z%22%20fill%3D%22%23111%22%20stroke%3D%22%23fff%22%20stroke-width%3D%222.6%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E",
+            "assetName": "Atelier Cursor",
+            "mimeType": "image/svg+xml",
+            "hotspotX": 6,
+            "hotspotY": 5,
+            "source": "preset",
+            "presetVersion": 2,
+            "visualKind": "atelier"
+          },
+          "pointer": {
+            "assetUrl": "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2234%22%20height%3D%2234%22%20viewBox%3D%220%200%2048%2048%22%3E%3Cpath%20d%3D%22M18%2041c-4-4-6-8-6-13v-8c0-2%201-4%203-4s3%202%203%204v-9c0-2%201-4%203-4s3%202%203%204v7-10c0-2%201-4%203-4s3%202%203%204v10-7c0-2%201-4%203-4s3%202%203%204v14c0%208-5%2016-13%2018z%22%20fill%3D%22%23111%22%20stroke%3D%22%23fff%22%20stroke-width%3D%222.4%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E",
+            "assetName": "Atelier Link",
+            "mimeType": "image/svg+xml",
+            "hotspotX": 24,
+            "hotspotY": 14,
+            "source": "preset",
+            "presetVersion": 2,
+            "visualKind": "atelier"
+          },
+          "text": {
+            "assetUrl": "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2234%22%20height%3D%2234%22%20viewBox%3D%220%200%2048%2048%22%3E%3Cpath%20d%3D%22M16%207h16M24%207v34M16%2041h16M18%2014h4M26%2014h4M18%2034h4M26%2034h4%22%20fill%3D%22none%22%20stroke%3D%22%23111%22%20stroke-width%3D%223%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E",
+            "assetName": "Atelier Text",
+            "mimeType": "image/svg+xml",
+            "hotspotX": 24,
+            "hotspotY": 24,
+            "source": "preset",
+            "presetVersion": 2,
+            "visualKind": "atelier"
+          },
+          "loading": {
+            "assetUrl": "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2234%22%20height%3D%2234%22%20viewBox%3D%220%200%2048%2048%22%3E%3Ccircle%20cx%3D%2224%22%20cy%3D%2224%22%20r%3D%2216%22%20fill%3D%22none%22%20stroke%3D%22%23111%22%20stroke-opacity%3D%22.16%22%20stroke-width%3D%225%22%2F%3E%3Cpath%20d%3D%22M24%208a16%2016%200%200%201%2015%2011%22%20fill%3D%22none%22%20stroke%3D%22%23111%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E",
+            "assetName": "Atelier Loading",
+            "mimeType": "image/svg+xml",
+            "hotspotX": 24,
+            "hotspotY": 24,
+            "source": "preset",
+            "presetVersion": 2,
+            "visualKind": "atelier"
+          },
+          "drag": {
+            "assetUrl": "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2234%22%20height%3D%2234%22%20viewBox%3D%220%200%2048%2048%22%3E%3Cpath%20d%3D%22M24%204l-6%207h4v11H11v-4l-7%206%207%206v-4h11v11h-4l6%207%206-7h-4V26h11v4l7-6-7-6v4H26V11h4z%22%20fill%3D%22%23111%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.8%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E",
+            "assetName": "Atelier Drag",
+            "mimeType": "image/svg+xml",
+            "hotspotX": 24,
+            "hotspotY": 24,
+            "source": "preset",
+            "presetVersion": 2,
+            "visualKind": "atelier"
+          }
+        },
+        "templateName": "Atelier"
+      },
+      "mouseSounds": {
+        "enabled": false,
+        "style": "cyber-click",
+        "volume": 0.12,
+        "assetUrl": "",
+        "assetName": "",
+        "presetId": "soft-studio",
+        "states": {
+          "click": {
+            "source": "synth",
+            "waveform": "sine",
+            "frequency": 420,
+            "duration": 0.055,
+            "gain": 0.08,
+            "label": "Soft studio click"
+          },
+          "hover": {
+            "source": "synth",
+            "waveform": "sine",
+            "frequency": 538,
+            "duration": 0.035,
+            "gain": 0.035,
+            "label": "Soft studio hover"
+          },
+          "notification": {
+            "source": "synth",
+            "waveform": "sine",
+            "frequency": 651,
+            "duration": 0.16,
+            "gain": 0.07,
+            "secondFrequency": 848,
+            "label": "Soft studio notification"
+          },
+          "error": {
+            "source": "synth",
+            "waveform": "triangle",
+            "frequency": 260,
+            "duration": 0.2,
+            "gain": 0.065,
+            "secondFrequency": 202,
+            "label": "Soft studio error"
+          }
+        },
+        "templateName": "Soft studio"
+      },
+      "assetBrowser": {
+        "provider": "Openverse",
+        "kind": "images",
+        "query": "African contemporary art studio",
+        "license": "open-license",
+        "attribution": "",
+        "status": "",
+        "error": "",
+        "results": []
+      },
+      "reducedMotion": true,
+      "repo": null
+    },
+    "lordeComponents": {
+      "components": [],
+      "lastUpdated": "2026-07-30T19:41:49.566Z"
+    }
+  },
+  "style": {
+    "position": "relative",
+    "display": "block",
+    "minHeight": "820px",
+    "background": "#ffffff",
+    "color": "#111111",
+    "overflow": "visible",
+    "width": "1180px"
+  },
+  "layout": {
+    "mode": "manual",
+    "widthSizing": "fixed",
+    "heightSizing": "fixed",
+    "itemSpacing": "",
+    "padding": "",
+    "align": "",
+    "justify": ""
+  },
+  "constraints": {
+    "horizontal": "left",
+    "vertical": "top"
+  },
+  "effects": [],
+  "responsive": {
+    "mobile": {
+      "width": "390px",
+      "minHeight": "844px"
+    },
+    "tablet": {
+      "width": "768px",
+      "minHeight": "1024px"
+    },
+    "desktop": {}
+  },
+  "children": [
+    {
+      "id": "shape-7ea89b92",
+      "type": "shape",
+      "tag": "div",
+      "name": "Rectangle",
+      "content": "",
+      "props": {
+        "shapeKind": "rectangle",
+        "originalShapeKind": "rectangle",
+        "fillKind": "",
+        "authoredDomSharedStyleFields": {
+          "style": [
+            "background"
+          ],
+          "responsiveStyle": {}
+        }
+      },
+      "style": {
+        "position": "absolute",
+        "display": "block",
+        "top": "0%",
+        "width": "1000px",
+        "height": "790px",
+        "minHeight": "790px",
+        "background": "#ff9f43",
+        "fill": "#e5e5e5",
+        "stroke": "none",
+        "border": "0",
+        "borderRadius": "0px",
+        "strokeWidth": "0",
+        "boxShadow": "none",
+        "overflow": "hidden",
+        "transform": "",
+        "right": "6.8856%",
+        "zIndex": "1"
+      },
+      "layout": {
+        "mode": "manual",
+        "widthSizing": "fixed",
+        "heightSizing": "fixed",
+        "itemSpacing": "",
+        "padding": "",
+        "align": "",
+        "justify": "",
+        "role": "overlay",
+        "positioning": "overlay",
+        "source": "studio",
+        "inferred": false
+      },
+      "constraints": {
+        "horizontal": "right",
+        "vertical": "top"
+      },
+      "effects": [],
+      "responsive": {
+        "mobile": {},
+        "tablet": {},
+        "desktop": {}
+      },
+      "locked": false,
+      "hidden": false,
+      "source": {}
+    },
+    {
+      "id": "text-3beab302",
+      "type": "text",
+      "tag": "p",
+      "name": "Text",
+      "content": "nchyBites",
+      "props": {
+        "authoredDomSharedStyleFields": {
+          "style": [
+            "width",
+            "height",
+            "minHeight"
+          ],
+          "responsiveStyle": {}
+        }
+      },
+      "style": {
+        "position": "absolute",
+        "display": "block",
+        "left": "299px",
+        "top": "104px",
+        "width": "280px",
+        "height": "48px",
+        "color": "#111111",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "lineHeight": "1.5",
+        "background": "transparent",
+        "fontFamily": "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "letterSpacing": "normal",
+        "border": "0",
+        "borderRadius": "0px",
+        "boxShadow": "none",
+        "transform": "",
+        "whiteSpace": "nowrap",
+        "zIndex": "2",
+        "minHeight": "48px"
+      },
+      "layout": {
+        "mode": "manual",
+        "widthSizing": "fixed",
+        "heightSizing": "fixed",
+        "itemSpacing": "",
+        "padding": "",
+        "align": "",
+        "justify": "",
+        "role": "overlay",
+        "positioning": "overlay",
+        "source": "studio",
+        "inferred": false
+      },
+      "constraints": {
+        "horizontal": "left",
+        "vertical": "top"
+      },
+      "effects": [],
+      "responsive": {
+        "mobile": {},
+        "tablet": {},
+        "desktop": {}
+      },
+      "locked": false,
+      "hidden": false,
+      "source": {}
+    }
+  ],
+  "locked": false,
+  "hidden": false,
+  "source": {}
+}

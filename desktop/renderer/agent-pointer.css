@@ -1,0 +1,69 @@
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent !important;
+  pointer-events: none;
+  user-select: none;
+}
+
+#browser-use-agent-pointer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 22px;
+  height: 29px;
+  z-index: 2;
+  opacity: 0;
+  transform: translate3d(-40px, -40px, 0);
+  transform-origin: 2.25px 2.1px;
+  will-change: transform, opacity;
+  contain: layout style paint;
+  pointer-events: none;
+}
+
+#browser-use-agent-pointer-tip {
+  width: 22px;
+  height: 29px;
+  transform-origin: 2.25px 2.1px;
+  will-change: transform;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.34));
+}
+
+#browser-use-agent-pointer-tip svg {
+  display: block;
+  overflow: visible;
+}
+
+#browser-use-agent-contact {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  z-index: 1;
+  border: 2px solid rgba(53, 200, 255, 0.9);
+  border-radius: 50%;
+  background: rgba(61, 214, 255, 0.12);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.75), 0 0 14px rgba(0, 190, 255, 0.58);
+  opacity: 0;
+  transform: translate3d(-40px, -40px, 0) scale(0.25);
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #browser-use-agent-pointer,
+  #browser-use-agent-pointer-tip,
+  #browser-use-agent-contact {
+    animation-duration: 1ms !important;
+  }
+}

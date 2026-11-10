@@ -1,0 +1,30 @@
+[
+  {
+    "name": "TUI booted in a real PTY",
+    "ok": true
+  },
+  {
+    "name": "run started (fake agent-cli child booted)",
+    "ok": true
+  },
+  {
+    "name": "queued card renders (▸ queued — delivers when the current run finishes)",
+    "ok": true
+  },
+  {
+    "name": "footer shows queued (1 total)",
+    "ok": true
+  },
+  {
+    "name": "NO \"already active\" refusal on the mid-run submit",
+    "ok": true
+  },
+  {
+    "name": "continuation card renders (▸ continuation — second task)",
+    "ok": true
+  },
+  {
+    "name": "run summary panel rendered (finished)",
+    "ok": true
+  }
+]

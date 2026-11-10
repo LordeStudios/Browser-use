@@ -1,0 +1,694 @@
+{
+  "name": "logo",
+  "brief": "In the browser tab, Lorde Design Studio is open. Create this artwork on its canvas using whatever the studio offers (its AI panel or its editor): a realistic vector logo for a coffee brand called Ember — a stylized flame mark inside a circle, smooth curves, 3-color palette. The finished logo must be clearly visible on the studio canvas.",
+  "startedAt": "2026-09-22T19:24:25.545Z",
+  "failures": [],
+  "events": [
+    {
+      "at": 17,
+      "status": "running",
+      "textTail": "oject\\\",\\\"new\\\",\\\"\\\",true,null,null,null,321,10],[\\\"button\\\",\\\"\\\",\\\"open export tray\\\",\\\"export\\\",\\\"\\\",true,null,null,null,402,10],[\\\"button\\\",\\\"\\\",\\\"open history panel\\\",\\\"history\\\",\\\"\\\",true,null,null,null,438,10],[\\\"button\\\",\\\"\\\",\\\"previ"
+    },
+    {
+      "at": 32,
+      "status": "running",
+      "textTail": "\\\",\\\"\\\",\\\"toggle left sidebar\\\",\\\"\\\",\\\"\\\",true,true,null,null,14,10],[\\\"button\\\",\\\"\\\",\\\"focus canvas\\\",\\\"\\\",\\\"\\\",true,false,null,null,59,10],[\\\"button\\\",\\\"\\\",\\\"create or open a project\\\",\\\"new\\\",\\\"\\\",true,null,null,null,321,10],[\\\"button\\\","
+    },
+    {
+      "at": 47,
+      "status": "running",
+      "textTail": ",\"lastFingerprint\":null,\"noProgressActions\":0,\"consecutiveWaits\":0,\"lastWaitedMs\":0},\"recovery\":{\"attempts\":0,\"lastError\":\"\",\"source\":\"\",\"action\":null},\"effortTier\":\"minimal\",\"effortTierRecoveries\":0,\"effortNeedSignals\":0,\"requiredEvidenceR"
+    },
+    {
+      "at": 62,
+      "status": "running",
+      "textTail": ",\"lastFingerprint\":null,\"noProgressActions\":0,\"consecutiveWaits\":0,\"lastWaitedMs\":0},\"recovery\":{\"attempts\":0,\"lastError\":\"\",\"source\":\"\",\"action\":null},\"effortTier\":\"minimal\",\"effortTierRecoveries\":0,\"effortNeedSignals\":0,\"requiredEvidenceR"
+    },
+    {
+      "at": 77,
+      "status": "running",
+      "textTail": ",\"lastFingerprint\":null,\"noProgressActions\":0,\"consecutiveWaits\":0,\"lastWaitedMs\":0},\"recovery\":{\"attempts\":0,\"lastError\":\"\",\"source\":\"\",\"action\":null},\"effortTier\":\"minimal\",\"effortTierRecoveries\":0,\"effortNeedSignals\":0,\"requiredEvidenceR"
+    },
+    {
+      "at": 92,
+      "status": "running",
+      "textTail": ",\"lastFingerprint\":null,\"noProgressActions\":0,\"consecutiveWaits\":0,\"lastWaitedMs\":0},\"recovery\":{\"attempts\":0,\"lastError\":\"\",\"source\":\"\",\"action\":null},\"effortTier\":\"minimal\",\"effortTierRecoveries\":0,\"effortNeedSignals\":0,\"requiredEvidenceR"
+    },
+    {
+      "at": 108,
+      "status": "running",
+      "textTail": ",\"lastFingerprint\":null,\"noProgressActions\":0,\"consecutiveWaits\":0,\"lastWaitedMs\":0},\"recovery\":{\"attempts\":0,\"lastError\":\"\",\"source\":\"\",\"action\":null},\"effortTier\":\"minimal\",\"effortTierRecoveries\":0,\"effortNeedSignals\":0,\"requiredEvidenceR"
+    },
+    {
+      "at": 123,
+      "status": "running",
+      "textTail": ",\"lastFingerprint\":null,\"noProgressActions\":0,\"consecutiveWaits\":0,\"lastWaitedMs\":0},\"recovery\":{\"attempts\":0,\"lastError\":\"\",\"source\":\"\",\"action\":null},\"effortTier\":\"minimal\",\"effortTierRecoveries\":0,\"effortNeedSignals\":0,\"requiredEvidenceR"
+    },
+    {
+      "at": 138,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}}],\"step\":5,\"decisionCount\":4,\"failures\":0,\"pendingApproval\":null,\"result\":null,"
+    },
+    {
+      "at": 153,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 168,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 183,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 198,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 214,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 229,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 244,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 259,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 274,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 289,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 304,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 319,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 335,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 350,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 365,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 380,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 395,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 410,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 425,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 440,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 455,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 470,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 486,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 501,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 516,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 531,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 546,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 562,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 577,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 592,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 607,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 622,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 637,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 653,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 668,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 683,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 698,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 713,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 728,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 743,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 758,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 773,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 788,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 804,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 819,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 834,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 849,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 864,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 879,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 895,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 910,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 925,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 940,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 955,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 971,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 986,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1001,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1016,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1031,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1046,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1061,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1076,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1091,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1107,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1122,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1137,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1152,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1167,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1182,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1198,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1213,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1228,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1243,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1258,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1273,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1288,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1303,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1319,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1334,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1349,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1364,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1379,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1394,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1409,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1424,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1440,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1455,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1470,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1485,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1500,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1515,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1531,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1546,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1561,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1576,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1591,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1606,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1621,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1636,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1652,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1667,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1682,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1697,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1712,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1727,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1742,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1758,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1773,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1788,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1803,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1818,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1833,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1848,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1864,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1879,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1894,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1909,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1924,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1939,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1954,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1970,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 1985,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 2000,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 2015,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 2030,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 2045,
+      "status": "running",
+      "textTail": "e-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600,\""
+    },
+    {
+      "at": 2060,
+      "status": "completed",
+      "textTail": "rde-design-add-ellipse-btn\",\"tag\":\"button\",\"testId\":\"\",\"text\":\"Ellipse\",\"value\":\"\",\"visible\":true},\"pointer\":{\"sequence\":15,\"completed\":true,\"status\":\"settled\"}}}},{\"at\":1790105208989,\"step\":6,\"tool\":\"browser_drag\",\"input\":{\"durationMs\":600"
+    }
+  ],
+  "configured": {
+    "connectionId": "45fe7cef-89d8-4a41-baad-94e189f5f91d",
+    "controlMode": "agi"
+  },
+  "start": "started",
+  "screenshot": "E:\\Users\\maximus\\Documents\\GitHub\\uganda-art-pulse\\tools\\browser-use\\scripts\\live-artifacts\\logo-desktop.png"
+}

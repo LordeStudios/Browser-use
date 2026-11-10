@@ -1,0 +1,16 @@
+{
+  "//": "Preferred: session-based HTTP MCP. Start the daemon once with `node src/index.js --mcp-http` (or browser-use.bat --mcp-http), POST {\"key\":\"<your key>\"} to /mcp/token, and every MCP client reconnects to the same live browser session.",
+  "mcpServers": {
+    "browser-use": {
+      "type": "http",
+      "url": "http://127.0.0.1:8790/mcp",
+      "headers": {
+        "Authorization": "Bearer <token from POST /mcp/token>"
+      }
+    },
+    "browser-use-stdio-legacy": {
+      "command": "E:\\path\\to\\browser-use\\browser-use.bat",
+      "args": ["--mcp"]
+    }
+  }
+}

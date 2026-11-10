@@ -1,0 +1,167 @@
+
+<--- Last few GCs --->
+
+[11044:00000227E071A000]  2025073 ms: Scavenge (during sweeping) 4065.3 (4099.6) -> 4061.5 (4099.6) MB, pooled: 0.0 MB, 3.48 / 1.00 ms (average mu = 0.294, current mu = 0.239) allocation failure; 
+[11044:00000227E071A000]  2027486 ms: Mark-Compact 4065.9 (4100.3) -> 4041.5 (4086.9) MB, pooled: 0.0 MB, 2379.84 / 4.14 ms (average mu = 0.365, current mu = 0.422) allocation failure; scavenge might not succeed
+
+FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 00007FF690C19006 node::SetAbortHandler+54
+ 2: 00007FF690C1958B node::OnFatalError+1355
+ 3: 00007FF691A01CD1 v8::Function::NewInstance+577
+ 4: 00007FF6917E5607 EVP_PKEY_meth_set_public_check+504087
+ 5: 00007FF6917E31CD EVP_PKEY_meth_set_public_check+494813
+ 6: 00007FF6917FFBFA v8::internal::StrongRootAllocatorBase::deallocate_impl+45626
+ 7: 00007FF691801093 v8::internal::StrongRootAllocatorBase::deallocate_impl+50899
+ 8: 00007FF691800CA3 v8::internal::StrongRootAllocatorBase::deallocate_impl+49891
+ 9: 00007FF6918125E0 v8::internal::StrongRootAllocatorBase::deallocate_impl+121888
+10: 00007FF691399042 v8::String::Value::~Value+166722
+11: 000002279FE7F43A 
+✖ tests\agent-efficiency.test.mjs (2028408.2274ms)
+✔ effort settings and tiers normalize defensively (16.3816ms)
+✔ fixed effort tiers never change and ignore model escalation requests (0.5865ms)
+✔ auto policy: advanced start, one rung per decision in either direction, reason required (0.5293ms)
+✔ ollama provider maps tiers onto the think flag, decision budget, and prompt (23.4221ms)
+✔ ollama auto mode advertises the escalation channel and effortNeeded survives parsing (1.6467ms)
+✔ openai-compatible protocol maps effort onto reasoning_effort and thinking (12.52ms)
+✔ anthropic protocol drops extended thinking at minimal and keeps it otherwise (2.4117ms)
+✔ responses protocol maps effort onto the reasoning control (6.3651ms)
+✔ auto demotes one rung after two consecutive big-thinking no-action decisions (103.9988ms)
+✔ a decision with a real mutation resets the speculation streak (75.5172ms)
+✔ answers a simple question without forcing a tool call or recovery loop (50.6406ms)
+✔ repeated actionless narration settles the thought card and arms one runtime notice (61.3734ms)
+✔ different actionless narration does not trigger the repetition notice (34.2603ms)
+✔ repeated streamed reasoning arms a next-decision nudge without blocking its tool call (32.2004ms)
+✔ actionless repetition parks and auto-resumes without terminal failure (1045.0142ms)
+✔ routes a greeting through the selected model and preserves both conversation turns (10.4313ms)
+✔ keeps live agent events and state Electron-cloneable (10.1744ms)
+✔ keeps the plan empty unless the model intentionally returns planUpdate (14.619ms)
+✔ accepts model-shaped task lists and granular add update remove operations (18.4332ms)
+✔ does not accept a numeric task count as an empty successful plan (20.5551ms)
+✔ restores a saved conversation without replacing its first prompt with its title (23.044ms)
+✔ starting a new chat creates a new conversation and clears the previous plan (29.7095ms)
+✔ runs a bounded observe-act-done chat task against the selected desktop tab (18.9969ms)
+✔ paints only one intermediate status message while later actions and terminal reply continue (12.5922ms)
+✔ exposes interaction regions and performs a viewport-grounded drag without page scripts (19.285ms)
+✔ carries prior reasoning and semantic completed work into the next decision without creating a visible plan (16.9031ms)
+✔ reviews completion after a nontrivial mutation sequence instead of stopping on the first done proposal (14.5025ms)
+﹣ turns decision and recovery limits into one internal checkpoint then continues (0.1462ms) # SKIP
+✔ uses DOM-first auto vision unless the decision specifically requires visual evidence (9.9739ms)
+✔ captures a fresh visual observation in always mode for a capable model decision (9.1212ms)
+✔ continues a completed conversation without clearing its run identity or history (30.1268ms)
+✔ accepts only a visibly verified external block and never marks it as a successful result (11.3352ms)
+✔ continuation applies the currently selected provider and safety settings (18.3275ms)
+✔ remote providers do not require or observe a local browser tab (9.3866ms)
+✔ defaults browser chat requests to unattended mode (13.8663ms)
+✔ controls a specified background tab without selecting or replacing the visible tab (11.8288ms)
+✔ updates the background agent target only through explicit tab actions (11.4087ms)
+✔ holds cross-origin navigation until the local user approves it (15.7792ms)
+✔ requires local approval before typing page content (18.2168ms)
+✔ Ask mode holds clicks and page commands until the local user approves them (18.6797ms)
+✔ runs routine local browser actions without approval in unattended mode (11.4561ms)
+✔ supports planning metadata and richer native browser actions (24.0693ms)
+✔ requires approval before keyboard browser navigation shortcuts (18.1901ms)
+
+<--- Last few GCs --->
+
+[32336:0000026FDB119000]  3087400 ms: Incremental Mark-Compact (reduce) 4093.5 (4098.5) -> 4088.7 (4094.8) MB, pooled: 0.0 MB, 582.66 / 0.74 ms (+ 153.3 ms in 30 steps since start of marking, biggest step 7.1 ms, walltime since start of marking 788 ms) (a
+FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 00007FF690C19006 node::SetAbortHandler+54
+ 2: 00007FF690C1958B node::OnFatalError+1355
+ 3: 00007FF691A01CD1 v8::Function::NewInstance+577
+ 4: 00007FF6917E5607 EVP_PKEY_meth_set_public_check+504087
+ 5: 00007FF6917E31CD EVP_PKEY_meth_set_public_check+494813
+ 6: 00007FF6917FFBFA v8::internal::StrongRootAllocatorBase::deallocate_impl+45626
+ 7: 00007FF691801093 v8::internal::StrongRootAllocatorBase::deallocate_impl+50899
+ 8: 00007FF691800CA3 v8::internal::StrongRootAllocatorBase::deallocate_impl+49891
+ 9: 00007FF6918125E0 v8::internal::StrongRootAllocatorBase::deallocate_impl+121888
+10: 00007FF691399042 v8::String::Value::~Value+166722
+11: 0000026F9FE7F43A 
+✖ tests\desktop-ai-chat-agent.test.mjs (3088160.7822ms)
+✔ E1 mixed coordinate clicks stay coordinate-authoritative across string normalization (4.9415ms)
+✔ E1 gateway: fresh anchors pass; post-navigation element anchors are rejected with the fix named; x/y passes (0.6975ms)
+✔ E1 dispatch: navigate then index-fill in one batch is rejected before execution and names the fix (86.8321ms)
+✔ E3 gateway: duplicate fill returns alreadySet with the prior proof; changed value/target or page change executes (3.0878ms)
+✔ E3 dispatch: identical refill short-circuits with alreadySet instead of executing again (50.4478ms)
+✔ E3 misfire: later mutation, navigation, or failed same-value fill voids the proof — the refill executes (0.7788ms)
+✔ E3 misfire dispatch: fill, click, same fill — the third fill EXECUTES instead of returning alreadySet (34.4006ms)
+✔ done gate: a browser task linking file:/// fixture URLs is not a coding task — the verified done is not bounced (34.8153ms)
+✔ done gate: after the forced review, the audited re-done with verified:true converges — audit probes do not re-arm the review (36.2799ms)
+✔ E2 wire: notices render into exactly one decision context (3.6442ms)
+✔ E2 dispatch: navigation and classified recovery arm one-shot notices that drain after one decision (33.0377ms)
+✔ E2 dispatch: an out-of-workspace path EXECUTES (default-scope workspace, no root rejection) (24.8105ms)
+✔ E5: an over-budget deliberation arms a one-shot notice; three in a row feed the watchdog ladder (64.1483ms)
+✔ E6: the recovery demand names the failure class; unclassified demands stay unprefixed (0.5162ms)
+✔ E7 detector: constraint strips and bypass writes bounce; generic page JS passes untouched (5.3448ms)
+✔ E7 detector: a .value write into a control the fill gate just rejected bounces; other value writes pass (1.7801ms)
+✔ E7 dispatch: a constraint-stripping execute is rejected before execution and names the conflict protocol (70.7676ms)
+✔ E7 dispatch: generic page JS — reads, styles, unrelated attributes — executes untouched (20.6514ms)
+✔ E7 dispatch: after a rejected fill, a .value write into that control is bounced as a gate bypass (35.6238ms)
+✔ E8 dispatch: a blocked-done right after a tamper bounce is bounced once for fresh probe evidence, then converges (41.4641ms)
+✔ E8 dispatch: a blocked-done WITH a post-bounce probe passes the provenance gate immediately (37.4827ms)
+✔ E9 dispatch: re-executing two verified actions in one decision arms the REBUILD DETECTED notice in the next decision context (31.3224ms)
+✔ E9 dispatch: one corrected probe (a single re-execution) does NOT fire the tripwire (35.7099ms)
+✔ E10 dispatch: a notice armed before a FAILED decision is still delivered on the retry (drain-after-render) (22.7091ms)
+✔ E10 wire: a notice passed to the REAL OpenAI-compatible provider reaches the request body (10.4447ms)
+✔ E11: the headless computer stub is marked and strips the native file tools; the desktop surface keeps them (1.684ms)
+✔ E12 pure: a summary citing screenshots with no screenshot tool event and no fresh frame is unbacked — including the phrasings that slipped past the older gate (4.8935ms)
+✔ E12 pure: backed screenshot claims pass — a screenshot tool event or the visual-evidence ledger (2.0125ms)
+✔ E12 pure: post-submit screenshot phrasing with no submit-shaped action is unbacked; probe claims need a successful evidence read (2.5059ms)
+✔ E12 pure: generic summaries with no action-verb claims pass untouched (0.3399ms)
+✔ E12 dispatch: a verified done citing a screenshot with zero screenshot calls is bounced ONCE with the claim named, then accepted (71.2419ms)
+✔ E12 dispatch: a verified done whose read-back claim is backed by a real execute passes without a bounce (27.7097ms)
+✔ E7 pure: a .value write via the rejected control’s DOM position bounces; other positions pass (1.0506ms)
+✔ E7 pure: the positional window expires after its short TTL; legacy entries without armedAt stay valid (0.4763ms)
+✔ E7 dispatch: after a rejected fill, a positional-selector write 1+ decisions later is bounced before execution (69.6376ms)
+✔ E7 pure: literal .value writes are extracted; dynamic writes are not (1.7711ms)
+✔ E7 pure: firstWriteViolations — over-maxlength and under-minlength first writes into constrained controls; generic targets pass (3.427ms)
+✔ E7 dispatch: a FIRST over-maxlength script write with no prior rejection is bounced against the control’s own constraint (35.5405ms)
+✔ E7 dispatch: an unverifiable first write is ALLOWED and logs a HARNESS notice; a compliant write logs nothing (31.2242ms)
+✔ E7 dispatch: generic JS — dynamic writes, reads, styles — executes untouched with ZERO constraint probes (24.1866ms)
+✔ E9 dispatch: a delivered rebuild notice is published as a harness.notice.delivered trace event with its id (22.8541ms)
+✔ E13 dispatch: the completion_review bounce itself carries the anti-rebuild bridge sentence (18.6003ms)
+✔ E4 pure: numbered requirements seed the ledger; short tasks seed nothing (0.4252ms)
+✔ E4 pure: observed-effect work whose words cover a requirement settles it; uncovered work does not (2.2682ms)
+✔ E4 dispatch: the forced-review bounce names the specific open requirement and its missing evidence; a settled/deferred ledger accepts without another bounce (22.8584ms)
+✔ F1 pure: an execute-driven fill (empty expectedOutcome, URL target) settles via its input hint (4.6993ms)
+✔ F1 pure: a two-word click outcome does not false-settle a multi-word fill requirement (0.7465ms)
+✔ F1 pure: a successful read-back after a mutation settles its requirement; an unrelated probe does not (3.0087ms)
+✔ F1 dispatch: an execute-driven fill settles its requirement at done time with the settle evidence recorded in the ledger (107.8511ms)
+✔ F2 dispatch: rebuilds between bounces do not reset the counter; the >=3 bound parks the run (never terminates) (1108.9372ms)
+✔ F3 pure: the fabricated-citation phrasing families bounce with zero producing captures (0.5816ms)
+✔ F3 pure: a post-submit citation needs a capture that postdates the submit; pre-submit frames do not back it (0.4856ms)
+✔ F3 pure: genuinely screenshot-backed claims pass (0.1845ms)
+✔ F4 dispatch: a rebuild spread across decisions trips the E9 notice; a single re-execution stays silent (23.085ms)
+✔ F4 dispatch: a single settled re-execution (the refilled reloaded form) stays silent (17.6631ms)
+✔ F5 pure: manufactured-cleanliness scripts bounce; generic styling and error-token reads pass (2.8681ms)
+✔ F5 dispatch: a presentation-clear on a just-rejected control is bounced before execution; generic styling executes untouched (20.4751ms)
+✔ F6 dispatch: a hung model call is retried once, then the run parks via escalateRun — never terminates (1579.4558ms)
+✔ progress remains optional and goals/task mutations are independent (2.6029ms)
+✔ duplicate text normalizes to unique stable identities (1.2838ms)
+✔ more than eight tasks and all goal IDs survive checkpoints and interrupted recovery (28.0198ms)
+✔ older pending revisions cannot replace the newest progress (4.2679ms)
+✔ deleting or clearing history cannot be undone by an outstanding checkpoint (21.8464ms)
+✔ stale updates after a flushed checkpoint cannot roll back saved tasks (9.5009ms)
+✔ model-authored goals survive the agent loop without automatic task completion (54.1962ms)
+ℹ tests 110
+ℹ suites 0
+ℹ pass 107
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 3088241.6293
+
+✖ failing tests:
+
+test at tests\agent-efficiency.test.mjs:1:1
+✖ tests\agent-efficiency.test.mjs (2028408.2274ms)
+  'test failed'
+
+test at tests\desktop-ai-chat-agent.test.mjs:1:1
+✖ tests\desktop-ai-chat-agent.test.mjs (3088160.7822ms)
+  'test failed'
+exit=1

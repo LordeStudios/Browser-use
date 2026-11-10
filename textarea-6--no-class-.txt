@@ -1,0 +1,38 @@
+<main 
+  class="lds-page lds-page-root"
+  id="page-root"
+  data-lds-node-id="page-root"
+  data-name="Page 1"
+  data-page-frame="true"
+  data-page-id="page-home"
+  data-route="/"
+  data-frame-name="Page 1"
+  data-layout-mode="manual"
+  data-width-sizing="fixed"
+  data-height-sizing="fixed"
+  data-constraint-h="left"
+  data-constraint-v="top"
+>
+  <div 
+    class="lds-shape lds-shape-7ea89b92"
+    id="shape-7ea89b92"
+    data-lds-node-id="shape-7ea89b92"
+    data-name="Rectangle"
+    data-layout-mode="manual"
+    data-width-sizing="fixed"
+    data-height-sizing="fixed"
+    data-constraint-h="right"
+    data-constraint-v="top"
+  ></div>
+  <p 
+    class="lds-text lds-text-3beab302"
+    id="text-3beab302"
+    data-lds-node-id="text-3beab302"
+    data-name="Text"
+    data-layout-mode="manual"
+    data-width-sizing="fixed"
+    data-height-sizing="fixed"
+    data-constraint-h="left"
+    data-constraint-v="top"
+  >nchyBites</p>
+</main>

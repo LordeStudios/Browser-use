@@ -1,0 +1,5 @@
+{
+  "ok": true,
+  "sessionId": "session-2026-07-30T20-31-47-113Z",
+  "events": "E:\\Users\\maximus\\Documents\\GitHub\\uganda-art-pulse\\tools\\browser-use\\logs\\session-2026-07-30T20-31-47-113Z\\events.ndjson"
+}
