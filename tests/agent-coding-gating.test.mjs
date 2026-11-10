@@ -4,7 +4,22 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { DesktopChatAgent, toolDefinitions } = require('../desktop/agent/desktopChatAgent.cjs');
-const { isCodingTask, agiPromptForTask } = require('../desktop/computer/computerCatalog.cjs');
+const { isCodingTask } = require('../desktop/computer/computerCatalog.cjs');
+const { assembleSystemPrompt } = require('../desktop/agent/desktopChatAgent.cjs');
+// DSH TEST HELPER: the system prompt is assembled by the harness from named
+// sections (see HARNESS_REWRITE.md). The run shape below is the minimum the
+// assembler reads; volatile facts never enter the prompt.
+function fakeAgentRun(controlMode = 'browser', workspaceRoot = null) {
+  return {
+    settings: { controlMode, effort: 'standard', effortMode: 'standard', approvalMode: 'unattended' },
+    effortTier: 'standard',
+    instructionsFileText: '',
+    systemFileText: null,
+    ...(workspaceRoot ? { workspace: { root: workspaceRoot } } : {})
+  };
+}
+const BLENDER_DESKTOP = { windows: [{ id: 'w1', title: 'Blender - untitled.blend' }], foregroundWindowId: 'w1' };
+
 const { compactComputerOutput } = require('../desktop/agent/ollamaProvider.cjs');
 
 // ---- Shared coding-task detector -------------------------------------------
@@ -18,20 +33,21 @@ test('isCodingTask: natural wording without keywords is non-coding alone, coding
   assert.equal(isCodingTask('', '   '), false);
 });
 
-test('agiPromptForTask serves the campaign-selected lean core (coding section included) for every task', () => {
-  // 2026-10-11 campaign result: the lean core + playbooks beat both the old
-  // gate-selected walls and the merged four-way prompt on both model tiers
-  // (4/4 glm, 3/4 qwen-flash on the two-fixture complex task), so the old
-  // workspace-conditional gate is gone — one lean prompt rides every task.
-  const coding = agiPromptForTask('fix the favourites toggle', { root: 'C:/fixture' });
-  const general = agiPromptForTask('fix the favourites toggle', null);
+test('assembleSystemPrompt serves one lean sectioned core (coding workflow included) for every task', () => {
+  // DSH REWRITE: the prompt is a registry of named sections with no task-text
+  // routing at all — the assembler takes no task parameter. The computer-mode
+  // section carries the coding workflow; playbooks attach ONLY by live
+  // desktop observation.
+  const coding = assembleSystemPrompt(fakeAgentRun('agi', 'C:/fixture'), null);
+  const general = assembleSystemPrompt(fakeAgentRun('agi', null), null);
   for (const prompt of [coding, general]) {
-    assert.match(prompt, /Coding mode\./);
-    assert.match(prompt, /browser_done\{summary, success, verified\}/);
+    assert.match(prompt, /COMPUTER MODE —/);
+    assert.match(prompt, /CODING WORKFLOW/);
+    assert.match(prompt, /browser_done/);
     assert.doesNotMatch(prompt, /AGI computer mode is enabled|Native coding mode/);
-    assert.ok(prompt.length < 6400, 'the lean core stays lean (gen5.1 cap: the judge-banked measure-don-t-eyeball amendment is the one post-gen5 addition)');
+    assert.ok(Buffer.byteLength(prompt, 'utf8') < 16000, 'the sectioned core stays lean (DSH density guard)');
   }
-  assert.equal(coding, general, 'the lean core is task-stable (situational playbooks excepted)');
+  assert.equal(coding, general, 'the core is task-stable (situational playbooks excepted)');
 });
 
 test('toolDefinitions: workspace-declared agi run advertises the file tools; browser mode never does', () => {

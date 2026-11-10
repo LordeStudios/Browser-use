@@ -18,7 +18,21 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { boundedRequestContext } = require('../desktop/agent/ollamaProvider.cjs');
-const { agiPromptForTask } = require('../desktop/computer/computerCatalog.cjs');
+const { assembleSystemPrompt } = require('../desktop/agent/desktopChatAgent.cjs');
+// DSH TEST HELPER: the system prompt is assembled by the harness from named
+// sections (see HARNESS_REWRITE.md). The run shape below is the minimum the
+// assembler reads; volatile facts never enter the prompt.
+function fakeAgentRun(controlMode = 'browser', workspaceRoot = null) {
+  return {
+    settings: { controlMode, effort: 'standard', effortMode: 'standard', approvalMode: 'unattended' },
+    effortTier: 'standard',
+    instructionsFileText: '',
+    systemFileText: null,
+    ...(workspaceRoot ? { workspace: { root: workspaceRoot } } : {})
+  };
+}
+const BLENDER_DESKTOP = { windows: [{ id: 'w1', title: 'Blender - untitled.blend' }], foregroundWindowId: 'w1' };
+
 
 function contextObservation({ consoleEntries = [], networkEntries = [], loading = false } = {}) {
   return {
@@ -87,11 +101,11 @@ test('the tool catalog carries the diagnostics-only contract', () => {
   assert.match(networkDesc, /never proves page state/);
 });
 
-test('the AGI prompt carries the console clause WITHOUT breaking the lean-core cap', () => {
-  const prompt = agiPromptForTask('do the thing', { root: 'E:/repo', target: 'E:/repo', url: null }, null);
+test('the system prompt carries the console clause WITHOUT breaking the lean-core cap', () => {
+  const prompt = assembleSystemPrompt(fakeAgentRun('agi', 'E:/repo'), null);
   // One compact sentence — the campaign-banked lean core stays under its
   // 6400 cap (the full contract lives in the tool descriptions + the wire
   // diagnostics filter, never as another prompt wall).
-  assert.match(prompt, /never\s*\n?page-state evidence|Console\/network output is for debugging/);
+  assert.match(prompt, /never evidence of what the page shows|Console and network output are debugging aids/);
   assert.ok(prompt.length < 6400, `lean core cap holds (got ${prompt.length})`);
 });

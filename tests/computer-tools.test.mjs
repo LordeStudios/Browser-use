@@ -6,7 +6,22 @@ import os from 'node:os';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { ComputerTools } = require('../desktop/computer/computerTools.cjs');
-const { COMPUTER_TOOLS, AGI_PROMPT, agiPromptForTask } = require('../desktop/computer/computerCatalog.cjs');
+const { COMPUTER_TOOLS } = require('../desktop/computer/computerCatalog.cjs');
+const { assembleSystemPrompt } = require('../desktop/agent/desktopChatAgent.cjs');
+// DSH TEST HELPER: the system prompt is assembled by the harness from named
+// sections (see HARNESS_REWRITE.md). The run shape below is the minimum the
+// assembler reads; volatile facts never enter the prompt.
+function fakeAgentRun(controlMode = 'browser', workspaceRoot = null) {
+  return {
+    settings: { controlMode, effort: 'standard', effortMode: 'standard', approvalMode: 'unattended' },
+    effortTier: 'standard',
+    instructionsFileText: '',
+    systemFileText: null,
+    ...(workspaceRoot ? { workspace: { root: workspaceRoot } } : {})
+  };
+}
+const BLENDER_DESKTOP = { windows: [{ id: 'w1', title: 'Blender - untitled.blend' }], foregroundWindowId: 'w1' };
+
 const { LocalMcpServer } = require('../desktop/mcp/localMcpServer.cjs');
 const { SessionBroker } = require('../desktop/mcp/sessionBroker.cjs');
 const { DesktopChatAgent } = require('../desktop/agent/desktopChatAgent.cjs');
@@ -500,14 +515,14 @@ test('the model-facing catalog offers the dedicated tools and never computer_fil
     assert.ok(names.includes(name), `${name} must be model-facing`);
   }
   assert.equal(names.includes('computer_file'), false, 'the everything-tool is retired');
-  const coding = agiPromptForTask('fix the repo source');
+  const coding = assembleSystemPrompt(fakeAgentRun('agi', 'E:/repo'), null);
   assert.match(coding, /computer_terminal is a FALLBACK/);
-  // Lean-core contract (2026-10-11 campaign): locating stays index-first, and
-  // the playbook teaches instinctive subagent use.
+  // Lean-core contract (kept through the DSH rewrite): locating stays
+  // index-first, and the workflow teaches instinctive subagent use.
   assert.match(coding, /ONE computer_index query for the most distinctive symbol/);
   assert.match(coding, /ONE computer_read/);
-  assert.match(coding, /subagent\s+slices \(task_spawn\)/, 'the playbook must teach instinctive subagent use');
-  assert.match(agiPromptForTask('draw a cube'), /never file reads, searches, or text edits/);
+  assert.match(coding, /subagent slices \(task_spawn\)/, 'the workflow must teach instinctive subagent use');
+  assert.match(assembleSystemPrompt(fakeAgentRun('agi'), null), /never for file reads, searches, or text edits/);
 });
 
 test('computer_read/computer_write cover binary payloads (base64, byte-paged)', async () => {

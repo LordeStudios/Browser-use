@@ -2349,6 +2349,8 @@ class DesktopChatAgent {
 }
 
 module.exports = {
+  // Additive (DSH): prompt assembly exported for tests and tooling.
+  assembleSystemPrompt, runtimeContextText,
   DesktopChatAgent, isMultipartTask, isMultiAskTask, multiAskChecklist, ACTIONS,
   externalProviderBlock, MAX_BROWSER_WAIT_MS, EFFORT_TIERS, normalizeEffortSetting,
   normalizeEffortTier, nextEffortTier, applyEffortEscalation, defaultResearchAgent,

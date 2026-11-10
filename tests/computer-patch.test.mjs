@@ -10,23 +10,26 @@ const { parsePatch, applyPatch } = require('../desktop/computer/applyPatch.cjs')
 const { validateComputerInput, normalizeComputerInput, COMPUTER_TOOLS } = require('../desktop/computer/computerCatalog.cjs');
 const { ComputerTools } = require('../desktop/computer/computerTools.cjs');
 
-test('the AGI prompt is a real string — an unescaped quote once made it NaN ("string - string"), silently stripping every computer-mode instruction', () => {
-  const { AGI_PROMPT } = require('../desktop/computer/computerCatalog.cjs');
-  assert.equal(typeof AGI_PROMPT, 'string', 'AGI_PROMPT must be a string; NaN means a quoting bug in the literal');
-  assert.ok(AGI_PROMPT.length > 2000, 'the prompt carries real guidance');
-  assert.match(AGI_PROMPT, /computer_patch/);
-  assert.match(AGI_PROMPT, /computer_git/);
+test('the computer-mode section is a real string — an unescaped quote once made it NaN ("string - string"), silently stripping every computer-mode instruction', () => {
+  const { assembleSystemPrompt } = require('../desktop/agent/desktopChatAgent.cjs');
+  function fakeRun() { return { settings: { controlMode: 'agi', effort: 'standard', effortMode: 'standard', approvalMode: 'unattended' }, effortTier: 'standard', instructionsFileText: '', systemFileText: null }; }
+  const section = assembleSystemPrompt(fakeRun(), null);
+  assert.equal(typeof section, 'string', 'the assembled prompt must be a string; NaN means a quoting bug in a section literal');
+  assert.ok(section.length > 2000, 'the prompt carries real guidance');
+  assert.match(section, /computer_patch/);
+  assert.match(section, /computer_git/);
 });
 
-test('the AGI prompt carries the Procedura-derived modeling craft (plan-first, anti-blocky, typed entry, mirror twins)', () => {
-  const { AGI_PROMPT } = require('../desktop/computer/computerCatalog.cjs');
-  assert.match(AGI_PROMPT, /PLAN the whole object FIRST/i, 'plan-first decomposition (Procedura plan_system.md)');
-  assert.match(AGI_PROMPT, /relative size/i, 'parts carry relative proportions, not drag-landed dimensions');
-  assert.match(AGI_PROMPT, /default primitives.*is a failure/i, 'the anti-blocky mandate (scad_part_system.md)');
-  assert.match(AGI_PROMPT, /typed\/keyboard entry/i, 'typed dimensions over drag-proportioning');
-  assert.match(AGI_PROMPT, /mirror/i, 'model one side and instance/mirror the twin');
-  assert.match(AGI_PROMPT, /screenshot ONCE per completed part/i, 'milestone screenshots, not per click');
-  assert.doesNotMatch(AGI_PROMPT, /NaN/);
+test('the modeling playbook carries the Procedura-derived modeling craft (plan-first, anti-blocky, typed entry, mirror twins)', () => {
+  const { MODELING_PLAYBOOK } = require('../desktop/agent/prompt/sections.cjs');
+  assert.equal(typeof MODELING_PLAYBOOK, 'string');
+  assert.match(MODELING_PLAYBOOK, /PLAN the whole object FIRST/i, 'plan-first decomposition (Procedura plan_system.md)');
+  assert.match(MODELING_PLAYBOOK, /relative size/i, 'parts carry relative proportions, not drag-landed dimensions');
+  assert.match(MODELING_PLAYBOOK, /default primitives.*is a failure/i, 'the anti-blocky mandate (scad_part_system.md)');
+  assert.match(MODELING_PLAYBOOK, /typed\/keyboard entry/i, 'typed dimensions over drag-proportioning');
+  assert.match(MODELING_PLAYBOOK, /mirror/i, 'model one side and instance/mirror the twin');
+  assert.match(MODELING_PLAYBOOK, /screenshot ONCE per completed part/i, 'milestone screenshots, not per click');
+  assert.doesNotMatch(MODELING_PLAYBOOK, /NaN/);
 });
 
 test('the catalog exposes computer_patch with path required and live ops support', () => {
@@ -364,21 +367,22 @@ test('the inspection value unwraps the executor result so the diff view never fa
 });
 
 
-test('task-scoped AGI guidance is task-stable: no keyword-routed modeling playbook (2026-10-11 campaign)', () => {
-  // The winning harness prompt is ONE static lean core — no keyword routing.
-  // Regex-gated prompt selection was the hardcoded-rules anti-pattern the
-  // campaign measured losing on both tiers. The 3D/modeling passage remains
-  // preserved verbatim inside AGI_PROMPT (archived) for future
-  // observation-triggered attachment; it is not regex-attached here.
-  const { agiPromptForTask, AGI_PROMPT } = require('../desktop/computer/computerCatalog.cjs');
-  const ordinary = agiPromptForTask('What is two plus two?');
-  const modeling = agiPromptForTask('Use Blender to model a gear');
-  assert.equal(ordinary, modeling, 'one task-stable lean prompt, no task-text routing');
+test('task-scoped AGI guidance is task-stable: the modeling playbook attaches only by OBSERVATION (2026-10-11 campaign)', () => {
+  // DSH REWRITE: the winning design survives intact — ONE static sectioned
+  // core with no task-text routing (the assembler takes no task parameter).
+  // The 3D/modeling playbook attaches ONLY when the live desktop shows a
+  // modeling app, never by task words.
+  const { assembleSystemPrompt } = require('../desktop/agent/desktopChatAgent.cjs');
+  function fakeRun() { return { settings: { controlMode: 'agi', effort: 'standard', effortMode: 'standard', approvalMode: 'unattended' }, effortTier: 'standard', instructionsFileText: '', systemFileText: null }; }
+  const ordinary = assembleSystemPrompt(fakeRun(), null);
+  const modeling = assembleSystemPrompt(fakeRun(), null);
+  assert.equal(ordinary, modeling, 'one task-stable core, no task-text routing');
   assert.doesNotMatch(ordinary, /PLAN the whole object FIRST/i);
-  // gen5 campaign merge (2026-10-11): the gen3 base + validated deltas + F7
-  // revert lands at 6,298 bytes; the gen5 merge cap is 6,300.
-  assert.ok(Buffer.byteLength(ordinary, 'utf8') <= 6300, 'the lean core stays inside the gen5 6,300-byte density ceiling');
-  assert.match(AGI_PROMPT, /PLAN the whole object FIRST/i, 'the modeling contract stays archived in AGI_PROMPT');
+  // Observation-attached playbook: a Blender window in the live desktop brings
+  // the modeling contract into the computer-mode section.
+  const withBlender = assembleSystemPrompt(fakeRun(), { desktop: { windows: [{ id: 'w1', title: 'Blender - untitled.blend' }], foregroundWindowId: 'w1' } });
+  assert.match(withBlender, /PLAN the whole object FIRST/i, 'the modeling contract attaches by live observation');
+  assert.ok(Buffer.byteLength(ordinary, 'utf8') < 16000, 'the sectioned core stays lean (DSH density guard)');
 });
 
 // ---------------------------------------------------------------------------
