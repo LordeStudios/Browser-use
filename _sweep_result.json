@@ -5,7 +5,7 @@
     "pass": 11,
     "fail": 1,
     "status": "RED",
-    "secs": 2,
+    "secs": 3,
     "failed": [
       "a reopened continuation restores the prior task: new-turn classificati"
     ]
@@ -24,15 +24,14 @@
   {
     "file": "agent-efficiency",
     "tests": 20,
-    "pass": 15,
-    "fail": 5,
+    "pass": 16,
+    "fail": 4,
     "status": "RED",
     "secs": 4,
     "failed": [
       "fresh AGI uses desktop metadata first; vision=auto",
       "fresh AGI uses desktop metadata first; vision=always",
       "fresh AGI uses desktop metadata first; vision=off",
-      "evidence-backed verified completion settles in one turn; unevidenced c",
       "a diagnosis task gets an answer-now nudge, not the coding nudge"
     ]
   },
@@ -42,7 +41,7 @@
     "pass": 5,
     "fail": 5,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "ollama provider maps tiers onto the think flag, decision budget, and p",
       "ollama auto mode advertises the escalation channel and effortNeeded su",
@@ -57,7 +56,7 @@
     "pass": 9,
     "fail": 1,
     "status": "RED",
-    "secs": 3,
+    "secs": 2,
     "failed": [
       "the coding gate no longer fires on a browser task whose quoted fill va"
     ]
@@ -89,7 +88,7 @@
     "pass": 13,
     "fail": 0,
     "status": "GREEN",
-    "secs": 3,
+    "secs": 2,
     "failed": []
   },
   {
@@ -125,7 +124,7 @@
     "pass": 2,
     "fail": 1,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "the .claude/skills scope makes SKILL.md folders visible to list and se"
     ]
@@ -136,7 +135,7 @@
     "pass": 11,
     "fail": 0,
     "status": "GREEN",
-    "secs": 65,
+    "secs": 34,
     "failed": []
   },
   {
@@ -145,7 +144,7 @@
     "pass": 2,
     "fail": 2,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "Bug 2: Closing a tab does NOT dismiss the run",
       "Bug 3: Runs do NOT stall waiting for paintability"
@@ -177,7 +176,7 @@
     "pass": 12,
     "fail": 1,
     "status": "RED",
-    "secs": 45,
+    "secs": 30,
     "failed": [
       "browser_* tools work headless through the CLI CDP adapter (navigate/sc"
     ]
@@ -197,7 +196,7 @@
     "pass": 3,
     "fail": 0,
     "status": "GREEN",
-    "secs": 4,
+    "secs": 3,
     "failed": []
   },
   {
@@ -224,7 +223,7 @@
     "pass": 31,
     "fail": 0,
     "status": "GREEN",
-    "secs": 22,
+    "secs": 18,
     "failed": []
   },
   {
@@ -239,13 +238,11 @@
   {
     "file": "conversation-lifecycle",
     "tests": 9,
-    "pass": 8,
-    "fail": 1,
-    "status": "RED",
-    "secs": 3,
-    "failed": [
-      "D: an accepted terminal result ends provider scheduling exactly once ("
-    ]
+    "pass": 9,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 2,
+    "failed": []
   },
   {
     "file": "desktop-ai-chat-agent",
@@ -256,14 +253,9 @@
     "secs": 120,
     "failed": [
       "restores a saved conversation without replacing its first prompt with ",
-      "runs a bounded observe-act-done chat task against the selected desktop",
       "carries prior reasoning and semantic completed work into the next deci",
-      "a nontrivial mutation sequence records the completion-review concern w",
       "resets strategy after repeated malformed provider output and keeps the",
-      "passes a provider repair error into the next decision so it can choose",
-      "flags an identical immediate mutation once fresh evidence confirms the",
-      "turns repeated passive waits into replanning instead of a terminal res",
-      "screenshots do not accumulate into no-progress across a successful int"
+      "turns repeated passive waits into replanning instead of a terminal res"
     ]
   },
   {
@@ -306,7 +298,7 @@
     "pass": 11,
     "fail": 2,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "missing bound tab is a bounded recoverable advisory, not an infinite t",
       "desktop agent shell keeps the compact dark reference controls wired to"
@@ -363,7 +355,7 @@
     "pass": 10,
     "fail": 2,
     "status": "RED",
-    "secs": 3,
+    "secs": 1,
     "failed": [
       "E8 dispatch: a blocked-done right after a tamper bounce is bounced onc",
       "E8 dispatch: a blocked-done WITH a post-bounce probe passes the proven"
@@ -375,19 +367,17 @@
     "pass": 19,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 1,
     "failed": []
   },
   {
     "file": "enforcement-gen5",
     "tests": 13,
-    "pass": 12,
-    "fail": 1,
-    "status": "RED",
-    "secs": 8,
-    "failed": [
-      "F2 dispatch: rebuilds between bounces do not reset the counter; the >="
-    ]
+    "pass": 13,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 12,
+    "failed": []
   },
   {
     "file": "error-messages",
@@ -428,7 +418,7 @@
     "pass": 4,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 1,
     "failed": []
   },
   {
@@ -437,7 +427,7 @@
     "pass": 3,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 1,
     "failed": []
   },
   {
@@ -446,7 +436,7 @@
     "pass": 3,
     "fail": 6,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "\"enough evidence\" with no action arms a next-decision notice and the c",
       "thinking-as-plan on a multi-part task is told that a thought-list is n",
@@ -462,7 +452,7 @@
     "pass": 8,
     "fail": 1,
     "status": "RED",
-    "secs": 32,
+    "secs": 9,
     "failed": [
       "gen8 B: clicking the subagent card switches the live pane; clicking th"
     ]
@@ -505,7 +495,7 @@
     "pass": 6,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 1,
     "failed": []
   },
   {
@@ -514,7 +504,7 @@
     "pass": 7,
     "fail": 1,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "nativeSurfaceSeen serializes as an array and survives a continuation: "
     ]
@@ -525,7 +515,7 @@
     "pass": 10,
     "fail": 1,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "file content and observed Desktop paths reach the next decision"
     ]
@@ -554,7 +544,7 @@
     "pass": 16,
     "fail": 10,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "reported cross-action stroke payload remains invalid rather than silen",
       "separate stroke action refreshes native evidence through the normal ch",
@@ -574,7 +564,7 @@
     "pass": 11,
     "fail": 0,
     "status": "GREEN",
-    "secs": 11,
+    "secs": 10,
     "failed": []
   },
   {
@@ -583,7 +573,7 @@
     "pass": 3,
     "fail": 1,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "the agent informs the model of the cut-off instead of scolding narrati"
     ]
@@ -607,7 +597,7 @@
     "pass": 7,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 2,
     "failed": []
   },
   {
@@ -634,7 +624,7 @@
     "pass": 4,
     "fail": 2,
     "status": "RED",
-    "secs": 6,
+    "secs": 5,
     "failed": [
       "verified:true with NO evidence-producing tool call is downgraded, not ",
       "evidence produced BEFORE the last mutation does not count as verificat"
@@ -658,7 +648,7 @@
     "pass": 5,
     "fail": 3,
     "status": "RED",
-    "secs": 1,
+    "secs": 2,
     "failed": [
       "native IDs and actual tool results survive an end-to-end agent decisio",
       "incomplete responses are rejected without exposing partial actions",
@@ -671,7 +661,7 @@
     "pass": 6,
     "fail": 0,
     "status": "GREEN",
-    "secs": 13,
+    "secs": 10,
     "failed": []
   },
   {
@@ -689,7 +679,7 @@
     "pass": 0,
     "fail": 2,
     "status": "RED",
-    "secs": 1,
+    "secs": 2,
     "failed": [
       "skill_search finds an installed skill by what it is for",
       "skill_run gives the model the WHOLE skill body, not the list summary"
@@ -753,7 +743,7 @@
     "pass": 4,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 2,
     "failed": []
   },
   {
@@ -762,7 +752,7 @@
     "pass": 11,
     "fail": 2,
     "status": "RED",
-    "secs": 31,
+    "secs": 32,
     "failed": [
       "recovery exhaustion stays internal and the next decision can finish",
       "a step timeout leaves no truncated reasoning fragment for the retry"
@@ -785,7 +775,7 @@
     "pass": 2,
     "fail": 1,
     "status": "RED",
-    "secs": 1,
+    "secs": 2,
     "failed": [
       "verified:true with success:false is rejected as a contradiction"
     ]
@@ -814,7 +804,7 @@
     "pass": 6,
     "fail": 1,
     "status": "RED",
-    "secs": 3,
+    "secs": 2,
     "failed": [
       "real desktop tools still attach the playbook, as its own block with no"
     ]
@@ -834,7 +824,7 @@
     "pass": 12,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 2,
     "failed": []
   }
 ]

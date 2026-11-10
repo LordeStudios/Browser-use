@@ -1,0 +1,676 @@
+[
+  {
+    "file": "agent-coding-gating",
+    "kind": "REGRESSED",
+    "fork": "11/12",
+    "base": "12/12",
+    "detail": [
+      "a reopened continuation restores the prior task: new-turn classificati"
+    ]
+  },
+  {
+    "file": "agent-continuity-regressions",
+    "kind": "REGRESSED",
+    "fork": "20/21",
+    "base": "21/21",
+    "detail": [
+      "returned malformed decisions recover internally and can finish"
+    ]
+  },
+  {
+    "file": "agent-efficiency",
+    "kind": "REGRESSED",
+    "fork": "16/20",
+    "base": "17/20",
+    "detail": [
+      "fresh AGI uses desktop metadata first; vision=auto",
+      "fresh AGI uses desktop metadata first; vision=always",
+      "fresh AGI uses desktop metadata first; vision=off",
+      "a diagnosis task gets an answer-now nudge, not the coding nudge"
+    ]
+  },
+  {
+    "file": "agent-effort",
+    "kind": "REGRESSED",
+    "fork": "5/10",
+    "base": "8/10",
+    "detail": [
+      "ollama provider maps tiers onto the think flag, decision budget, and p",
+      "ollama auto mode advertises the escalation channel and effortNeeded su",
+      "openai-compatible protocol maps effort onto reasoning_effort and think",
+      "auto demotes one rung after two consecutive big-thinking no-action dec",
+      "a decision with a real mutation resets the speculation streak"
+    ]
+  },
+  {
+    "file": "agent-orchestration-regressions",
+    "kind": "REGRESSED",
+    "fork": "9/10",
+    "base": "10/10",
+    "detail": [
+      "the coding gate no longer fires on a browser task whose quoted fill va"
+    ]
+  },
+  {
+    "file": "browser-use-bug-fixes",
+    "kind": "REGRESSED",
+    "fork": "2/4",
+    "base": "4/4",
+    "detail": [
+      "Bug 2: Closing a tab does NOT dismiss the run",
+      "Bug 3: Runs do NOT stall waiting for paintability"
+    ]
+  },
+  {
+    "file": "browser-wait",
+    "kind": "REGRESSED",
+    "fork": "8/9",
+    "base": "9/9",
+    "detail": [
+      "first wait honors the exact requested ms"
+    ]
+  },
+  {
+    "file": "desktop-openai-compatible-provider",
+    "kind": "REGRESSED",
+    "fork": "14/18",
+    "base": "17/18",
+    "detail": [
+      "OpenAI-compatible provider keeps keys private and returns a structured",
+      "OpenAI-compatible provider falls back to the same DOM context when a m",
+      "OpenAI-compatible provider performs one schema repair instead of surfa",
+      "anthropic route marks the system block as cacheable"
+    ]
+  },
+  {
+    "file": "desktop-package-contract",
+    "kind": "REGRESSED",
+    "fork": "11/13",
+    "base": "13/13",
+    "detail": [
+      "missing bound tab is a bounded recoverable advisory, not an infinite t",
+      "desktop agent shell keeps the compact dark reference controls wired to"
+    ]
+  },
+  {
+    "file": "desktop-thinking-hygiene",
+    "kind": "REGRESSED",
+    "fork": "9/13",
+    "base": "13/13",
+    "detail": [
+      "near-duplicate reasoning counts as a stall, not just verbatim repeats",
+      "the provider prompt never names a \"harness\" the model can narrate",
+      "a subagent-authored card carries a producer badge",
+      "a badged message keeps its model-facing text separate from the user bo"
+    ]
+  },
+  {
+    "file": "enforcement-gen2",
+    "kind": "REGRESSED",
+    "fork": "13/14",
+    "base": "14/14",
+    "detail": [
+      "E5: an over-budget deliberation arms a one-shot notice; three in a row"
+    ]
+  },
+  {
+    "file": "enforcement-gen3",
+    "kind": "REGRESSED",
+    "fork": "10/12",
+    "base": "12/12",
+    "detail": [
+      "E8 dispatch: a blocked-done right after a tamper bounce is bounced onc",
+      "E8 dispatch: a blocked-done WITH a post-bounce probe passes the proven"
+    ]
+  },
+  {
+    "file": "evidence-streak-accounting",
+    "kind": "REGRESSED",
+    "fork": "3/6",
+    "base": "6/6",
+    "detail": [
+      "successful evidence-only decisions still trigger EVIDENCE SUFFICIENT a",
+      "a failed call between successful reads does not RESET the streak eithe",
+      "computer_fs counts as evidence only for its read actions, never mkdir/"
+    ]
+  },
+  {
+    "file": "evidence-survives-compaction",
+    "kind": "REGRESSED",
+    "fork": "5/6",
+    "base": "6/6",
+    "detail": [
+      "a restored ledger exposes the evidence to the model"
+    ]
+  },
+  {
+    "file": "flow-control-agent",
+    "kind": "REGRESSED",
+    "fork": "3/9",
+    "base": "9/9",
+    "detail": [
+      "\"enough evidence\" with no action arms a next-decision notice and the c",
+      "thinking-as-plan on a multi-part task is told that a thought-list is n",
+      "varied offsets over unchanged content run, then advise, then bounce ex",
+      "an edit opens a new evidence epoch so the post-edit re-read is fresh a",
+      "normal-size thinking stays silent; elevated and heavy thinking escalat",
+      "flow state is checkpointed with the run and an old snapshot without it"
+    ]
+  },
+  {
+    "file": "gen9-notebook",
+    "kind": "REGRESSED",
+    "fork": "7/9",
+    "base": "9/9",
+    "detail": [
+      "notebook and workspace pin survive forced compaction AND the raw-evict",
+      "agent run start: notebook created in notebookDir, pinned wire carries "
+    ]
+  },
+  {
+    "file": "large-paste-attachment",
+    "kind": "REGRESSED",
+    "fork": "1/2",
+    "base": "2/2",
+    "detail": [
+      "large paste attachment is a filesystem path, not copied into the agent"
+    ]
+  },
+  {
+    "file": "plan-and-skill-delivery",
+    "kind": "REGRESSED",
+    "fork": "14/17",
+    "base": "16/17",
+    "detail": [
+      "a summary that accounts for only part of the request is rejected",
+      "one bounce carries one demand: the accounting and the plan gates do no",
+      "the whole design skill reaches the model, including its quality-check "
+    ]
+  },
+  {
+    "file": "real-verification",
+    "kind": "REGRESSED",
+    "fork": "4/6",
+    "base": "6/6",
+    "detail": [
+      "verified:true with NO evidence-producing tool call is downgraded, not ",
+      "evidence produced BEFORE the last mutation does not count as verificat"
+    ]
+  },
+  {
+    "file": "responses-continuity",
+    "kind": "REGRESSED",
+    "fork": "5/8",
+    "base": "6/8",
+    "detail": [
+      "native IDs and actual tool results survive an end-to-end agent decisio",
+      "incomplete responses are rejected without exposing partial actions",
+      "Astra selects Responses without changing the model; compatible models "
+    ]
+  },
+  {
+    "file": "stall-regressions",
+    "kind": "REGRESSED",
+    "fork": "3/7",
+    "base": "7/7",
+    "detail": [
+      "completed in-page probe evidence satisfies the coding gate (the 8-boun",
+      "terminal evidence still satisfies the coding gate",
+      "probe evidence with real failures does NOT satisfy the coding gate",
+      "non-coding tasks bypass the gate entirely"
+    ]
+  },
+  {
+    "file": "telemetry-scan-not-a-tool-call",
+    "kind": "REGRESSED",
+    "fork": "4/5",
+    "base": "5/5",
+    "detail": [
+      "a real model tool call is still counted while the telemetry scan is no"
+    ]
+  },
+  {
+    "file": "verification-contradiction",
+    "kind": "REGRESSED",
+    "fork": "2/3",
+    "base": "3/3",
+    "detail": [
+      "verified:true with success:false is rejected as a contradiction"
+    ]
+  },
+  {
+    "file": "agent-recovery-tabs",
+    "kind": "same",
+    "fork": "1/3",
+    "base": "1/3",
+    "detail": [
+      "observation recovery continues the same run without the generic recove",
+      "repeated malformed provider decisions reset internally and preserve co"
+    ]
+  },
+  {
+    "file": "agent-sessions",
+    "kind": "same",
+    "fork": "6/6",
+    "base": "6/6",
+    "detail": []
+  },
+  {
+    "file": "android-device",
+    "kind": "same",
+    "fork": "13/13",
+    "base": "13/13",
+    "detail": []
+  },
+  {
+    "file": "answer-only-and-thoughts",
+    "kind": "same",
+    "fork": "9/9",
+    "base": "9/9",
+    "detail": []
+  },
+  {
+    "file": "ask-user-create-plan",
+    "kind": "same",
+    "fork": "5/5",
+    "base": "5/5",
+    "detail": []
+  },
+  {
+    "file": "ask-user-custom-card",
+    "kind": "same",
+    "fork": "3/3",
+    "base": "3/3",
+    "detail": []
+  },
+  {
+    "file": "ask-user-live-question",
+    "kind": "same",
+    "fork": "2/3",
+    "base": "2/3",
+    "detail": [
+      "the .claude/skills scope makes SKILL.md folders visible to list and se"
+    ]
+  },
+  {
+    "file": "attachment-path",
+    "kind": "same",
+    "fork": "11/11",
+    "base": "11/11",
+    "detail": []
+  },
+  {
+    "file": "cli-agent-apis",
+    "kind": "same",
+    "fork": "4/4",
+    "base": "4/4",
+    "detail": []
+  },
+  {
+    "file": "cli-computer-backend",
+    "kind": "same",
+    "fork": "12/13",
+    "base": "12/13",
+    "detail": [
+      "browser_* tools work headless through the CLI CDP adapter (navigate/sc"
+    ]
+  },
+  {
+    "file": "computer-fs-batch",
+    "kind": "same",
+    "fork": "3/3",
+    "base": "3/3",
+    "detail": []
+  },
+  {
+    "file": "computer-git",
+    "kind": "same",
+    "fork": "3/3",
+    "base": "3/3",
+    "detail": []
+  },
+  {
+    "file": "computer-patch",
+    "kind": "same",
+    "fork": "34/34",
+    "base": "34/34",
+    "detail": []
+  },
+  {
+    "file": "computer-record",
+    "kind": "same",
+    "fork": "3/3",
+    "base": "3/3",
+    "detail": []
+  },
+  {
+    "file": "computer-tools",
+    "kind": "same",
+    "fork": "31/31",
+    "base": "31/31",
+    "detail": []
+  },
+  {
+    "file": "console-evidence-hierarchy",
+    "kind": "same",
+    "fork": "4/4",
+    "base": "4/4",
+    "detail": []
+  },
+  {
+    "file": "conversation-lifecycle",
+    "kind": "same",
+    "fork": "9/9",
+    "base": "9/9",
+    "detail": []
+  },
+  {
+    "file": "desktop-ai-chat-agent",
+    "kind": "same",
+    "fork": "-1/-1",
+    "base": "-1/-1",
+    "detail": [
+      "restores a saved conversation without replacing its first prompt with ",
+      "carries prior reasoning and semantic completed work into the next deci",
+      "resets strategy after repeated malformed provider output and keeps the",
+      "turns repeated passive waits into replanning instead of a terminal res"
+    ]
+  },
+  {
+    "file": "desktop-knowledge-store",
+    "kind": "same",
+    "fork": "11/11",
+    "base": "11/11",
+    "detail": []
+  },
+  {
+    "file": "desktop-laya",
+    "kind": "same",
+    "fork": "13/14",
+    "base": "13/14",
+    "detail": [
+      "laya verification rides on the NEXT decision — never blocking the curr"
+    ]
+  },
+  {
+    "file": "desktop-research-agent",
+    "kind": "same",
+    "fork": "11/11",
+    "base": "11/11",
+    "detail": []
+  },
+  {
+    "file": "desktop-research-pipeline",
+    "kind": "same",
+    "fork": "23/24",
+    "base": "23/24",
+    "detail": [
+      "research is model-decided: research_task spawns the subagent and its f"
+    ]
+  },
+  {
+    "file": "error-messages",
+    "kind": "same",
+    "fork": "7/7",
+    "base": "7/7",
+    "detail": []
+  },
+  {
+    "file": "execution-recovery",
+    "kind": "same",
+    "fork": "4/4",
+    "base": "4/4",
+    "detail": []
+  },
+  {
+    "file": "fixable-final-block",
+    "kind": "same",
+    "fork": "3/3",
+    "base": "3/3",
+    "detail": []
+  },
+  {
+    "file": "gen8-subagents",
+    "kind": "same",
+    "fork": "8/9",
+    "base": "8/9",
+    "detail": [
+      "gen8 B: clicking the subagent card switches the live pane; clicking th"
+    ]
+  },
+  {
+    "file": "laya-scope",
+    "kind": "same",
+    "fork": "3/3",
+    "base": "3/3",
+    "detail": []
+  },
+  {
+    "file": "native-dialog-handling",
+    "kind": "same",
+    "fork": "7/8",
+    "base": "7/8",
+    "detail": [
+      "nativeSurfaceSeen serializes as an array and survives a continuation: "
+    ]
+  },
+  {
+    "file": "native-evidence-context",
+    "kind": "same",
+    "fork": "10/11",
+    "base": "10/11",
+    "detail": [
+      "file content and observed Desktop paths reach the next decision"
+    ]
+  },
+  {
+    "file": "native-evidence-lifecycle",
+    "kind": "same",
+    "fork": "0/8",
+    "base": "0/8",
+    "detail": [
+      "a wait in a native task keeps the domain and replaces pre-wait pixels",
+      "a native action breaks the consecutive-wait backoff streak",
+      "native wait works when the structural browser tab has closed",
+      "computer_observe replaces stale top-level native evidence",
+      "computer_window replaces stale top-level native evidence",
+      "computer_screenshot replaces stale top-level native evidence",
+      "switching to a browser read does not attach the old native image",
+      "refresh markers do not split an already-planned native batch"
+    ]
+  },
+  {
+    "file": "native-visual-actions",
+    "kind": "same",
+    "fork": "16/26",
+    "base": "16/26",
+    "detail": [
+      "reported cross-action stroke payload remains invalid rather than silen",
+      "separate stroke action refreshes native evidence through the normal ch",
+      "a partially failed native action still requests fresh pixels",
+      "native vision rejection settles unverified without a model retry loop",
+      "fresh image remains pending across computer_observe after native mutat",
+      "fresh image remains pending across computer_window after native mutati",
+      "first native inspection obtains native pixels rather than browser evid",
+      "explicit native screenshot satisfies pending image without redundant r",
+      "openai does not silently replace rejected native images with empty DOM",
+      "ollama does not silently replace rejected native images with empty DOM"
+    ]
+  },
+  {
+    "file": "objective-ledger",
+    "kind": "same",
+    "fork": "11/11",
+    "base": "11/11",
+    "detail": []
+  },
+  {
+    "file": "output-budget",
+    "kind": "same",
+    "fork": "3/4",
+    "base": "3/4",
+    "detail": [
+      "the agent informs the model of the cut-off instead of scolding narrati"
+    ]
+  },
+  {
+    "file": "progress-state",
+    "kind": "same",
+    "fork": "7/7",
+    "base": "7/7",
+    "detail": []
+  },
+  {
+    "file": "provider-turn-ledger",
+    "kind": "same",
+    "fork": "14/14",
+    "base": "14/14",
+    "detail": []
+  },
+  {
+    "file": "request-visibility",
+    "kind": "same",
+    "fork": "1/3",
+    "base": "1/3",
+    "detail": [
+      "a long request is quoted whole, not cut to its first sentence",
+      "every copy of the request the model reads carries every ask"
+    ]
+  },
+  {
+    "file": "run-forensics-fixes",
+    "kind": "same",
+    "fork": "6/6",
+    "base": "6/6",
+    "detail": []
+  },
+  {
+    "file": "run-issues-fixes",
+    "kind": "same",
+    "fork": "12/12",
+    "base": "12/12",
+    "detail": []
+  },
+  {
+    "file": "skill-delivery-to-model",
+    "kind": "same",
+    "fork": "0/2",
+    "base": "0/2",
+    "detail": [
+      "skill_search finds an installed skill by what it is for",
+      "skill_run gives the model the WHOLE skill body, not the list summary"
+    ]
+  },
+  {
+    "file": "system-one-integrations",
+    "kind": "same",
+    "fork": "11/11",
+    "base": "11/11",
+    "detail": []
+  },
+  {
+    "file": "terminal-dead-end",
+    "kind": "same",
+    "fork": "3/3",
+    "base": "3/3",
+    "detail": []
+  },
+  {
+    "file": "token-compression",
+    "kind": "same",
+    "fork": "19/19",
+    "base": "19/19",
+    "detail": []
+  },
+  {
+    "file": "tool-result-archive",
+    "kind": "same",
+    "fork": "4/4",
+    "base": "4/4",
+    "detail": []
+  },
+  {
+    "file": "transport-retry",
+    "kind": "same",
+    "fork": "11/13",
+    "base": "11/13",
+    "detail": [
+      "recovery exhaustion stays internal and the next decision can finish",
+      "a step timeout leaves no truncated reasoning fragment for the retry"
+    ]
+  },
+  {
+    "file": "turn-addition-semantics",
+    "kind": "same",
+    "fork": "5/6",
+    "base": "5/6",
+    "detail": [
+      "turn-boundary framing: ADDITION is the default and carries the plan"
+    ]
+  },
+  {
+    "file": "vision-delegate",
+    "kind": "same",
+    "fork": "3/3",
+    "base": "3/3",
+    "detail": []
+  },
+  {
+    "file": "visual-evidence",
+    "kind": "same",
+    "fork": "5/5",
+    "base": "5/5",
+    "detail": []
+  },
+  {
+    "file": "wire-input-hygiene",
+    "kind": "same",
+    "fork": "6/7",
+    "base": "6/7",
+    "detail": [
+      "real desktop tools still attach the playbook, as its own block with no"
+    ]
+  },
+  {
+    "file": "workspace-scope-default",
+    "kind": "same",
+    "fork": "4/4",
+    "base": "4/4",
+    "detail": []
+  },
+  {
+    "file": "xkiro-wiring",
+    "kind": "same",
+    "fork": "12/12",
+    "base": "12/12",
+    "detail": []
+  },
+  {
+    "file": "enforcement-gen4",
+    "kind": "FIXED",
+    "fork": "19/19",
+    "base": "17/19",
+    "detail": []
+  },
+  {
+    "file": "enforcement-gen5",
+    "kind": "FIXED",
+    "fork": "13/13",
+    "base": "11/13",
+    "detail": []
+  },
+  {
+    "file": "mid-run-steering-and-patch-cadence",
+    "kind": "FIXED",
+    "fork": "6/6",
+    "base": "5/6",
+    "detail": []
+  },
+  {
+    "file": "prompt-compression-safety",
+    "kind": "FIXED",
+    "fork": "6/6",
+    "base": "5/6",
+    "detail": []
+  }
+]
