@@ -5,7 +5,7 @@
     "pass": 11,
     "fail": 1,
     "status": "RED",
-    "secs": 3,
+    "secs": 1,
     "failed": [
       "a reopened continuation restores the prior task: new-turn classificati"
     ]
@@ -16,7 +16,7 @@
     "pass": 20,
     "fail": 1,
     "status": "RED",
-    "secs": 4,
+    "secs": 1,
     "failed": [
       "returned malformed decisions recover internally and can finish"
     ]
@@ -27,7 +27,7 @@
     "pass": 16,
     "fail": 4,
     "status": "RED",
-    "secs": 4,
+    "secs": 2,
     "failed": [
       "fresh AGI uses desktop metadata first; vision=auto",
       "fresh AGI uses desktop metadata first; vision=always",
@@ -41,7 +41,7 @@
     "pass": 5,
     "fail": 5,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "ollama provider maps tiers onto the think flag, decision budget, and p",
       "ollama auto mode advertises the escalation channel and effortNeeded su",
@@ -56,7 +56,7 @@
     "pass": 9,
     "fail": 1,
     "status": "RED",
-    "secs": 2,
+    "secs": 0,
     "failed": [
       "the coding gate no longer fires on a browser task whose quoted fill va"
     ]
@@ -67,7 +67,7 @@
     "pass": 1,
     "fail": 2,
     "status": "RED",
-    "secs": 2,
+    "secs": 0,
     "failed": [
       "observation recovery continues the same run without the generic recove",
       "repeated malformed provider decisions reset internally and preserve co"
@@ -79,7 +79,7 @@
     "pass": 6,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 1,
     "failed": []
   },
   {
@@ -88,7 +88,7 @@
     "pass": 13,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 1,
     "failed": []
   },
   {
@@ -97,7 +97,7 @@
     "pass": 9,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -106,7 +106,7 @@
     "pass": 5,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 0,
     "failed": []
   },
   {
@@ -115,7 +115,7 @@
     "pass": 3,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -124,7 +124,7 @@
     "pass": 2,
     "fail": 1,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "the .claude/skills scope makes SKILL.md folders visible to list and se"
     ]
@@ -144,7 +144,7 @@
     "pass": 2,
     "fail": 2,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "Bug 2: Closing a tab does NOT dismiss the run",
       "Bug 3: Runs do NOT stall waiting for paintability"
@@ -153,13 +153,11 @@
   {
     "file": "browser-wait",
     "tests": 9,
-    "pass": 8,
-    "fail": 1,
-    "status": "RED",
-    "secs": 11,
-    "failed": [
-      "first wait honors the exact requested ms"
-    ]
+    "pass": 9,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 9,
+    "failed": []
   },
   {
     "file": "cli-agent-apis",
@@ -167,7 +165,7 @@
     "pass": 4,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 0,
     "failed": []
   },
   {
@@ -176,7 +174,7 @@
     "pass": 12,
     "fail": 1,
     "status": "RED",
-    "secs": 30,
+    "secs": 14,
     "failed": [
       "browser_* tools work headless through the CLI CDP adapter (navigate/sc"
     ]
@@ -187,7 +185,7 @@
     "pass": 3,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 0,
     "failed": []
   },
   {
@@ -196,7 +194,7 @@
     "pass": 3,
     "fail": 0,
     "status": "GREEN",
-    "secs": 3,
+    "secs": 1,
     "failed": []
   },
   {
@@ -205,7 +203,7 @@
     "pass": 34,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -214,7 +212,7 @@
     "pass": 3,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -223,7 +221,7 @@
     "pass": 31,
     "fail": 0,
     "status": "GREEN",
-    "secs": 18,
+    "secs": 6,
     "failed": []
   },
   {
@@ -232,7 +230,7 @@
     "pass": 4,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -241,7 +239,7 @@
     "pass": 9,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 1,
     "failed": []
   },
   {
@@ -264,7 +262,7 @@
     "pass": 11,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 0,
     "failed": []
   },
   {
@@ -273,7 +271,7 @@
     "pass": 13,
     "fail": 1,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "laya verification rides on the NEXT decision — never blocking the curr"
     ]
@@ -284,7 +282,7 @@
     "pass": 14,
     "fail": 4,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "OpenAI-compatible provider keeps keys private and returns a structured",
       "OpenAI-compatible provider falls back to the same DOM context when a m",
@@ -298,7 +296,7 @@
     "pass": 11,
     "fail": 2,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "missing bound tab is a bounded recoverable advisory, not an infinite t",
       "desktop agent shell keeps the compact dark reference controls wired to"
@@ -310,7 +308,7 @@
     "pass": 11,
     "fail": 0,
     "status": "GREEN",
-    "secs": 4,
+    "secs": 5,
     "failed": []
   },
   {
@@ -319,7 +317,7 @@
     "pass": 23,
     "fail": 1,
     "status": "RED",
-    "secs": 3,
+    "secs": 1,
     "failed": [
       "research is model-decided: research_task spawns the subagent and its f"
     ]
@@ -330,7 +328,7 @@
     "pass": 9,
     "fail": 4,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "near-duplicate reasoning counts as a stall, not just verbatim repeats",
       "the provider prompt never names a \"harness\" the model can narrate",
@@ -344,7 +342,7 @@
     "pass": 13,
     "fail": 1,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "E5: an over-budget deliberation arms a one-shot notice; three in a row"
     ]
@@ -376,7 +374,7 @@
     "pass": 13,
     "fail": 0,
     "status": "GREEN",
-    "secs": 12,
+    "secs": 11,
     "failed": []
   },
   {
@@ -385,7 +383,7 @@
     "pass": 7,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -394,7 +392,7 @@
     "pass": 3,
     "fail": 3,
     "status": "RED",
-    "secs": 3,
+    "secs": 1,
     "failed": [
       "successful evidence-only decisions still trigger EVIDENCE SUFFICIENT a",
       "a failed call between successful reads does not RESET the streak eithe",
@@ -407,7 +405,7 @@
     "pass": 5,
     "fail": 1,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "a restored ledger exposes the evidence to the model"
     ]
@@ -418,7 +416,7 @@
     "pass": 4,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -427,7 +425,7 @@
     "pass": 3,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -452,7 +450,7 @@
     "pass": 8,
     "fail": 1,
     "status": "RED",
-    "secs": 9,
+    "secs": 6,
     "failed": [
       "gen8 B: clicking the subagent card switches the live pane; clicking th"
     ]
@@ -463,7 +461,7 @@
     "pass": 7,
     "fail": 2,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "notebook and workspace pin survive forced compaction AND the raw-evict",
       "agent run start: notebook created in notebookDir, pinned wire carries "
@@ -475,7 +473,7 @@
     "pass": 1,
     "fail": 1,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "large paste attachment is a filesystem path, not copied into the agent"
     ]
@@ -486,7 +484,7 @@
     "pass": 3,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -495,7 +493,7 @@
     "pass": 6,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -504,7 +502,7 @@
     "pass": 7,
     "fail": 1,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "nativeSurfaceSeen serializes as an array and survives a continuation: "
     ]
@@ -515,7 +513,7 @@
     "pass": 10,
     "fail": 1,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "file content and observed Desktop paths reach the next decision"
     ]
@@ -564,7 +562,7 @@
     "pass": 11,
     "fail": 0,
     "status": "GREEN",
-    "secs": 10,
+    "secs": 3,
     "failed": []
   },
   {
@@ -573,7 +571,7 @@
     "pass": 3,
     "fail": 1,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "the agent informs the model of the cut-off instead of scolding narrati"
     ]
@@ -584,7 +582,7 @@
     "pass": 14,
     "fail": 3,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "a summary that accounts for only part of the request is rejected",
       "one bounce carries one demand: the accounting and the plan gates do no",
@@ -597,7 +595,7 @@
     "pass": 7,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 0,
     "failed": []
   },
   {
@@ -606,7 +604,7 @@
     "pass": 6,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -615,7 +613,7 @@
     "pass": 14,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -624,7 +622,7 @@
     "pass": 4,
     "fail": 2,
     "status": "RED",
-    "secs": 5,
+    "secs": 2,
     "failed": [
       "verified:true with NO evidence-producing tool call is downgraded, not ",
       "evidence produced BEFORE the last mutation does not count as verificat"
@@ -636,7 +634,7 @@
     "pass": 1,
     "fail": 2,
     "status": "RED",
-    "secs": 2,
+    "secs": 1,
     "failed": [
       "a long request is quoted whole, not cut to its first sentence",
       "every copy of the request the model reads carries every ask"
@@ -648,7 +646,7 @@
     "pass": 5,
     "fail": 3,
     "status": "RED",
-    "secs": 2,
+    "secs": 0,
     "failed": [
       "native IDs and actual tool results survive an end-to-end agent decisio",
       "incomplete responses are rejected without exposing partial actions",
@@ -661,7 +659,7 @@
     "pass": 6,
     "fail": 0,
     "status": "GREEN",
-    "secs": 10,
+    "secs": 3,
     "failed": []
   },
   {
@@ -670,7 +668,7 @@
     "pass": 12,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -679,7 +677,7 @@
     "pass": 0,
     "fail": 2,
     "status": "RED",
-    "secs": 2,
+    "secs": 0,
     "failed": [
       "skill_search finds an installed skill by what it is for",
       "skill_run gives the model the WHOLE skill body, not the list summary"
@@ -691,7 +689,7 @@
     "pass": 3,
     "fail": 4,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "completed in-page probe evidence satisfies the coding gate (the 8-boun",
       "terminal evidence still satisfies the coding gate",
@@ -705,7 +703,7 @@
     "pass": 11,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -714,7 +712,7 @@
     "pass": 4,
     "fail": 1,
     "status": "RED",
-    "secs": 2,
+    "secs": 0,
     "failed": [
       "a real model tool call is still counted while the telemetry scan is no"
     ]
@@ -725,7 +723,7 @@
     "pass": 3,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 0,
     "failed": []
   },
   {
@@ -734,7 +732,7 @@
     "pass": 19,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -743,7 +741,7 @@
     "pass": 4,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 0,
     "failed": []
   },
   {
@@ -752,7 +750,7 @@
     "pass": 11,
     "fail": 2,
     "status": "RED",
-    "secs": 32,
+    "secs": 30,
     "failed": [
       "recovery exhaustion stays internal and the next decision can finish",
       "a step timeout leaves no truncated reasoning fragment for the retry"
@@ -764,7 +762,7 @@
     "pass": 5,
     "fail": 1,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "turn-boundary framing: ADDITION is the default and carries the plan"
     ]
@@ -772,13 +770,11 @@
   {
     "file": "verification-contradiction",
     "tests": 3,
-    "pass": 2,
-    "fail": 1,
-    "status": "RED",
-    "secs": 2,
-    "failed": [
-      "verified:true with success:false is rejected as a contradiction"
-    ]
+    "pass": 3,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 0,
+    "failed": []
   },
   {
     "file": "vision-delegate",
@@ -786,7 +782,7 @@
     "pass": 3,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -795,7 +791,7 @@
     "pass": 5,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 0,
     "failed": []
   },
   {
@@ -804,7 +800,7 @@
     "pass": 6,
     "fail": 1,
     "status": "RED",
-    "secs": 2,
+    "secs": 0,
     "failed": [
       "real desktop tools still attach the playbook, as its own block with no"
     ]
@@ -815,7 +811,7 @@
     "pass": 4,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 0,
     "failed": []
   },
   {
@@ -824,7 +820,7 @@
     "pass": 12,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 1,
     "failed": []
   }
 ]

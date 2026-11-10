@@ -109,6 +109,37 @@ function thinkingBudgetMs(effort) {
   return EFFORT_BUDGET_MS[effort] ?? EFFORT_BUDGET_MS.auto;
 }
 
+// ---- VERIFICATION NEVER BLOCKS A GENUINE RUN (owner policy, 2026-11-02) ----
+// A bounced done whose turn did real work is ACCEPTED with the gate's concern
+// preserved as a note, instead of another round of proof. The bounce is what
+// turned verification into a fabrication trap.
+//
+// SCOPE IS EXPLICIT, not "whatever bounced". A gate that catches FABRICATION
+// or a POLICY violation must be ANSWERED by the model — the harness does not
+// waive those. A gate that expresses DOUBT about the run's own completeness is
+// advice, and advice must not become a deadlock.
+//
+//   flippable — doubt about completeness / the run's own reporting:
+//     completion_review            the named-gap audit round
+//     unproven_failure             the failure ladder (options not exhausted)
+//     unverified_external_block    a failed/blocked terminal claim
+//     unverified_verification_claim verified:true with no producing call
+//
+//   NOT flippable — fabrication or policy:
+//     unbacked_claim               the history does not show the claim
+//     screenshot_claim_unverified  a screenshot that was never taken
+//     choice_in_summary            asking the user to pick instead of acting
+const FLIPPABLE_RECOVERY_SOURCES = Object.freeze([
+  'completion_review',
+  'unproven_failure',
+  'unverified_external_block',
+  'unverified_verification_claim'
+]);
+
+function isFlippableRecoverySource(source) {
+  return FLIPPABLE_RECOVERY_SOURCES.includes(String(source || ''));
+}
+
 module.exports = {
   FAILURE_CLASSES,
   classifyFailure,
@@ -124,5 +155,7 @@ module.exports = {
   DEADLINE_NOTICE,
   OBSERVATION_ADVISORY,
   EFFORT_BUDGET_MS,
-  thinkingBudgetMs
+  thinkingBudgetMs,
+  FLIPPABLE_RECOVERY_SOURCES,
+  isFlippableRecoverySource
 };

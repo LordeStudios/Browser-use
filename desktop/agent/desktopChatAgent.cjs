@@ -38,6 +38,25 @@ const { createPromptRegistry, SECTION_ORDERS } = require('./harness/promptRegist
 const { registerPromptSections, modelingPlaybookFor, drawingPlaybookFor } = require('./prompt/sections.cjs');
 const { createInbox } = require('./harness/inbox.cjs');
 const { RepeatCallGuard } = require('./harness/guards.cjs');
+// Flow + evidence enforcement stages (DSH). One owner for the evidence
+// epoch, the evidence-only streak, the read-only cap and the actionless
+// stall. The pure state machine stays in ../flowControlState.cjs.
+const {
+  FlowGuard,
+  observeEvidenceStreak,
+  observeActionlessStall,
+  resetActionlessStall,
+  evidenceCallsAllSucceeded,
+  readOnlyCapApplies,
+  readOnlyEnforcementDemand,
+  normalizeStallText,
+  createFlowControlState,
+  resetFlowControlForUserTurn,
+  captureEvidence,
+  touchedPathsFromCall,
+  thinkingBudgetTier,
+  thinkingBudgetNotice
+} = require('./harness/flowGuard.cjs');
 const loopPolicy = require('./harness/loopPolicy.cjs');
 
 const {
@@ -84,7 +103,7 @@ const {
   maybeGenerateConversationTitle, nextTimelineAt, ensureTerminalAssistantMessage,
   restoreConversationSnapshot, archiveActiveThinking, harvestThinkingBudget, harvestThinkingBudgetFromText,
   normalizeSettings, normalizeWorkspace, workspaceFromTask, defaultNotebookDir, syncNotebook, syncObjectiveLedger,
-  recordConsulted, speculativePreRead, createThoughtAccumulator, isMessageInterrupt,
+  recordConsulted, speculativePreRead, resetStreamingThoughtStall, isMessageInterrupt,
   serializeRun, serializeEventRun, checkpointSnapshot,
   observeRun, requiresApproval, approvalReason, withinStepTimeout, resolveSnapshotElement,
   shouldFinalizeConclusivePointerMove, terminalPointerMoveCompletion, isWaitPollCall,
@@ -149,6 +168,78 @@ function runtimeContextText(run, observation) {
   return parts.join('\n');
 }
 
+// ── THOUGHT CARD (DSH: one accumulator, one stall detector) ───────────────
+// The thought card belongs to the decision, not to the provider call: the
+// reasoning stream accumulates on purpose, and the CARD is what the user
+// sees. The stall detector below is the near-duplicate guard: the field run
+// repeated its reasoning with small edits ("the constraint said one tool call
+// per decision" / "...because batches get clipped"), so an exact string match
+// never fired and the stall notice stayed silent through 137 repeats.
+
+// Word overlap between two sentences — the near-duplicate measure.
+function sentenceOverlap(left, right) {
+  const a = new Set(left.split(' ').filter((word) => word.length > 3));
+  const b = new Set(right.split(' ').filter((word) => word.length > 3));
+  if (!a.size || !b.size) return 0;
+  let shared = 0;
+  for (const word of a) if (b.has(word)) shared += 1;
+  return shared / Math.min(a.size, b.size);
+}
+
+// Advance the streaming-thought stall counter for one reasoning chunk.
+// Returns true when the reasoning is repeating itself.
+function noteStreamingThought(run, value) {
+  if (!run) return false;
+  const text = normalizeStallText(value);
+  if (text.length < 160) return false;
+  const sentences = text.match(/[^.!?\n]{40,}?[.!?]/g) || [];
+  const state = run.streamingThoughtStall || (run.streamingThoughtStall = { seen: [], cursor: 0, repeats: 0, noticeArmed: false });
+  if (sentences.length < state.cursor) {
+    state.cursor = 0;
+    state.seen = [];
+  }
+  for (const sentence of sentences.slice(state.cursor)) {
+    const normalized = sentence.replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+    if (normalized.length < 40) continue;
+    const repeated = state.seen.some((seen) => seen === normalized || sentenceOverlap(seen, normalized) >= 0.72);
+    if (repeated) state.repeats = Math.min(10, state.repeats + 1);
+    state.seen.push(normalized);
+  }
+  state.cursor = sentences.length;
+  state.seen = state.seen.slice(-12);
+  return state.repeats >= 1;
+}
+
+// Drop the reasoning parts that restate an earlier part or narrate the task
+// instead of doing it. The card shows ONE continuous stream.
+function compactThoughtText(value) {
+  const parts = String(value || '').split(/\n{2,}/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) return String(value || '');
+  const kept = [parts[0]];
+  for (const part of parts.slice(1)) {
+    const normalized = normalizeStallText(part);
+    const prior = kept.map(normalizeStallText);
+    const repeats = prior.some((item) => item === normalized || sentenceOverlap(item, normalized) >= 0.72);
+    const meta = /\b(?:the task|my plan|the plan|let me|actually|i should|i need to|the user asked|do not repeat)\b/i.test(part);
+    if (!repeats && !meta) kept.push(part);
+  }
+  return kept.join('\n\n');
+}
+
+// The provider stream is cumulative: replace the card with the newest
+// cumulative text, never append a revised/retried thought as a second
+// segment. A new action closes the card before the next decision.
+function createThoughtAccumulator(onUpdate) {
+  let lastPublished = '';
+  return (value) => {
+    const next = compactThoughtText(value);
+    if (!next || next === lastPublished) return lastPublished;
+    lastPublished = next;
+    onUpdate(next);
+    return lastPublished;
+  };
+}
+
 class DesktopChatAgent {
   constructor({ controller, getSelectedTabId, createTab, closeTab = null, selectTab, focusTab = null, writeReportFile = null, modelTaskApi = null, catalogApi = null, androidApi = null, getComputerTools = null, hcuApi = null, getControlMode = () => 'browser', emit, createProvider, onTerminal = null, onCheckpoint = null, titleApi = null, scheduleApi = null, spawnTask = null, skillsApi = null, messageApi = null, subagentApi = null, createResultStore = null, researchRunner = null, researchMetaSearch = null, knowledgeStore = null, layaVerifierFactory = null, jevVerifierFactory = null, notebookDir = null }) {
     this.controller = controller;
@@ -176,6 +267,10 @@ class DesktopChatAgent {
     this.layaVerifierFactory = layaVerifierFactory || ((opts) => require('./layaDecision.cjs').createLayaVerifier(opts));
     this.jevVerifierFactory = jevVerifierFactory || ((opts) => require('./jevProvider.cjs').createJevVerifier(opts));
     this.transportRetryDelays = RETRY_DELAYS_MS;
+    // Flow guard (DSH): the decision-level enforcement stage. It owns the
+    // evidence epoch, the plan prompts, the evidence-claim notice and the
+    // bounded low-yield bounce.
+    this.flowGuard = new FlowGuard();
     this.emit = emit;
     this.createProvider = createProvider;
     this.onTerminal = onTerminal;
@@ -397,6 +492,16 @@ class DesktopChatAgent {
       // DSH advisory guard state: canonical repeat-call detection (replaces
       // the old actionless-stall / streaming-stall / flow-control scoring).
       repeatGuard: new RepeatCallGuard(),
+      // Flow + evidence enforcement state (DSH). The evidence epoch, the
+      // evidence-only streak and the actionless stall all live on the run so
+      // they survive checkpointing and a resumed run keeps its accounting.
+      flowControl: continuation && turnContinuation
+        ? createFlowControlState(previous?.flowControl)
+        : resetFlowControlForUserTurn(continuation ? previous?.flowControl : null, task),
+      evidenceOnlyStreak: 0,
+      readOnlyDecisionStreak: 0,
+      actionlessStall: { key: '', count: 0, noticeKey: '', parkKey: '' },
+      streamingThoughtStall: { seen: [], cursor: 0, repeats: 0, noticeArmed: false },
       schemaRepairArmed: false,
       effortTier: settings.effort === 'auto'
         ? (I.isCheapInformationalTask(task) || I.isRapidTask(task) ? 'minimal' : 'standard')
@@ -426,6 +531,11 @@ class DesktopChatAgent {
       rebuildNoticeFired: false,
       settledReexecutionCount: 0,
       decisionWatchdogFires: 0,
+      // Shared stall-ladder counter (DSH): the over-thought ladder and the
+      // no-observable-change ladder feed the SAME counter; the park
+      // threshold is measured against it.
+      watchdogFires: 0,
+      overThoughtStreak: 0,
       requirementLedger: parseNumberedRequirements(task).map((req) => ({ ...req, status: 'open', evidence: null })),
       lastCheckpointStep: -1,
       eventRevision: continuation ? Number(previous.eventRevision || 0) : 0,
@@ -441,6 +551,9 @@ class DesktopChatAgent {
       transportRetryAttempts: 0
     };
     run.publishEvent = (type, payload = {}) => this.publish(type, run, payload);
+    // The flow guard continues from the run's restored flow state (a resumed
+    // run must not re-arm prompts it already delivered).
+    this.flowGuard.state = createFlowControlState(run.flowControl);
     run.resultStore = this.createResultStore?.(run.id) || null;
     if (Array.isArray(attachments) && attachments.some((item) => item?.kind === 'image')) recordVisualCapture(run, 'attachment');
     run.turnLedger = new ProviderTurnLedger({ snapshot: continuation ? (previous.turnLedger?.snapshot() || previous.providerLedger) : null,
@@ -633,10 +746,21 @@ class DesktopChatAgent {
           // Live thought card (kept: UI functionality).
           const decisionThinkingStart = Date.now();
           if (!run.activeThoughtId) {
+            // PER-DECISION THINKING CLOCK: the thought CARD spans recovery
+            // cycles (its text accumulates on purpose) but its TIMER must not.
+            // Every decision also starts its stall accounting fresh.
+            resetStreamingThoughtStall(run);
             run.activeThoughtId = `${run.id}:decision:${run.step + 1}`;
             run.activeThoughtStartedAt = Date.now();
             run.thoughtCount = (run.thoughtCount || 0) + 1;
             run.activeThoughtAccumulator = createThoughtAccumulator((reasoning) => {
+              // The model narrates its own decision JSON; harvest and execute
+              // it rather than showing the raw object.
+              const repeated = noteStreamingThought(run, reasoning);
+              if (repeated && !run.streamingThoughtStall.noticeArmed) {
+                run.streamingThoughtStall.noticeArmed = true;
+                pushHarnessNotice(run, 'STREAMING STALL: the current reasoning is repeating. When this decision ends, take the smallest concrete action or discriminating probe instead of restating the task.');
+              }
               this.publish('assistant.thought', run, { thoughtId: run.activeThoughtId, text: redactEmbeddedDecision(reasoning), elapsedMs: Math.max(0, Date.now() - decisionThinkingStart) });
             });
           }
@@ -893,6 +1017,40 @@ class DesktopChatAgent {
           if (Array.isArray(proposedCalls) && proposedCalls.length > calls.length) {
             pushHarnessNotice(run, `BATCH TRUNCATED: ${proposedCalls.length - calls.length} action(s) exceeded the per-decision limit of ${run.settings.maxActionsPerStep}. Batch only independent calls; continue the remaining work in the next decision.`);
           }
+          // ── ESCALATING THINKING BUDGET (E5 / gen2 enforcement) ──
+          // Pure-reasoning stalls carry tool calls, so the no-progress
+          // detectors are blind to them. Normal-size, normal-time thinking
+          // stays SILENT; an elevated or heavy decision (by size OR
+          // wall-clock) is told its three exits — real plan, act on held
+          // evidence, or keep thinking only if one fact is missing.
+          //
+          // Delivered after the decision settles, so a live thought stream is
+          // never cut. Wall-clock only counts when the decision also produced
+          // real reasoning: provider queueing / time-to-first-token on a slow
+          // route is latency, not deliberation.
+          //
+          // Three consecutive over-budget decisions feed the shared stall
+          // ladder exactly like a stall (nudge → park → hold). Never
+          // terminates a run.
+          {
+            const thinkingChars = Math.max(0, String(run.activeThoughtAccumulator?.() || '').length - Number(run.thoughtBaseChars || 0));
+            const deliberationMs = thinkingChars >= 1_024 ? thinkingMs : 0;
+            const thinkingTier = thinkingBudgetTier({ chars: thinkingChars, ms: deliberationMs });
+            run.lastThinkingTier = thinkingTier;
+            if (thinkingChars > I.THOUGHT_BUDGET_CHARS || thinkingTier > 0) {
+              run.overThoughtStreak = (run.overThoughtStreak || 0) + 1;
+              pushHarnessNotice(run, thinkingBudgetNotice(Math.max(thinkingTier, 1)));
+              if (run.overThoughtStreak >= 3) {
+                run.overThoughtStreak = 0;
+                run.watchdogFires = (run.watchdogFires || 0) + 1;
+                if (run.watchdogFires >= I.ESCALATION_PARK_FIRES) {
+                  this.parkRun(run, `${run.watchdogFires} watchdog fires: repeated over-budget deliberation produced no discriminating test.`);
+                }
+              }
+            } else {
+              run.overThoughtStreak = 0;
+            }
+          }
           const conclusivePointerMove = shouldFinalizeConclusivePointerMove(calls, assistantText);
           if (conclusivePointerMove) {
             calls = [...calls, terminalPointerMoveCompletion(assistantText)];
@@ -937,18 +1095,54 @@ class DesktopChatAgent {
             appendConversationMessage(run, 'assistant', assistantText);
             break;
           }
+          if (calls.length === 0 && !responsePlanApplied) {
+            // A no-call decision still has a flow outcome. A model may say
+            // "enough evidence" or narrate a multi-step plan in thinking
+            // while emitting no executable call: assess it BEFORE the
+            // actionless recovery path so the next decision receives the
+            // guidance instead of a generic retry.
+            const noActionFlow = this.flowGuard.assess({
+              calls: [],
+              evidence: [],
+              assistantText,
+              reasoningText: String(run.activeThoughtAccumulator?.() || ''),
+              planChanged: false,
+              planLength: run.plan.length,
+              taskIsMultipart: isMultipartTask(run.task),
+              thinkingChars: Math.max(0, String(run.activeThoughtAccumulator?.() || '').length - Number(run.thoughtBaseChars || 0)),
+              thinkingMs,
+              taskText: run.task,
+              planTexts: run.plan.map((item) => item.text)
+            });
+            run.flowControl = noActionFlow.state;
+            if (noActionFlow.notice) pushHarnessNotice(run, noActionFlow.notice.text);
+          }
           if (calls.length === 0) {
-            // DSH UNDECIDABLE OUTPUT: one sticky schema-repair notice per
-            // turn + classified recovery. Three consecutive empty decisions
-            // park the run once (indefinite recovery — never terminates).
+            // DSH UNDECIDABLE OUTPUT + ACTIONLESS-STALL GUARD.
+            // Two independent detectors, because they catch different loops:
+            //   1. The KEYED stall counts only an IDENTICAL restatement (same
+            //      narration, same observation, same plan). A fresh decision
+            //      resets it — a model that keeps varying its wording is
+            //      exploring, not looping.
+            //   2. The BLUNT backstop counts every actionless decision, so a
+            //      loop that varies its narration is still caught.
+            // Both PARK (awaiting_recovery + auto-resume) — never terminate.
+            const stall = observeActionlessStall(run, {
+              narration: assistantText,
+              observationFingerprint: run.coordinator?.fingerprint,
+              plan: run.plan,
+              source: 'empty_decision'
+            });
+            if (stall.notice) pushHarnessNotice(run, stall.notice.text);
             run.emptyDecisionStreak = (run.emptyDecisionStreak || 0) + 1;
-            if (run.emptyDecisionStreak >= 3) {
+            if (stall.park || run.emptyDecisionStreak >= 3) {
               run.emptyDecisionStreak = 0;
               this.settleActiveThought(run, 'actionless_stall');
-              this.parkRun(run, 'Repeated actionless decisions produced no new evidence or executable action; the run is parked to resume from preserved state.');
+              this.parkRun(run, stall.park?.text || 'Repeated actionless decisions produced no new evidence or executable action; the run is parked to resume from preserved state.');
               latestObservation = null;
               continue;
             }
+            if (stall.count >= 2) this.settleActiveThought(run, 'actionless_recovery');
             if (!run.schemaRepairArmed) {
               run.schemaRepairArmed = true;
               pushHarnessNotice(run, loopPolicy.SCHEMA_REPAIR_NOTICE.text);
@@ -965,6 +1159,7 @@ class DesktopChatAgent {
             continue;
           }
           run.emptyDecisionStreak = 0;
+          resetActionlessStall(run);
           run.schemaRepairArmed = false;
           const onlyUpdatesPlan = calls.length > 0 && calls.every((call) => call.name === 'update_plan');
           archiveActiveThinking(run);
@@ -982,6 +1177,10 @@ class DesktopChatAgent {
           run.step += 1;
           const decisionObservation = { desktop: run.latestObservation?.desktop, screenshot: run.latestObservation?.screenshot };
           const planBeforeDecision = JSON.stringify(run.plan || []);
+          // entry.at is strictly increasing (nextTimelineAt), so "at >
+          // decisionStartClock" selects exactly THIS decision's history
+          // entries (eager results included) and survives history trimming.
+          const decisionStartClock = Number(run.timelineClock || 0);
           let decisionSettledReexecutions = 0;
           for (let callIndex = 0; callIndex < calls.length; callIndex += 1) {
             const call = calls[callIndex];
@@ -1083,6 +1282,33 @@ class DesktopChatAgent {
             // replaces the identical-action stall trackers).
             const repeatNotice = run.repeatGuard.observe(call.name, call.input);
             if (repeatNotice) pushHarnessNotice(run, repeatNotice.text);
+            // READ-ONLY CAP (the one hard floor). A coding/diagnosis task whose
+            // decisions keep returning only reads/searches has already been
+            // told, advisably, that it has read enough. Advisory notices are
+            // not enough — a model that varies its query wording never trips
+            // the identical-read guards. Past the cap, with no mutation in the
+            // batch, a read-style call is REJECTED before execution and the
+            // rejection names the only exits. A mutation, terminal, or plan
+            // change in the same batch still passes (never block real
+            // progress); reads batched alongside a mutation are allowed
+            // because the mutation is the point.
+            if (readOnlyCapApplies({
+              call,
+              mutation,
+              calls,
+              mutates: actionMutates,
+              streak: Number(run.readOnlyDecisionStreak) || 0,
+              taskText: run.task,
+              workspace: run.workspace
+            })) {
+              const demand = readOnlyEnforcementDemand(run.task);
+              const output = { ok: false, recoverable: true, recoverySource: 'read_only_cap', error: demand };
+              this.record(run, call, output);
+              this.publish('tool.result', run, { tool: call.name, output, inspection: { input: inspectionValue(call.name, call.input), output: inspectionValue(call.name, output) } });
+              this.scheduleRecovery(run, { source: 'read_only_cap', error: demand, call, recordSyntheticHistory: true });
+              latestObservation = null;
+              continue;
+            }
             const grounding = prepareAction(run.interactionMemory, call);
             if (!grounding.ok) {
               const output = { ok: false, recoverable: true, recoverySource: 'layout_changed', error: grounding.message };
@@ -1223,6 +1449,62 @@ class DesktopChatAgent {
           }
           // A different executed call resets the repeat-call streak.
           if (calls.some((call) => call.name !== 'browser_done')) run.repeatGuard.reset();
+          // ── FLOW + EVIDENCE ENFORCEMENT STAGES (DSH) ──────────────────
+          // Two stages run once per decision, in this order:
+          //   1. The FLOW stage scores the evidence this decision gathered:
+          //      is it NEW, is it RELEVANT, did an edit open a new epoch? It
+          //      hands back at most one sourced notice and, once per epoch,
+          //      one bounded recovery bounce. It never rejects a call.
+          //   2. The EVIDENCE-STREAK stage counts consecutive evidence-only
+          //      decisions. A call rejected by argument validation is NOT
+          //      evidence and neither advances nor resets the streak.
+          {
+            const decisionEntries = (Array.isArray(run.history) ? run.history : [])
+              .filter((entry) => Number(entry?.at || 0) > decisionStartClock);
+            const flowEvidence = decisionEntries
+              .map((entry) => captureEvidence({ name: entry.tool, input: entry.input }, entry.output))
+              .filter(Boolean);
+            const mutationSucceeded = calls.some((call) => actionMutates(call.name, call.input)
+              && decisionEntries.some((entry) => entry.tool === call.name && entry.output?.ok === true));
+            const batchHadMutation = calls.some((call) => actionMutates(call.name, call.input));
+            // A failed action invalidates what the model thought it knew: the
+            // next read is a legitimate re-check, not read-spam.
+            const actionFailed = decisionEntries.some((entry) => entry.output?.ok === false);
+            const flowResult = this.flowGuard.assess({
+              calls,
+              evidence: flowEvidence,
+              assistantText,
+              reasoningText: String(run.activeThoughtAccumulator?.() || ''),
+              planChanged: JSON.stringify(run.plan || []) !== planBeforeDecision,
+              planLength: run.plan.length,
+              taskIsMultipart: isMultipartTask(run.task),
+              thinkingChars: Math.max(0, String(run.activeThoughtAccumulator?.() || '').length - Number(run.thoughtBaseChars || 0)),
+              thinkingMs,
+              mutationSucceeded,
+              actionFailed,
+              touchedPaths: calls.flatMap(touchedPathsFromCall),
+              taskText: run.task,
+              planTexts: run.plan.map((item) => item.text)
+            });
+            run.flowControl = flowResult.state;
+            if (flowResult.notice) pushHarnessNotice(run, flowResult.notice.text);
+            // One bounded recovery per evidence epoch — advisory context for
+            // the next decision, never a rejected call.
+            if (flowResult.bounce) {
+              this.scheduleRecovery(run, { source: flowResult.bounce.source, error: flowResult.bounce.demand, recordSyntheticHistory: true });
+            }
+            // Evidence-streak accounting. The streak advances ONLY when every
+            // call of this decision was a read-style consult AND every one
+            // of them actually ran and returned ok.
+            const evidenceOutcome = observeEvidenceStreak(run, {
+              calls,
+              allSucceeded: evidenceCallsAllSucceeded(calls, run, decisionStartClock)
+            });
+            run.readOnlyDecisionStreak = batchHadMutation ? 0 : (Number(run.readOnlyDecisionStreak) || 0) + 1;
+            if (evidenceOutcome.notice) {
+              appendConversationMessage(run, 'user', evidenceOutcome.notice.text, { source: 'runtime' });
+            }
+          }
           // DSH PROGRESS ADVISORY (kept: madeProgress, one single source).
           const progressAssessment = madeProgress(run.coordinator, {
             observationChanged: run.coordinator.fingerprint !== null && run.coordinator.fingerprint !== run.lastProgressFingerprint,
@@ -1622,6 +1904,14 @@ class DesktopChatAgent {
     run.schemaRepairArmed = false;
     run.emptyDecisionStreak = 0;
     run.repeatGuard?.reset();
+    // Steering is fresh evidence of intent: the flow epoch, the evidence
+    // streak and the stall counters belong to the old turn and start over.
+    run.evidenceOnlyStreak = 0;
+    run.readOnlyDecisionStreak = 0;
+    resetActionlessStall(run);
+    resetStreamingThoughtStall(run);
+    run.flowControl = resetFlowControlForUserTurn(run.flowControl, String(messages.at(-1)?.content || run.task || ''));
+    this.flowGuard.state = createFlowControlState(run.flowControl);
     run.loopState = { recentActions: [], unchangedPages: 0, lastFingerprint: null, noProgressActions: 0, consecutiveWaits: 0, lastWaitedMs: 0 };
     for (const message of messages) this.publish('user.message.delivered', run, { messageId: message.id });
     const latestText = String(messages.at(-1)?.content || '').replace(/\s+/g, ' ').trim().slice(0, 400);
@@ -2101,13 +2391,22 @@ class DesktopChatAgent {
     // ── VERIFICATION NEVER BLOCKS A GENUINE RUN (owner policy, 2026-11-02) ──
     // A bounced done whose turn did real work is ACCEPTED with the gate's
     // concern preserved as a note instead of another round of proof — the
-    // bounce is what turned verification into a fabrication trap. NARROW
-    // scope: only the plain audit-round concern flips. The two STRUCTURAL
-    // rituals (the requirement-ledger demand, the multipart forced review)
-    // are exempt — they must be answered (settle / re-done with verified)
-    // or park at their bound, never converted away (F1/F2 semantics).
-    if (call.name === 'browser_done' && output?.ok === false && output?.recoverable === true
-      && output?.recoverySource === 'completion_review' && !output.multipartReview && !output.ledgerDemand && !output.parkedReview) {
+    // bounce is what turned verification into a fabrication trap.
+    //
+    // SCOPE: only the gates that express DOUBT about the run's completeness
+    // may become an acceptance (loopPolicy owns the list). A gate that
+    // catches FABRICATION or a POLICY violation must be answered by the
+    // model — the harness never waives those.
+    //
+    // The three STRUCTURAL rituals are exempt — they must be ANSWERED (the
+    // ledger settled, the multipart review re-done with verified:true) or
+    // park at their bound, never converted away (F1/F2 semantics):
+    //   multipartReview — the multipart forced review
+    //   ledgerDemand    — the requirement-ledger demand
+    //   parkedReview    — the exhausted-review PARK (a park stays a park)
+    if (call.name === 'browser_done' && output?.ok === false && output?.recoverable === true && output?.error
+      && loopPolicy.isFlippableRecoverySource(output.recoverySource)
+      && !output.multipartReview && !output.ledgerDemand && !output.parkedReview) {
       const turnStart = Number(run.turnStartedAt || 0);
       const workedThisTurn = (Array.isArray(run.history) ? run.history : [])
         .some((entry) => Number(entry?.at || 0) >= turnStart
@@ -2239,6 +2538,92 @@ class DesktopChatAgent {
       }
     }
 
+    // ── THE FAILED-CLAIM GATE ──
+    // A terminal failure claim needs FRESH visible evidence of an external
+    // block and no safe visible next route. Bound identical failed-claim
+    // bounces: once the same external-block claim has been rejected twice
+    // with no new evidence in between, accept the honest failure report.
+    // Bouncing forever spun the unbounded internal recovery loop.
+    //
+    // A fresh native observation may legitimately show an honest capability
+    // limit; forcing that report back into review would only loop it.
+    const freshNativePartial = run.observationDomain === 'computer' && run.latestObservation?.desktop
+      && !run.computerObservationDirty && run.coordinator.observationRevision >= Number(run.requiredEvidenceRevision || 0);
+    if (output.success === false && output.final === true && !freshNativePartial && !honestlyBlocked) {
+      run.failedClaimBounces = (run.failedClaimBounces || 0) + 1;
+      if (run.failedClaimBounces < 2) {
+        return {
+          ...output,
+          ok: false,
+          recoverable: true,
+          recoverySource: 'unverified_external_block',
+          error: 'A failed terminal claim needs fresh visible evidence of an external block and no safe visible next route. Reconcile the latest page evidence and decide whether to continue, wait, inspect, or report the block.'
+        };
+      }
+    }
+
+    // ── THE BLOCKED-DONE PROVENANCE GATE (E8) ──
+    // After a fill-gate rejection or a tamper bounce, a blocked-done claiming
+    // that block must cite evidence gathered AFTER the bounce — a tool result
+    // showing the constraint or the attempt. After a tamper bounce the block
+    // also cannot stand until one page-valid adaptation (a compliant
+    // fill/type/execute) was attempted.
+    //
+    // The field run bounced the impossibility claim and then ACCEPTED the
+    // same claim reworded — one fill away from done. Bounded exactly once:
+    // the first unproven claim is bounced with the fresh-probe demand, the
+    // next blocked-done is accepted.
+    if (output.success === false && run.constraintRejection) {
+      const since = Number(run.constraintRejection.historyLength) || 0;
+      const postBounce = Array.isArray(run.history) ? run.history.slice(since) : [];
+      const hasFreshProbe = postBounce.some((entry) => !['browser_done', 'agent_advisory', 'update_plan'].includes(entry.tool));
+      const needsAdaptation = run.constraintRejection.kind === 'tamper';
+      const hasAdaptation = !needsAdaptation
+        || postBounce.some((entry) => ['browser_fill', 'browser_type', 'browser_execute'].includes(entry.tool) && entry.output?.ok === true);
+      if (!hasFreshProbe || !hasAdaptation) {
+        run.blockProvenanceBounces = (run.blockProvenanceBounces || 0) + 1;
+        if (run.blockProvenanceBounces <= 1) {
+          return {
+            ...output,
+            ok: false,
+            recoverable: true,
+            recoverySource: 'unverified_external_block',
+            error: `A blocked-done after a constraint conflict needs FRESH evidence gathered after the rejection: run one probe (browser_execute or browser_observe) whose result shows the constraint or the attempt${needsAdaptation ? ', and — after a tamper bounce — attempt one page-valid adaptation (a compliant fill or execute) first' : ''}. A rewording of the earlier claim is not evidence.`
+          };
+        }
+      }
+    }
+
+    // ── THE CONTRADICTION GATE (one owner, INDEPENDENT of claimsSuccess) ──
+    // verified:true is a LIE when the report itself says the outcome is
+    // incomplete or unverified — and `success:false` says so outright. The
+    // named-gap audit below only runs for SUCCESS claims, so a done with
+    // success:false + verified:true (exactly the contradiction) would never
+    // be examined at all. This gate therefore owns the rule on its own,
+    // with its own counter and its own bound, and runs BEFORE the audit.
+    //
+    // An honest failure report of a VISIBLE external block is not an
+    // overstatement, so `honestlyBlocked` is exempt.
+    //
+    // The counter counts CONTRADICTIONS, not verified dones: a clean done
+    // must not spend the budget of a later contradiction. Bound 2 bounces.
+    if (claimsVerified && !honestlyBlocked) {
+      const contradictsVerified = /(?:could not|cannot|can't|unable to|did not|didn't|failed to|not)\s+(?:be\s+)?(?:creat|verif|confirm|complet|build|launch|start|run|install)/i.test(summary)
+        || /(?:still\s+blocked|remains?\s+(?:blocked|incomplete|unverified|unconfirmed)|not\s+(?:yet\s+)?(?:created|verified|confirmed|built|launched|started|running|installed))/i.test(summary);
+      if (output.success === false || contradictsVerified) {
+        run.verificationContradictionBounces = (run.verificationContradictionBounces || 0) + 1;
+        if (run.verificationContradictionBounces <= 2) {
+          return {
+            ...output,
+            ok: false,
+            recoverable: true,
+            recoverySource: 'unbacked_claim',
+            error: 'verified:true contradicts your own report. You stated the outcome is incomplete or unverified (success:false, or the summary says it "could not be verified"). Set verified:false and report honestly, or if the work IS done, state what you confirmed and set success:true with verified:true.'
+          };
+        }
+      }
+    }
+
     // The named-gap audit for success claims. Each gap carries its LEGACY
     // recoverySource so traces and tests keep their per-cause semantics.
     if (claimsSuccess) {
@@ -2297,11 +2682,9 @@ class DesktopChatAgent {
           // Legacy E4 demand format (kept verbatim: tests and traces pin it).
           addGap('completion_review', `Requirement ledger: ${openRequirements.map((req) => `${req.id}) "${String(req.text).slice(0, 80)}" — no observed-effect evidence covers it yet`).join('; ')}. A fresh probe, read-back, or observed result settles a requirement; state it skipped with a reason to defer one.`);
         }
-        const contradictsVerified = /(?:could not|cannot|can't|unable to|did not|didn't|failed to|not)\s+(?:be\s+)?(?:creat|verif|confirm|complet|build|launch|start|run|install)/i.test(summary)
-          || /(?:still\s+blocked|remains?\s+(?:blocked|incomplete|unverified|unconfirmed)|not\s+(?:yet\s+)?(?:created|verified|confirmed|built|launched|started|running|installed))/i.test(summary);
-        if (output.success === false || contradictsVerified) {
-          addGap('unbacked_claim', 'verified:true contradicts your own report (the summary says the outcome is incomplete or unverified)');
-        }
+        // The verified:true contradiction is owned by the dedicated gate
+        // above (it must also see success:false claims), so it is NOT
+        // repeated here — one owner per rule.
         const unbacked = unbackedActionClaims(summary, { history: run.history, visualEvidence: run.visualEvidence, visualLedger: run.visualLedger });
         if (unbacked.length) {
           addGap('unbacked_claim', `claims this run's tool history does not show: ${unbacked.join('; ')}`);
@@ -2319,7 +2702,7 @@ class DesktopChatAgent {
         const turnHasNativeWork = turnEntries.some((entry) => String(entry?.tool || '').startsWith('computer_') && String(entry?.tool || '') !== 'computer_file');
         const freshObservation = Number(run.coordinator?.observationRevision || 0) >= Number(run.requiredEvidenceRevision || 0);
         if (turnToolCalls.length && lastMutationIndex >= 0 && !evidenceEntry && !(turnHasNativeWork === false && freshObservation)) {
-          addGap('unverified_verification_claim', 'no evidence-producing tool call since the last confirmed change — run the verification command or capture the proof');
+          addGap('unverified_verification_claim', 'verified:true requires a real verification tool call after your last change. Your summary claims you verified, but the history shows no evidence-producing tool call since the last mutation. Run the verification command and show its output, or set verified:false.');
         }
       }
       if (requiresFileMutation(run.task) && !fileMutationSatisfied(run)) {

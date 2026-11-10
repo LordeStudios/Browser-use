@@ -73,7 +73,7 @@ test('a non-reasoning provider produces no empty thought archive record', async 
   assert.equal(agent.run.thinkingArchive.length, 0);
 });
 
-test('repeated undecidable narration settles the thought card and arms one runtime notice', async () => {
+test('repeated actionless narration settles the thought card and arms one runtime notice', async () => {
   const controller = createController();
   const events = [];
   const contexts = [];
@@ -97,14 +97,14 @@ test('repeated undecidable narration settles the thought card and arms one runti
   const completed = events.filter((event) => event.type === 'assistant.thinking.completed');
   assert.equal(run.status, 'completed');
   assert.equal(calls, 3);
-  assert.equal(completed.filter((event) => event.reason === 'no_action_decision').length, 1, 'the repeated undecidable card is settled once');
+  assert.equal(completed.filter((event) => event.reason === 'actionless_recovery').length, 1, 'the repeated actionless card is settled once');
   assert.ok(agent.run.thinkingArchive.length >= 1);
   const delivered = contexts.flatMap((context) => Array.isArray(context.harnessNotices) ? context.harnessNotices : []);
-  assert.equal(delivered.filter((notice) => /no executable decision/i.test(notice)).length, 1);
+  assert.equal(delivered.filter((notice) => /ACTIONLESS STALL/i.test(notice)).length, 1);
   assert.equal(events.filter((event) => event.type === 'assistant.message').length, 0, 'recovery narration is not shown as repeated assistant status text');
 });
 
-test('undecidable replies arm exactly one schema-repair notice across narration variations', async () => {
+test('different actionless narration does not trigger the repetition notice', async () => {
   const controller = createController();
   const contexts = [];
   let calls = 0;
@@ -124,11 +124,10 @@ test('undecidable replies arm exactly one schema-repair notice across narration 
   });
   const run = await agent.start({ task: 'Inspect the startup failure', provider: { id: 'mock', model: 'mock' } });
   assert.equal(run.status, 'completed');
-  const delivered = contexts.flatMap((context) => Array.isArray(context.harnessNotices) ? context.harnessNotices : []);
-  assert.equal(delivered.filter((notice) => /no executable decision/i.test(notice)).length, 1, 'the repair demand is one-shot per turn');
+  assert.equal(contexts.some((context) => Array.isArray(context.harnessNotices) && context.harnessNotices.some((notice) => /ACTIONLESS STALL/i.test(notice))), false);
 });
 
-test('repeated streamed reasoning never blocks its decision tool call (advisory-first)', async () => {
+test('repeated streamed reasoning arms a next-decision nudge without blocking its tool call', async () => {
   const controller = createController();
   const contexts = [];
   let calls = 0;
@@ -151,9 +150,9 @@ test('repeated streamed reasoning never blocks its decision tool call (advisory-
   });
   const run = await agent.start({ task: 'Inspect the unavailable server', provider: { id: 'mock', model: 'mock' } });
   assert.equal(run.status, 'completed');
-  assert.equal(calls, 2, 'the decision with the tool call executed normally');
-  const notices = contexts.flatMap((context) => Array.isArray(context.harnessNotices) ? context.harnessNotices : []);
-  assert.equal(notices.filter((notice) => /STREAMING STALL|REASONING_BUDGET/i.test(notice)).length, 0, 'reasoning prose never aborts a healthy decision');
+  assert.equal(calls, 2);
+  const notices = contexts[1].harnessNotices || [];
+  assert.equal(notices.filter((notice) => /STREAMING STALL/i.test(notice)).length, 1);
 });
 
 test('actionless repetition parks and auto-resumes without terminal failure', { timeout: 30000 }, async () => {

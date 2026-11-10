@@ -67,6 +67,22 @@ const {
   thinkingBudgetTier,
   thinkingBudgetNotice
 } = require('./flowControlState.cjs');
+// The flow/evidence guard family has ONE owner: harness/flowGuard.cjs. The
+// helpers below are imported from there so this module keeps a single
+// definition of each rule (it used to hold a private copy that nothing
+// called).
+const {
+  normalizeStallText,
+  genuineEvidenceCall,
+  evidenceCallsAllSucceeded,
+  readOnlyEnforcementDemand,
+  READ_ONLY_ENFORCE_STREAK,
+  EVIDENCE_STREAK_TOOLS,
+  actionlessStallKey,
+  normalizeActionlessStall,
+  resetActionlessStall,
+  noteActionlessStall
+} = require('./harness/flowGuard.cjs');
 
 const MAX_ATTACHMENT_TEXT_CHARS = 120_000;
 const MAX_ATTACHMENT_TEXT_TOTAL_CHARS = 240_000;
@@ -357,26 +373,6 @@ const READ_ONLY_ACTION_NAMES = new Set(['browser_observe', 'browser_screenshot',
 // except that computer_fs counts only for its read-style actions: mkdir/copy/
 // move/delete are mutations and used to advance the "you have read enough"
 // streak as if they were reads.
-const EVIDENCE_STREAK_TOOLS = new Set(['computer_read', 'computer_search', 'computer_index', 'browser_observe', 'browser_execute', 'browser_console_entries', 'browser_network_entries', 'browser_tabs']);
-function genuineEvidenceCall(call) {
-  const name = String(call?.name || '');
-  if (EVIDENCE_STREAK_TOOLS.has(name)) return true;
-  return name === 'computer_fs' && ['stat', 'list', 'find'].includes(String(call?.input?.action || ''));
-}
-// True only when EVERY call of the decision ran and returned ok. Pairing is by
-// tool name in order over the history entries recorded since the decision
-// began; a failed call (for example arguments rejected by validation) or a call
-// that never ran (batch interrupted) is not evidence.
-function evidenceCallsAllSucceeded(calls, run, sinceClock) {
-  const remaining = (Array.isArray(run.history) ? run.history : [])
-    .filter((entry) => Number(entry?.at) > sinceClock && entry?.tool !== 'agent_advisory');
-  for (const call of calls) {
-    const index = remaining.findIndex((entry) => entry.tool === call.name);
-    if (index === -1 || remaining[index].output?.ok !== true) return false;
-    remaining.splice(index, 1);
-  }
-  return true;
-}
 const MAX_BROWSER_WAIT_MS = 900_000;
 // LORDE_FAST_PATH allowlist: actions safe to execute eagerly the moment the
 // model's streamed tool-call arguments are complete. Clicks, scrolls, pointer
@@ -994,36 +990,6 @@ async function normalizeAttachments(value) {
   return normalized;
 }
 
-function compactThoughtText(value) {
-  const parts = String(value || '').split(/\n{2,}/).map((part) => part.trim()).filter(Boolean);
-  if (parts.length < 2) return String(value || '');
-  const kept = [parts[0]];
-  for (const part of parts.slice(1)) {
-    const normalized = normalizeStallText(part);
-    const prior = kept.map(normalizeStallText);
-    const repeats = prior.some((item) => item === normalized || sentenceOverlap(item, normalized) >= 0.72);
-    const meta = /\b(?:the task|my plan|the plan|let me|actually|i should|i need to|the user asked|do not repeat)\b/i.test(part);
-    if (!repeats && !meta) kept.push(part);
-  }
-  return kept.join('\n\n');
-}
-
-function createThoughtAccumulator(onUpdate) {
-  let lastPublished = '';
-  return (value) => {
-    const next = compactThoughtText(value);
-    if (!next || next === lastPublished) return lastPublished;
-    // The provider stream is cumulative. Replace the current card with the
-    // newest cumulative text; never append a revised/retried thought as a
-    // second segment. A new action closes this card before the next decision.
-    lastPublished = next;
-    onUpdate(next);
-    return lastPublished;
-  };
-}
-
-const ACTIONLESS_STALL_NOTICE_STREAK = 2;
-const ACTIONLESS_STALL_PARK_STREAK = 3;
 // READ-ONLY ENFORCEMENT (run.txt req #2 "application controls execution"): a
 // fix/diagnosis task that keeps returning read-only decisions is re-narrating
 // its analysis instead of executing. The evidence-phase notices are advisory
@@ -1033,58 +999,6 @@ const ACTIONLESS_STALL_PARK_STREAK = 3;
 // and the model is told, in the rejection, to patch or terminate. This is a
 // hard floor, not another advisory: the only way forward is a mutation,
 // terminal, or an explicit plan change — never another read.
-const READ_ONLY_ENFORCE_STREAK = 12;
-// Once enforcement is engaged, this is what the next decision hears. Short and
-// imperative; no "maybe" exits, because the model has already shown it will
-// take a soft exit.
-function readOnlyEnforcementDemand(taskText) {
-  return `READ-ONLY CAP: ${READ_ONLY_ENFORCE_STREAK} consecutive decisions produced no edit or terminal result. Stop inspecting: state your best-supported hypothesis for the reported symptom in one line and apply the single smallest corrective change (computer_patch) now, or return browser_done. Do not read, search, or list again.${taskText ? ` The task: ${String(taskText).replace(/\s+/g, ' ').trim().slice(0, 300)}` : ''}`;
-}
-
-function normalizeStallText(value) {
-  return String(value || '')
-    .replace(/https?:\/\/\S+/gi, '[url]')
-    .replace(/[A-Za-z]:\\[^\s]+|\/[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)+/g, '[path]')
-    .replace(/\b\d+(?:\.\d+)?(?:ms|s|m|kb|mb|gb|%)?\b/gi, '[n]')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase()
-    .slice(-2_000);
-}
-
-function actionlessStallKey({ narration = '', observationFingerprint = '', plan = [], source = 'empty_decision' } = {}) {
-  const stable = JSON.stringify({
-    source: String(source || 'empty_decision'),
-    narration: normalizeStallText(narration),
-    observation: String(observationFingerprint || ''),
-    plan: JSON.stringify(Array.isArray(plan) ? plan : [])
-  });
-  return crypto.createHash('sha256').update(stable).digest('hex');
-}
-
-function normalizeActionlessStall(value) {
-  return {
-    key: String(value?.key || '').slice(0, 128),
-    count: Math.max(0, Math.min(20, Number(value?.count) || 0)),
-    noticeKey: String(value?.noticeKey || '').slice(0, 128),
-    parkKey: String(value?.parkKey || '').slice(0, 128)
-  };
-}
-
-function resetActionlessStall(run) {
-  if (run) run.actionlessStall = { key: '', count: 0, noticeKey: '', parkKey: '' };
-}
-
-function noteActionlessStall(run, key) {
-  if (!run) return 0;
-  const value = String(key || '').slice(0, 128);
-  const previous = normalizeActionlessStall(run.actionlessStall);
-  run.actionlessStall = previous.key === value
-    ? { ...previous, count: Math.min(20, previous.count + 1) }
-    : { key: value, count: 1, noticeKey: '', parkKey: '' };
-  return run.actionlessStall.count;
-}
-
 function resetStreamingThoughtStall(run) {
   if (!run) return;
   run.streamingThoughtStall = { seen: [], cursor: 0, repeats: 0, noticeArmed: false };
@@ -3801,7 +3715,7 @@ module.exports = {
   normalizeWorkspace: (typeof normalizeWorkspace === 'function' ? normalizeWorkspace : null),
   workspaceFromTask: (typeof workspaceFromTask === 'function' ? workspaceFromTask : null),
   defaultNotebookDir, syncNotebook, syncObjectiveLedger, recordConsulted, speculativePreRead,
-  createThoughtAccumulator, resetStreamingThoughtStall, isMessageInterrupt: (typeof isMessageInterrupt === 'function' ? isMessageInterrupt : null),
+  resetStreamingThoughtStall, isMessageInterrupt: (typeof isMessageInterrupt === 'function' ? isMessageInterrupt : null),
   serializeRun, serializeEventRun, checkpointSnapshot,
   observeRun, requiresApproval, approvalReason,
   withinStepTimeout: (typeof withinStepTimeout === 'function' ? withinStepTimeout : null),
@@ -3838,5 +3752,9 @@ module.exports = {
   observationFingerprint, FAST_PATH_ACTIONS, PROGRESS_GUARDED_READ_ACTIONS, READ_ONLY_ACTION_NAMES,
   actionRiskLevel, riskGateFor,
   fallbackConversationTitle, normalizeConversationTitle,
-  DEFAULT_SETTINGS, WAIT_BACKOFF_MS: null
+  DEFAULT_SETTINGS, WAIT_BACKOFF_MS: null,
+  // Shared stall-ladder budget (DSH): the over-thought ladder and the
+  // no-observable-change ladder feed the SAME counter, and the counter is
+  // what the park threshold is measured against.
+  THOUGHT_BUDGET_CHARS, ESCALATION_PARK_FIRES
 };
