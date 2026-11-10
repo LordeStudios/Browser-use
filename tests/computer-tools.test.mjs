@@ -388,13 +388,16 @@ test('provider adds only the AGI suffix and passes exact native schemas', async 
     return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ done: { summary: 'Hello', success: true } }) } }] }), { headers: { 'content-type': 'application/json' } });
   } });
   const context = { task: 'Hello', history: [], messages: [], tools: [], observation: { navigation: { url: 'https://fixture.test' }, dom: { elements: [] } } };
-  await provider.complete(context); await provider.complete({ ...context, tools: COMPUTER_TOOLS });
+  // DSH: the harness prompt rides on the request; the provider renders it
+  // verbatim and adds NOTHING of its own (no suffixes, no playbooks).
+  const harnessPrompt = 'You are an AI agent powered by the Browser-use harness. Complete the fixture task.';
+  await provider.complete({ ...context, systemPrompt: harnessPrompt }); await provider.complete({ ...context, tools: COMPUTER_TOOLS, systemPrompt: harnessPrompt });
   assert.equal(requests.length, 2);
   // The playbook is joined as its own block. It used to be glued straight onto
   // the previous sentence ("...asks about them.Browser-use Agent Chat."), which
   // reads as one run-on line and can hide the identity line from the model.
-  assert.ok(requests[1].messages[0].content.startsWith(requests[0].messages[0].content), 'the AGI playbook is appended as its own block');
-  assert.match(requests[1].messages[0].content, /Browser-use Agent Chat\./, 'the identity line is present and not glued onto the previous sentence');
+  assert.equal(requests[1].messages[0].content, requests[0].messages[0].content, 'the provider renders the harness system prompt verbatim and appends nothing');
+  assert.match(requests[1].messages[0].content, /Browser-use harness/, 'the harness identity line is present');
   assert.deepEqual(requests[1].tools.find(t => t.function.name === 'computer_pointer').function.parameters, COMPUTER_TOOLS.find(t => t.name === 'computer_pointer').inputSchema);
   assert.equal(boundedRequestContext({ ...context, tools: COMPUTER_TOOLS }).tools.length, COMPUTER_TOOLS.length);
 });

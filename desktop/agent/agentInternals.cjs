@@ -3186,6 +3186,7 @@ function withinStepTimeout(run, label, operation) {
       clearTimeout(timer);
       run.abortController.signal.removeEventListener('abort', abortFromRun);
       if (run.activeStepController === stepController) run.activeStepController = null;
+      if (run.activeStepRetire === retire) run.activeStepRetire = null;
     };
     const settle = (callback, value) => {
       if (settled) return;
@@ -3193,6 +3194,12 @@ function withinStepTimeout(run, label, operation) {
       cleanup();
       callback(value);
     };
+    // Retire hook (DSH): lets parkRun converge an abandoned step whose
+    // provider call never settles (a hung model or a hung mock). Without it
+    // the step's dead-air timer keeps the event loop alive for the whole
+    // connect window after the run has already parked.
+    const retire = (error) => settle(reject, error instanceof Error ? error : new Error(String(error || 'Step retired.')));
+    run.activeStepRetire = retire;
     // A model that is thinking correctly must never be killed by a timer:
     // before its first streamed token it may legitimately stay silent far
     // longer than the step deadline (reasoning-model time-to-first-token),
@@ -3712,7 +3719,7 @@ function serializeRun(run) {
   // live agent event. Electron structured-clones these payloads and rejects a
   // function before the renderer can receive the run id needed for Stop/New
   // chat/History controls.
-  const { publishEvent, abortController, approval, providerInstance, createTab, closeTab, selectTab, focusTab, writeReportFile, modelTaskApi, catalogApi, androidApi, scheduleApi, spawnTask, skillsApi, messageApi, latestObservation, observationsByTab, thinkingArchive, heartbeatTimer, escalationTimer, visualEvidence, attachments, activeThoughtAccumulator, activeStepController, recoveryResumePromise, getComputerTools, getControlMode, attemptStartedClock, pendingComputerDesktop, computerObservationDirty, computerScreenshotStep, turnLedger, resultStore, research, researchHost, researchDefaults, layaVerifier, researchHint, pendingAgentMessages, subagentApi, eagerResults, notebook, deadlineTimer, deadlineFinishNoticeArmed, ...serializable } = run;
+  const { publishEvent, abortController, approval, providerInstance, inbox, repeatGuard, messageWakeController, noticeFingerprints, advisoryFingerprints, createTab, closeTab, selectTab, focusTab, writeReportFile, modelTaskApi, catalogApi, androidApi, scheduleApi, spawnTask, skillsApi, messageApi, latestObservation, observationsByTab, thinkingArchive, heartbeatTimer, escalationTimer, visualEvidence, attachments, activeThoughtAccumulator, activeStepController, recoveryResumePromise, getComputerTools, getControlMode, attemptStartedClock, pendingComputerDesktop, computerObservationDirty, computerScreenshotStep, turnLedger, resultStore, research, researchHost, researchDefaults, layaVerifier, researchHint, pendingAgentMessages, subagentApi, eagerResults, notebook, deadlineTimer, deadlineFinishNoticeArmed, ...serializable } = run;
   const attachmentMetadata = Array.isArray(attachments) ? attachments.map(({ name, kind, mimeType, size }) => ({ name, kind, mimeType, size })) : [];
   // GEN9: the notebook instance is excluded (functions cannot cross IPC) but
   // notebookPath travels so a continuation re-opens the SAME file, and the
@@ -3749,6 +3756,28 @@ function checkpointSnapshot(run) {
 // from the original desktopChatAgent.cjs. The class (loop/prompt/recovery) is
 // rebuilt on the harness in ./desktopChatAgent.cjs and consumes these through
 // this export surface.
+// VERIFICATION EVIDENCE (promoted from the old done-gate, DSH rewrite): the
+// calls that actually PRODUCE proof that a claimed outcome happened.
+const VERIFICATION_EVIDENCE_TOOLS = new Set([
+  'computer_screenshot', 'browser_screenshot', 'computer_read', 'computer_search',
+  'computer_index', 'browser_observe', 'browser_execute', 'computer_git', 'computer_fs'
+]);
+function historyEntryVerified(entry) {
+  const tool = String(entry?.tool || '');
+  const recorded = entry?.output;
+  if (!recorded || recorded.ok !== true) return false;
+  const input = entry?.input || {};
+  if (tool === 'computer_terminal') {
+    const exitCode = recorded?.result?.exitCode;
+    if (exitCode !== undefined && exitCode !== null) return Number(exitCode) === 0;
+    return /"exitCode"\s*:\s*0\b/.test(JSON.stringify(recorded) || '');
+  }
+  if (tool === 'computer_git') return READ_ONLY_GIT_ACTIONS.has(String(input.action || ''));
+  if (tool === 'computer_fs') return READ_ONLY_FS_ACTIONS.has(String(input.action || ''));
+  if (tool === 'computer_file') return false;
+  return VERIFICATION_EVIDENCE_TOOLS.has(tool);
+}
+
 module.exports = {
   // Public contract surface (re-exported by desktopChatAgent.cjs)
   isMultipartTask, isMultiAskTask, multiAskChecklist, ACTIONS,
@@ -3802,6 +3831,12 @@ module.exports = {
   probeFormControlConstraints: (typeof probeFormControlConstraints === 'function' ? probeFormControlConstraints : null),
   clamp: (typeof clamp === 'function' ? clamp : null),
   inspectValueAliases: { inspectionValue, screenshotPreviewValue },
+  // Extended internals (DSH rewrite): consumed by the rewritten class.
+  isCheapInformationalTask, isRapidTask, normalizeWorkingMemory, normalizeThinkingArchive,
+  defaultDeterministicResearch, coerceElementIndex, countAccountingLines, requestInstructionCount,
+  stalePageFiles, lastPageChangeAfter, historyEntryMutated, historyEntryConfirmsChange, historyEntryVerified,
+  observationFingerprint, FAST_PATH_ACTIONS, PROGRESS_GUARDED_READ_ACTIONS, READ_ONLY_ACTION_NAMES,
+  actionRiskLevel, riskGateFor,
   fallbackConversationTitle, normalizeConversationTitle,
   DEFAULT_SETTINGS, WAIT_BACKOFF_MS: null
 };

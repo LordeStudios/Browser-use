@@ -258,7 +258,7 @@ class DesktopChatAgent {
     }
     if (requestedContinuation && !previous) throw new Error('The conversation could not be restored. Open it from history and retry.');
     const continuation = Boolean(previous);
-    if (previous?.escalationTimer) { clearInterval(previous.escalationTimer); previous.escalationTimer = null; }
+    if (previous?.escalationTimer) { clearTimeout(previous.escalationTimer); previous.escalationTimer = null; }
     const turnContinuation = continuation && previous && task === String(previous.task || '').trim();
     const additionTurn = continuation && !turnContinuation && isTaskAddition(task);
     const turnStartedAt = turnContinuation
@@ -421,6 +421,11 @@ class DesktopChatAgent {
       // twelve-gate maze). Counters kept for observability.
       completionReviewBounces: 0,
       incompleteWorkBounces: 0,
+      // Rebuild tripwire state (E9/F4): false — not undefined — so a run with
+      // zero re-executions asserts cleanly.
+      rebuildNoticeFired: false,
+      settledReexecutionCount: 0,
+      decisionWatchdogFires: 0,
       requirementLedger: parseNumberedRequirements(task).map((req) => ({ ...req, status: 'open', evidence: null })),
       lastCheckpointStep: -1,
       eventRevision: continuation ? Number(previous.eventRevision || 0) : 0,
@@ -662,7 +667,11 @@ class DesktopChatAgent {
                 const capBudget = Number(run.thinkingBudgetCapMs);
                 const effectiveBudget = Number.isFinite(capBudget) && capBudget >= 0 ? Math.min(budgetMs, capBudget) : budgetMs;
                 run.thinkingBudgetMs = effectiveBudget;
-                return provider.complete({
+                // DECISION WATCHDOG (kept): the provider call is wrapped in a
+                // dead-air guard — a call that never resolves and never
+                // streams is retried once inside the open step; a second hang
+                // parks the run (never terminates it).
+                return this.withDecisionWatchdog(run, (onActivity) => provider.complete({
                   task: run.task,
                   agentIdentity: run.agentIdentity,
                   // DSH: the harness owns the system prompt (identity,
@@ -704,10 +713,10 @@ class DesktopChatAgent {
                   interactionMemory: run.interactionMemory,
                   turnLedger: run.turnLedger,
                   onThought: accumulateThought,
-                  onStream: () => { wrapped(); },
-                  onProgress: () => { wrapped(); },
+                  onStream: () => { wrapped(); onActivity(); },
+                  onProgress: () => { wrapped(); onActivity(); },
                   onActionReady: (call) => this.handleEagerAction(run, call)
-                });
+                }));
               })());
               const settledAt = performance.now();
               run.lastDecisionBreakdown = {
@@ -826,12 +835,23 @@ class DesktopChatAgent {
               if (run.status !== 'running' || run.abortController.signal.aborted) break;
               continue;
             }
-            // DSH RECOVERY: any other step error parks the run once
-            // (awaiting_recovery + auto-resume). Recovery is indefinite.
+            // DSH RECOVERY: non-transport provider failures retry INSIDE
+            // the open step via classified recovery (the failed turn emitted
+            // no decision and executed nothing, so replaying it is safe);
+            // after three consecutive decision failures the run parks once.
             if (!response) {
-              this.parkRun(run, `The provider failed (${String(error?.message || error).replace(/\s+/g, ' ').slice(0, 200)}). The run is parked; recovery resumes it automatically.`);
-              break;
+              const decisionFailures = (run.providerDecisionFailures || 0) + 1;
+              run.providerDecisionFailures = decisionFailures;
+              if (decisionFailures >= 3) {
+                run.providerDecisionFailures = 0;
+                this.parkRun(run, `The provider failed ${decisionFailures} consecutive decisions (${String(error?.message || error).replace(/\s+/g, ' ').slice(0, 200)}). The run is parked; recovery resumes it automatically.`);
+                break;
+              }
+              this.scheduleRecovery(run, { source: 'provider_decision', error, recordSyntheticHistory: true });
+              latestObservation = null;
+              continue;
             }
+            run.providerDecisionFailures = 0;
           } finally {
             clearInterval(thinkingTimer);
             thinkingMs = Math.max(0, Date.now() - thinkingStartedAt);
@@ -919,12 +939,23 @@ class DesktopChatAgent {
           }
           if (calls.length === 0) {
             // DSH UNDECIDABLE OUTPUT: one sticky schema-repair notice per
-            // turn + classified recovery. No parallel stall trackers.
+            // turn + classified recovery. Three consecutive empty decisions
+            // park the run once (indefinite recovery — never terminates).
+            run.emptyDecisionStreak = (run.emptyDecisionStreak || 0) + 1;
+            if (run.emptyDecisionStreak >= 3) {
+              run.emptyDecisionStreak = 0;
+              this.settleActiveThought(run, 'actionless_stall');
+              this.parkRun(run, 'Repeated actionless decisions produced no new evidence or executable action; the run is parked to resume from preserved state.');
+              latestObservation = null;
+              continue;
+            }
             if (!run.schemaRepairArmed) {
               run.schemaRepairArmed = true;
               pushHarnessNotice(run, loopPolicy.SCHEMA_REPAIR_NOTICE.text);
+              // The thought card spans recovery cycles: it settles ONCE,
+              // when the repair demand arms.
+              this.settleActiveThought(run, 'no_action_decision');
             }
-            this.settleActiveThought(run, 'no_action_decision');
             this.scheduleRecovery(run, {
               source: 'empty_decision',
               error: 'The previous response contained no executable action or terminal result. Choose one now: the next concrete tool call, or browser_done. Do not restate what you just said — your own text is already in the conversation above; act on the newest observation instead.',
@@ -933,6 +964,7 @@ class DesktopChatAgent {
             latestObservation = null;
             continue;
           }
+          run.emptyDecisionStreak = 0;
           run.schemaRepairArmed = false;
           const onlyUpdatesPlan = calls.length > 0 && calls.every((call) => call.name === 'update_plan');
           archiveActiveThinking(run);
@@ -999,16 +1031,27 @@ class DesktopChatAgent {
               latestObservation = null;
               continue;
             }
-            // First-write constraint probe: ADVISORY ONLY (was a hard gate).
+            // E7 (gen4) first-write window (kept as a HARD guard): a verified
+            // constraint violation is denied BEFORE execution — a monotonic
+            // mechanical deny (the page's own constraint), not advisory
+            // policy. Unverifiable targets are ALLOWED with a sourced notice.
             if (call.name === 'browser_execute' && valueWriteLiterals(String(call.input?.script || '')).length) {
+              let fw = null;
               try {
                 const probedControls = await withinStepTimeout(run, 'reading form-control constraints', () =>
                   probeFormControlConstraints(this.controller, String(call.input?.tabId || run.tabId)));
                 if (Array.isArray(probedControls) || (probedControls && typeof probedControls === 'object')) {
-                  const fw = firstWriteViolations(String(call.input?.script || ''), probedControls);
+                  fw = firstWriteViolations(String(call.input?.script || ''), probedControls);
                   if (fw.violations.length) {
-                    pushHarnessNotice(run, `${CONFLICT_PROTOCOL_ADVISORY} Detected: ${fw.violations[0]} The call was allowed through — verify the result and respect the control's constraint.`);
-                  } else if (fw.unresolved > 0) {
+                    const output = { ok: false, recoverable: true, recoverySource: 'constraint_tamper', error: `${CONFLICT_PROTOCOL_ADVISORY} Detected: ${fw.violations[0]}` };
+                    this.record(run, call, output);
+                    this.publish('tool.result', run, { tool: call.name, output, inspection: { input: inspectionValue(call.name, call.input), output: inspectionValue(call.name, output) } });
+                    run.constraintRejection = { historyLength: run.history.length, kind: 'tamper' };
+                    this.scheduleRecovery(run, { source: 'constraint_tamper', error: output.error, call, recordSyntheticHistory: true });
+                    latestObservation = null;
+                    continue;
+                  }
+                  if (fw.unresolved > 0) {
                     const controls = Array.isArray(probedControls) ? probedControls : (Array.isArray(probedControls.controls) ? probedControls.controls : []);
                     if (controls.some((control) => Number(control?.maxLength) > 0 || Number(control?.minLength) > 0)) {
                       pushHarnessNotice(run, "HARNESS: a browser_execute writes .value directly into a form control; its own maxLength/minLength could not be verified before execution — confirm the write stayed within the control's constraint.");
@@ -1274,20 +1317,73 @@ class DesktopChatAgent {
     this.publish('run.escalated', run, { reason: run.escalation.reason });
     appendConversationMessage(run, 'user', `PARKED: ${run.escalation.reason} Held state: plan ${Array.isArray(run.plan) ? run.plan.length : 0} items, completed work ${run.coordinator?.completedWork?.length || 0}, last evidence revision ${run.coordinator?.observationRevision || 0}. Resume is automatic; a message from you retargets the run.`, { source: 'runtime' });
     try { run.activeStepController?.abort(new Error('run-escalated')); } catch { /* parking must never depend on an abortable step */ }
+    // Converge an abandoned step whose provider call never settles (a hung
+    // model or mock): without retiring it the step's dead-air timer holds the
+    // event loop for the whole connect window after the run already parked.
+    try { run.activeStepRetire?.(new Error('The run was parked while this step was in flight; the step is retired.')); } catch { /* retirement is best effort */ }
     const resumeMs = loopPolicy.escalationBackoffMs(Number(run.recoveryEpisodes) || 0);
-    if (run.escalationTimer) clearInterval(run.escalationTimer);
-    run.escalationTimer = setInterval(() => {
+    if (run.escalationTimer) clearTimeout(run.escalationTimer);
+    // ONE-SHOT resume timer (DSH hygiene): a single re-armed timeout instead
+    // of an interval — resumption is always scheduled (indefinite recovery),
+    // and a stale timer can never pile up.
+    run.escalationTimer = setTimeout(() => {
+      run.escalationTimer = null;
       try {
-        if (!this.run || this.run !== run || run.status !== 'awaiting_recovery') {
-          clearInterval(run.escalationTimer);
-          run.escalationTimer = null;
-          return;
-        }
+        if (!this.run || this.run !== run || run.status !== 'awaiting_recovery') return;
         void this.resumeAfterRecovery(null).catch(() => {});
       } catch { /* the auto-resume must never break the parked run */ }
     }, resumeMs);
     if (typeof run.escalationTimer.unref === 'function') run.escalationTimer.unref();
     return true;
+  }
+
+  // DECISION WATCHDOG (kept from the legacy loop, DSH-shaped): a model call
+  // that never resolves and never streams must not wedge the loop until the
+  // step ceiling. The dead-air window (settings.decisionWatchdogMs, default
+  // 120s, clamped 50s..10m) fires at most twice per decision: the first fire
+  // retries the call INSIDE the open step (one bounded retry); the second
+  // fire parks the run via parkRun — recovery resumes it, nothing terminates.
+  // Streaming activity (onStream/onProgress) feeds the window, so a model
+  // that is thinking correctly is never cut.
+  withDecisionWatchdog(run, attemptFn) {
+    const windowMs = Math.min(600_000, Math.max(50, Number(run.settings?.decisionWatchdogMs) || 120_000));
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let attempt = 0;
+      let lastActivity = Date.now();
+      let timer = null;
+      const onActivity = () => { lastActivity = Date.now(); };
+      const cleanup = () => { if (timer) { clearInterval(timer); timer = null; } };
+      const finish = (callback, value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        callback(value);
+      };
+      const runAttempt = () => {
+        Promise.resolve().then(() => attemptFn(onActivity)).then(
+          (value) => finish(resolve, value),
+          (error) => finish(reject, error)
+        );
+      };
+      runAttempt();
+      timer = setInterval(() => {
+        if (settled) { cleanup(); return; }
+        if (Date.now() - lastActivity < windowMs) return;
+        run.decisionWatchdogFires = (Number(run.decisionWatchdogFires) || 0) + 1;
+        if (attempt === 0) {
+          attempt = 1;
+          this.publish('agent.decisionWatchdog', run, { fire: 1, windowMs, decision: Number(run.decisionCount) || 0 });
+          pushHarnessNotice(run, `DECISION WATCHDOG: the model call produced no activity for ~${Math.round(windowMs / 1000)}s and was aborted; one bounded retry is running (a second hang parks the run — nothing is terminated).`);
+          lastActivity = Date.now();
+          runAttempt();
+          return;
+        }
+        this.parkRun(run, `Decision watchdog: the model call hung twice (~${Math.round(windowMs / 1000)}s of dead air each) without producing a decision. The run is parked holding its state; recovery resumes it automatically.`);
+        finish(reject, new Error(`decision watchdog: the model call hung twice (~${Math.round(windowMs / 1000)}s dead air each); the run was parked via parkRun.`));
+      }, 250);
+      if (typeof timer.unref === 'function') timer.unref();
+    });
   }
 
   // External-deadline park: the only non-resuming parked state (kept).
@@ -1305,7 +1401,7 @@ class DesktopChatAgent {
     this.publish('run.escalated', run, { reason: run.escalation.reason, externalDeadline: true });
     appendConversationMessage(run, 'user', `DEADLINE EXPIRED: ${run.escalation.reason}`, { source: 'runtime' });
     try { run.activeStepController?.abort(new Error('external-deadline-expired')); } catch { /* abort is best effort */ }
-    if (run.escalationTimer) { clearInterval(run.escalationTimer); run.escalationTimer = null; }
+    if (run.escalationTimer) { clearTimeout(run.escalationTimer); run.escalationTimer = null; }
     return true;
   }
 
@@ -1524,6 +1620,7 @@ class DesktopChatAgent {
     run.progressStreak = 0;
     run.progressStreakNudged = false;
     run.schemaRepairArmed = false;
+    run.emptyDecisionStreak = 0;
     run.repeatGuard?.reset();
     run.loopState = { recentActions: [], unchangedPages: 0, lastFingerprint: null, noProgressActions: 0, consecutiveWaits: 0, lastWaitedMs: 0 };
     for (const message of messages) this.publish('user.message.delivered', run, { messageId: message.id });
@@ -1860,7 +1957,7 @@ class DesktopChatAgent {
   cancel(runId) {
     const run = this.requireRun(runId);
     if (!['running', 'awaiting_approval', 'awaiting_input', 'paused', 'awaiting_recovery'].includes(run.status)) return serializeRun(run);
-    if (run.escalationTimer) { clearInterval(run.escalationTimer); run.escalationTimer = null; }
+    if (run.escalationTimer) { clearTimeout(run.escalationTimer); run.escalationTimer = null; }
     run.status = 'cancelled';
     run.abortController.abort();
     settleObjectiveLedgerOnTerminal(run);
@@ -1958,7 +2055,13 @@ class DesktopChatAgent {
           const work = completedWorkEntry(call, output, hash, call.expect);
           if (work) coversOpen = openReqs.some((req) => requirementCovered(req, [{ ...work, effectObserved: true }]));
         }
-        if (!reProduced && (!ledgerReqs.length || coversOpen)) {
+        // STRICT F2 RULE (kept): the review counter and the forced-review
+        // latch reset ONLY when a requirement ledger exists AND the mutation
+        // newly covers an open requirement. Resetting on every mutation of a
+        // no-ledger task re-arms the audit forever — an unbounded microtask
+        // bounce loop. Convergence is structural: the latch, the bounded
+        // bounces, and the verification-never-blocks flip.
+        if (!reProduced && ledgerReqs.length && coversOpen) {
           run.completionReviewBounces = 0;
           run.completionReviewForced = false;
         }
@@ -1994,6 +2097,32 @@ class DesktopChatAgent {
     // ── THE COMPLETION REVIEW (DSH: one bounded review, named gaps) ──
     if (call.name === 'browser_done' && output.ok && !isCritiqueOnlyRun(run)) {
       output = this.reviewCompletion(run, call, output);
+    }
+    // ── VERIFICATION NEVER BLOCKS A GENUINE RUN (owner policy, 2026-11-02) ──
+    // A bounced done whose turn did real work is ACCEPTED with the gate's
+    // concern preserved as a note instead of another round of proof — the
+    // bounce is what turned verification into a fabrication trap. NARROW
+    // scope: only the plain audit-round concern flips. The two STRUCTURAL
+    // rituals (the requirement-ledger demand, the multipart forced review)
+    // are exempt — they must be answered (settle / re-done with verified)
+    // or park at their bound, never converted away (F1/F2 semantics).
+    if (call.name === 'browser_done' && output?.ok === false && output?.recoverable === true
+      && output?.recoverySource === 'completion_review' && !output.multipartReview && !output.ledgerDemand && !output.parkedReview) {
+      const turnStart = Number(run.turnStartedAt || 0);
+      const workedThisTurn = (Array.isArray(run.history) ? run.history : [])
+        .some((entry) => Number(entry?.at || 0) >= turnStart
+          && !['browser_done', 'agent_advisory', 'agent_recovery', 'update_plan', 'create_plan'].includes(String(entry?.tool || ''))
+          && entry?.output?.ok !== false);
+      if (workedThisTurn) {
+        const claimsVerified = call.input?.verified === true;
+        output = {
+          ...output,
+          ok: true,
+          verificationNote: String(output.error).slice(0, 600),
+          verificationSource: output.recoverySource,
+          ...(claimsVerified ? { verified: false, verifiedDowngraded: true } : {})
+        };
+      }
     }
     recordConsulted(run, call, output);
     const publicOutput = redactOutput(call.name, output, call.input);
@@ -2110,44 +2239,72 @@ class DesktopChatAgent {
       }
     }
 
-    // The named-gap audit for success claims.
+    // The named-gap audit for success claims. Each gap carries its LEGACY
+    // recoverySource so traces and tests keep their per-cause semantics.
     if (claimsSuccess) {
       const gaps = [];
+      const addGap = (source, text) => gaps.push({ source, text });
+      // The requirement-ledger gap's open list, captured for the park reason
+      // (F2: the bound must park NAMING the still-open requirement ids).
+      let ledgerGapReqs = null;
+      // Stale acknowledgment first: a new-turn done restating the previous
+      // turn's accepted conclusion must be named for what it is.
+      if (run.newTurn) {
+        const wordsOf = (value) => new Set(String(value || '').toLowerCase().match(/[a-z0-9']{4,}/g) || []);
+        const priorSummaries = run.history
+          .filter((entry) => entry.tool === 'browser_done' && entry.output?.ok === true && Number(entry.at || 0) < Number(run.turnStartedAt || 0))
+          .map((entry) => String(entry.output?.summary || ''));
+        const currentWords = wordsOf(summary);
+        const stalePrior = priorSummaries.find((prev) => {
+          const prevWords = wordsOf(prev);
+          if (!prevWords.size || !currentWords.size) return false;
+          let shared = 0;
+          for (const word of currentWords) if (prevWords.has(word)) shared += 1;
+          return shared / Math.min(prevWords.size, currentWords.size) >= 0.6;
+        });
+        if (stalePrior) {
+          addGap('stale_task_acknowledgment', `your conclusion restates the PREVIOUS turn's completed work ("${String(stalePrior).slice(0, 160)}") — the current objective is: ${quoteRequest(run.task)}`);
+        }
+      }
       const openItems = (Array.isArray(run.plan) ? run.plan : []).filter((item) => !['done', 'skipped'].includes(String(item?.status || '')));
       const ownSubagents = typeof run.subagentApi?.list === 'function'
         ? (run.subagentApi.list().subagents || []).filter((sub) => sub.parentRunId === run.id && ['queued', 'running'].includes(String(sub.status)))
         : [];
       if (openItems.length) {
-        gaps.push(`plan items open: ${openItems.length} (${openItems.map((item) => String(item?.text || item?.id || '').slice(0, 40)).join('; ').slice(0, 200)})`);
+        addGap('done_incomplete_work', `plan items open: ${openItems.length} (${openItems.map((item) => String(item?.text || item?.id || '').slice(0, 40)).join('; ').slice(0, 200)})`);
       }
       if (ownSubagents.length) {
-        gaps.push(`subagents still working: ${ownSubagents.map((sub) => sub.alias).join(', ')}`);
+        addGap('done_incomplete_work', `subagents still working: ${ownSubagents.map((sub) => sub.alias).join(', ')}`);
       }
       const askCount = I.requestInstructionCount(run.task);
       if (I.isMultiAskTask(run.task) && askCount > 0 && I.countAccountingLines(summary) < askCount) {
-        gaps.push(`the request holds about ${askCount} instructions but the summary accounts for ${I.countAccountingLines(summary)} — write one DONE:/SKIPPED: line per instruction`);
+        addGap('done_uncovered_instructions', `the request holds about ${askCount} instructions but the summary accounts for ${I.countAccountingLines(summary)} — write one DONE:/SKIPPED: line per instruction`);
       }
       if (claimsVerified && !honestlyBlocked) {
-        const { open: openRequirements } = settleRequirementLedger(run, summary);
-        if (openRequirements.length) {
-          gaps.push(`requirement ledger open: ${openRequirements.map((req) => `${req.id}) "${String(req.text).slice(0, 60)}"`).join('; ')} — no observed-effect evidence covers them yet`);
-        }
-        const contradictsVerified = /(?:could not|cannot|can't|unable to|did not|didn't|failed to|not)\s+(?:be\s+)?(?:creat|verif|confirm|complet|build|launch|start|run|install)/i.test(summary)
-          || /(?:still\s+blocked|remains?\s+(?:blocked|incomplete|unverified|unconfirmed)|not\s+(?:yet\s+)?(?:created|verified|confirmed|built|launched|started|running|installed))/i.test(summary);
-        if (output.success === false || contradictsVerified) {
-          gaps.push('verified:true contradicts your own report (the summary says the outcome is incomplete or unverified)');
-        }
-        const unbacked = unbackedActionClaims(summary, { history: run.history, visualEvidence: run.visualEvidence, visualLedger: run.visualLedger });
-        if (unbacked.length) {
-          gaps.push(`claims this run's tool history does not show: ${unbacked.join('; ')}`);
-        }
+        // Screenshot-claim check BEFORE claim-vs-trace (legacy gate
+        // precedence: the specific fabrication gets its own named source).
         const pageReflectsChanges = !run.pageChanges?.size || I.stalePageFiles(run, run.tabId).length === 0;
         const hasRealVisualEvidence = pageReflectsChanges && (
           Boolean(run.visualEvidence?.data)
           || Boolean(run.frameEvidence && run.frameEvidence.at > I.lastPageChangeAfter(run, run.frameEvidence.url)))
           || (Array.isArray(run.attachments) && run.attachments.some((item) => item?.kind === 'image'));
         if (/\bscreenshots?\s+(?:confirms?|shows?|verif(?:ies|ied)|proves?|demonstrates?)\b|\bper\s+(?:the\s+)?screenshots?\b|\bscreenshot\s+evidence\b/i.test(summary) && !hasRealVisualEvidence) {
-          gaps.push('the summary cites screenshot evidence but this run holds no real screenshot or image attachment');
+          addGap('screenshot_claim_unverified', 'the summary cites screenshot evidence but this run holds no real screenshot or image attachment');
+        }
+        const { open: openRequirements } = settleRequirementLedger(run, summary);
+        if (openRequirements.length) {
+          ledgerGapReqs = openRequirements;
+          // Legacy E4 demand format (kept verbatim: tests and traces pin it).
+          addGap('completion_review', `Requirement ledger: ${openRequirements.map((req) => `${req.id}) "${String(req.text).slice(0, 80)}" — no observed-effect evidence covers it yet`).join('; ')}. A fresh probe, read-back, or observed result settles a requirement; state it skipped with a reason to defer one.`);
+        }
+        const contradictsVerified = /(?:could not|cannot|can't|unable to|did not|didn't|failed to|not)\s+(?:be\s+)?(?:creat|verif|confirm|complet|build|launch|start|run|install)/i.test(summary)
+          || /(?:still\s+blocked|remains?\s+(?:blocked|incomplete|unverified|unconfirmed)|not\s+(?:yet\s+)?(?:created|verified|confirmed|built|launched|started|running|installed))/i.test(summary);
+        if (output.success === false || contradictsVerified) {
+          addGap('unbacked_claim', 'verified:true contradicts your own report (the summary says the outcome is incomplete or unverified)');
+        }
+        const unbacked = unbackedActionClaims(summary, { history: run.history, visualEvidence: run.visualEvidence, visualLedger: run.visualLedger });
+        if (unbacked.length) {
+          addGap('unbacked_claim', `claims this run's tool history does not show: ${unbacked.join('; ')}`);
         }
         // Real-verification debt: at least one evidence-producing tool call
         // since the last confirmed change on NATIVE turns (browser turns are
@@ -2162,28 +2319,23 @@ class DesktopChatAgent {
         const turnHasNativeWork = turnEntries.some((entry) => String(entry?.tool || '').startsWith('computer_') && String(entry?.tool || '') !== 'computer_file');
         const freshObservation = Number(run.coordinator?.observationRevision || 0) >= Number(run.requiredEvidenceRevision || 0);
         if (turnToolCalls.length && lastMutationIndex >= 0 && !evidenceEntry && !(turnHasNativeWork === false && freshObservation)) {
-          gaps.push('no evidence-producing tool call since the last confirmed change — run the verification command or capture the proof');
+          addGap('unverified_verification_claim', 'no evidence-producing tool call since the last confirmed change — run the verification command or capture the proof');
         }
       }
       if (requiresFileMutation(run.task) && !fileMutationSatisfied(run)) {
-        gaps.push('the task explicitly requests a file edit, but no file mutation has landed in this turn');
+        addGap('file_mutation_required', 'the task explicitly requests a file edit, but no file mutation has landed in this turn');
       }
       if (!codingCheckSatisfied(run)) {
-        gaps.push('the requested test/check for this coding task has not completed successfully yet');
-      }
-      if (output.success === false && !honestlyBlocked) {
-        const externalBlocker = /\b(log ?in|sign ?in|password|captcha|2fa|two-factor|permission denied|access denied|only (you|the user)|needs? (your|the user'?s?) (input|approval|action|decision)|payment)\b/i.test(summary);
-        const failureLadder = run.failureLadder || { tools: new Set(), researched: false, postResearchActions: 0 };
-        const missingRungs = [];
-        if (failureLadder.tools.size < 2) missingRungs.push('try every known way first');
-        if (!failureLadder.researched) missingRungs.push('research alternative ways around the problem (research_task or web_search)');
-        if (failureLadder.postResearchActions < 1) missingRungs.push('make at least one new attempt combining what you know with what the research found');
-        if (!externalBlocker && missingRungs.length) {
-          gaps.push(`failure stop lacks proof of exhausted options: ${missingRungs.join('; ')}`);
-        }
+        addGap('completion_review', 'the requested test/check for this coding task has not completed successfully yet');
       }
 
-      if (gaps.length && run.completionReviewBounces < 2 && (claimsVerified || claimsCompletion(summary) || output.success !== false)) {
+      // Bounded review (legacy per-gate semantics preserved): the unbacked-
+      // claim gap bounced ONCE then the done stands; every other gap class
+      // bounced twice and then PARKED the run (F2 — awaiting_recovery +
+      // auto-resume, NEVER a termination). The park is the cycle-breaker:
+      // a model that re-emits the same unproven done cannot spin the review.
+      const bounceBound = gaps.length && gaps[0].source === 'unbacked_claim' ? 1 : 2;
+      if (gaps.length && (claimsVerified || claimsCompletion(summary) || output.success !== false)) {
         run.completionReviewBounces += 1;
         run.completionReviewForced = true;
         run.completionCandidate = {
@@ -2191,28 +2343,113 @@ class DesktopChatAgent {
           observationRevision: run.coordinator.observationRevision,
           completedWorkCount: run.coordinator.completedWork.length
         };
+        if (run.completionReviewBounces <= bounceBound) {
+          return {
+            ...output,
+            ok: false,
+            recoverable: true,
+            recoverySource: gaps[0].source,
+            // Structural marker: the requirement-ledger demand must be
+            // SETTLED (evidence or explicit skip) or park at its bound —
+            // the flip never converts it (F2 semantics).
+            ...(gaps[0].source === 'completion_review' && Array.isArray(ledgerGapReqs) && ledgerGapReqs.length ? { ledgerDemand: true } : {}),
+            error: `Completion audit — these named gaps stand between your summary and the goal: ${gaps.map((gap) => gap.text).join(' · ')}. `
+              + 'Close each one with evidence (a fresh probe, a read-back, a test result, a file on disk) or state it skipped with a reason, then return browser_done again. '
+              + 'Re-verify an uncertain claim with one corrected probe; never by re-executing a completed flow.'
+              + `${I.multiAskChecklist(run.task)}`
+          };
+        }
+        if (gaps[0].source === 'unbacked_claim') {
+          // Legacy unbacked-claim exhaustion: the done stands as-is.
+          return output;
+        }
+        // F2: the bound fires as a PARK (parkRun — awaiting_recovery +
+        // auto-resume, NEVER a termination), and the reason NAMES the
+        // requirements that are still open so the resume knows the target.
+        const stillOpen = gaps[0].source === 'completion_review' && Array.isArray(ledgerGapReqs) && ledgerGapReqs.length
+          ? `${ledgerGapReqs.length} requirement(s) still open (${ledgerGapReqs.map((req) => req.id).join(', ')})`
+          : `unresolved ${gaps[0].source} gap(s)`;
+        this.parkRun(run, `Completion review bounced ${run.completionReviewBounces} times with ${stillOpen}. The run is parked holding its state; settle the named requirements or restate the objective.`);
         return {
           ...output,
           ok: false,
           recoverable: true,
-          recoverySource: 'completion_review',
-          error: `Completion audit — these named gaps stand between your summary and the goal: ${gaps.join(' · ')}. `
-            + 'Close each one with evidence (a fresh probe, a read-back, a test result, a file on disk) or state it skipped with a reason, then return browser_done again. '
-            + 'Re-verify an uncertain claim with one corrected probe; never by re-executing a completed flow.'
-            + `${I.multiAskChecklist(run.task)}`
+          recoverySource: gaps[0].source,
+          // Structural marker: a PARK is never converted into an acceptance —
+          // the run must hold its state in awaiting_recovery until the named
+          // gaps are closed (F2: the bound parks, it never terminates).
+          parkedReview: true,
+          error: `Completion review exhausted (${run.completionReviewBounces} bounces) — the run is parked rather than bouncing again. Named gaps: ${gaps.map((gap) => gap.text).join(' · ')}. Close each one with evidence or state it skipped, then resume.`
         };
       }
-      // Bound reached: accept. An unsupported verified claim is DOWNGRADED
-      // with a note — never argued with, never fabricated.
-      if (gaps.length && claimsVerified && output.success !== false) {
+    }
+    // FAILURE-STOP LADDER (kept policy): a failed done must prove exhausted
+    // options — known approaches tried, research done, a combined attempt —
+    // unless the blocker is genuinely external. final:true unsupported blocks
+    // bounce unconditionally (legacy gate); the unproven-failure rungs only
+    // apply when the turn actually had work (a generic unsuccessful done on a
+    // fresh turn flows to the terminal unsuccessful_done recovery instead).
+    // Bounded like every review bounce (never terminates a run).
+    if (output.success === false && !honestlyBlocked && !isCritiqueOnlyRun(run)) {
+      const externalBlocker = /\b(log ?in|sign ?in|password|captcha|2fa|two-factor|permission denied|access denied|only (you|the user)|needs? (your|the user'?s?) (input|approval|action|decision)|payment)\b/i.test(summary);
+      const turnHadWork = I.turnHasMutations(run) || (run.newTurn && run.closedTurnHadWork);
+      const failureLadder = run.failureLadder || { tools: new Set(), researched: false, postResearchActions: 0 };
+      const missingRungs = [];
+      if (failureLadder.tools.size < 2) missingRungs.push('try every known way first');
+      if (!failureLadder.researched) missingRungs.push('research alternative ways around the problem (research_task or web_search)');
+      if (failureLadder.postResearchActions < 1) missingRungs.push('make at least one new attempt combining what you know with what the research found');
+      const finalUnsupported = output.final === true && !externalBlocker && missingRungs.length;
+      const unprovenStop = !externalBlocker && missingRungs.length && turnHadWork;
+      if ((finalUnsupported || unprovenStop) && run.completionReviewBounces < 2) {
+        run.completionReviewBounces += 1;
         return {
           ...output,
-          verified: false,
-          verifiedDowngraded: true,
-          verificationNote: gaps.join(' · ').slice(0, 600),
-          verificationSource: 'completion_review'
+          ok: false,
+          recoverable: true,
+          recoverySource: finalUnsupported ? 'unverified_external_block' : 'unproven_failure',
+          error: `Failure rejected: there is no proof that every possible solution was exhausted. Still missing: ${missingRungs.join('; ')}. `
+            + 'Research an alternative way to manoeuvre or replan, then act. A failure stop is accepted only after known approaches, research, and a combined attempt have all been tried — or the blocker is genuinely external.'
+            + ` The current objective is: "${quoteRequest(run.task)}".`
         };
       }
+    }
+    // ONE audit round (kept policy, DSH evidence-before-completion): a done
+    // that claims success without observed-effect evidence behind it — after
+    // a mutating turn, or on a NEW turn of a conversation whose previous turn
+    // did work (the wrong-task-done class) — is a proposal until reconciled
+    // once with the newest observation. BOUNDED: the increment below is what
+    // makes this fire once — without it the bounce loops forever as a pure
+    // microtask cycle and starves every timer.
+    // MULTIPART FORCE (kept): a multipart objective needs one explicit review
+    // even when the model asserts verification after completing only a single
+    // observed action. Latched by completionReviewForced so it fires once per
+    // work chunk (a fresh turn — a resume or steering — earns a fresh one).
+    const multipartForce = I.isMultipartTask(run.task) && !run.completionReviewForced
+      && (call.input?.verified === true || call.input?.success !== false || claimsCompletion(summary));
+    // turnEvidence: superseded by the verification-never-blocks flip at the
+    // call site — the bounce fires, and the flip converts it into an accepted
+    // result carrying the concern when the turn did real work.
+    if (output.success !== false
+      && (run.completionReviewBounces === 0 || multipartForce)
+      && ((call.input?.verified !== true || run.newTurn) || multipartForce)
+      && (I.turnHasMutations(run) || (run.newTurn && run.closedTurnHadWork) || multipartForce)) {
+      run.completionReviewBounces += 1;
+      run.completionReviewForced = true;
+      return {
+        ...output,
+        ok: false,
+        recoverable: true,
+        recoverySource: 'completion_review',
+        // Structural marker: the MULTIPART forced review must be ANSWERED
+        // (a re-done with verified:true) or park at its bound — the flip
+        // never converts it (F1: the verified claim survives the ritual).
+        // The PLAIN audit round is NOT structural: it is verification
+        // friction, and the flip converts it into an accepted result with
+        // the concern recorded.
+        multipartReview: multipartForce,
+        error: 'Completion is a proposal, not a terminal result yet. Audit the whole original goal against the newest observation, prior reasoning, and completed-work ledger.'
+          + ` The current objective is: "${quoteRequest(run.task)}". Return the next missing action, or return browser_done again with verified:true only when every requested outcome is supported. Re-verify an uncertain claim with one corrected probe; never by re-executing a completed flow.`
+      };
     }
     return output;
   }

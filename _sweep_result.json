@@ -1,0 +1,840 @@
+[
+  {
+    "file": "agent-coding-gating",
+    "tests": 12,
+    "pass": 11,
+    "fail": 1,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "a reopened continuation restores the prior task: new-turn classificati"
+    ]
+  },
+  {
+    "file": "agent-continuity-regressions",
+    "tests": 21,
+    "pass": 20,
+    "fail": 1,
+    "status": "RED",
+    "secs": 4,
+    "failed": [
+      "returned malformed decisions recover internally and can finish"
+    ]
+  },
+  {
+    "file": "agent-efficiency",
+    "tests": 20,
+    "pass": 15,
+    "fail": 5,
+    "status": "RED",
+    "secs": 4,
+    "failed": [
+      "fresh AGI uses desktop metadata first; vision=auto",
+      "fresh AGI uses desktop metadata first; vision=always",
+      "fresh AGI uses desktop metadata first; vision=off",
+      "evidence-backed verified completion settles in one turn; unevidenced c",
+      "a diagnosis task gets an answer-now nudge, not the coding nudge"
+    ]
+  },
+  {
+    "file": "agent-effort",
+    "tests": 10,
+    "pass": 5,
+    "fail": 5,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "ollama provider maps tiers onto the think flag, decision budget, and p",
+      "ollama auto mode advertises the escalation channel and effortNeeded su",
+      "openai-compatible protocol maps effort onto reasoning_effort and think",
+      "auto demotes one rung after two consecutive big-thinking no-action dec",
+      "a decision with a real mutation resets the speculation streak"
+    ]
+  },
+  {
+    "file": "agent-orchestration-regressions",
+    "tests": 10,
+    "pass": 9,
+    "fail": 1,
+    "status": "RED",
+    "secs": 3,
+    "failed": [
+      "the coding gate no longer fires on a browser task whose quoted fill va"
+    ]
+  },
+  {
+    "file": "agent-recovery-tabs",
+    "tests": 3,
+    "pass": 1,
+    "fail": 2,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "observation recovery continues the same run without the generic recove",
+      "repeated malformed provider decisions reset internally and preserve co"
+    ]
+  },
+  {
+    "file": "agent-sessions",
+    "tests": 6,
+    "pass": 6,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 2,
+    "failed": []
+  },
+  {
+    "file": "android-device",
+    "tests": 13,
+    "pass": 13,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 3,
+    "failed": []
+  },
+  {
+    "file": "answer-only-and-thoughts",
+    "tests": 9,
+    "pass": 9,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "ask-user-create-plan",
+    "tests": 5,
+    "pass": 5,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 2,
+    "failed": []
+  },
+  {
+    "file": "ask-user-custom-card",
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "ask-user-live-question",
+    "tests": 3,
+    "pass": 2,
+    "fail": 1,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "the .claude/skills scope makes SKILL.md folders visible to list and se"
+    ]
+  },
+  {
+    "file": "attachment-path",
+    "tests": 11,
+    "pass": 11,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 65,
+    "failed": []
+  },
+  {
+    "file": "browser-use-bug-fixes",
+    "tests": 4,
+    "pass": 2,
+    "fail": 2,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "Bug 2: Closing a tab does NOT dismiss the run",
+      "Bug 3: Runs do NOT stall waiting for paintability"
+    ]
+  },
+  {
+    "file": "browser-wait",
+    "tests": 9,
+    "pass": 8,
+    "fail": 1,
+    "status": "RED",
+    "secs": 11,
+    "failed": [
+      "first wait honors the exact requested ms"
+    ]
+  },
+  {
+    "file": "cli-agent-apis",
+    "tests": 4,
+    "pass": 4,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 2,
+    "failed": []
+  },
+  {
+    "file": "cli-computer-backend",
+    "tests": 13,
+    "pass": 12,
+    "fail": 1,
+    "status": "RED",
+    "secs": 45,
+    "failed": [
+      "browser_* tools work headless through the CLI CDP adapter (navigate/sc"
+    ]
+  },
+  {
+    "file": "computer-fs-batch",
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 2,
+    "failed": []
+  },
+  {
+    "file": "computer-git",
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 4,
+    "failed": []
+  },
+  {
+    "file": "computer-patch",
+    "tests": 34,
+    "pass": 34,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "computer-record",
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "computer-tools",
+    "tests": 31,
+    "pass": 31,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 22,
+    "failed": []
+  },
+  {
+    "file": "console-evidence-hierarchy",
+    "tests": 4,
+    "pass": 4,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "conversation-lifecycle",
+    "tests": 9,
+    "pass": 8,
+    "fail": 1,
+    "status": "RED",
+    "secs": 3,
+    "failed": [
+      "D: an accepted terminal result ends provider scheduling exactly once ("
+    ]
+  },
+  {
+    "file": "desktop-ai-chat-agent",
+    "tests": null,
+    "pass": null,
+    "fail": null,
+    "status": "RED",
+    "secs": 120,
+    "failed": [
+      "restores a saved conversation without replacing its first prompt with ",
+      "runs a bounded observe-act-done chat task against the selected desktop",
+      "carries prior reasoning and semantic completed work into the next deci",
+      "a nontrivial mutation sequence records the completion-review concern w",
+      "resets strategy after repeated malformed provider output and keeps the",
+      "passes a provider repair error into the next decision so it can choose",
+      "flags an identical immediate mutation once fresh evidence confirms the",
+      "turns repeated passive waits into replanning instead of a terminal res",
+      "screenshots do not accumulate into no-progress across a successful int"
+    ]
+  },
+  {
+    "file": "desktop-knowledge-store",
+    "tests": 11,
+    "pass": 11,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 2,
+    "failed": []
+  },
+  {
+    "file": "desktop-laya",
+    "tests": 14,
+    "pass": 13,
+    "fail": 1,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "laya verification rides on the NEXT decision — never blocking the curr"
+    ]
+  },
+  {
+    "file": "desktop-openai-compatible-provider",
+    "tests": 18,
+    "pass": 14,
+    "fail": 4,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "OpenAI-compatible provider keeps keys private and returns a structured",
+      "OpenAI-compatible provider falls back to the same DOM context when a m",
+      "OpenAI-compatible provider performs one schema repair instead of surfa",
+      "anthropic route marks the system block as cacheable"
+    ]
+  },
+  {
+    "file": "desktop-package-contract",
+    "tests": 13,
+    "pass": 11,
+    "fail": 2,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "missing bound tab is a bounded recoverable advisory, not an infinite t",
+      "desktop agent shell keeps the compact dark reference controls wired to"
+    ]
+  },
+  {
+    "file": "desktop-research-agent",
+    "tests": 11,
+    "pass": 11,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 4,
+    "failed": []
+  },
+  {
+    "file": "desktop-research-pipeline",
+    "tests": 24,
+    "pass": 23,
+    "fail": 1,
+    "status": "RED",
+    "secs": 3,
+    "failed": [
+      "research is model-decided: research_task spawns the subagent and its f"
+    ]
+  },
+  {
+    "file": "desktop-thinking-hygiene",
+    "tests": 13,
+    "pass": 9,
+    "fail": 4,
+    "status": "RED",
+    "secs": 1,
+    "failed": [
+      "near-duplicate reasoning counts as a stall, not just verbatim repeats",
+      "the provider prompt never names a \"harness\" the model can narrate",
+      "a subagent-authored card carries a producer badge",
+      "a badged message keeps its model-facing text separate from the user bo"
+    ]
+  },
+  {
+    "file": "enforcement-gen2",
+    "tests": 14,
+    "pass": 13,
+    "fail": 1,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "E5: an over-budget deliberation arms a one-shot notice; three in a row"
+    ]
+  },
+  {
+    "file": "enforcement-gen3",
+    "tests": 12,
+    "pass": 10,
+    "fail": 2,
+    "status": "RED",
+    "secs": 3,
+    "failed": [
+      "E8 dispatch: a blocked-done right after a tamper bounce is bounced onc",
+      "E8 dispatch: a blocked-done WITH a post-bounce probe passes the proven"
+    ]
+  },
+  {
+    "file": "enforcement-gen4",
+    "tests": 19,
+    "pass": 19,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 2,
+    "failed": []
+  },
+  {
+    "file": "enforcement-gen5",
+    "tests": 13,
+    "pass": 12,
+    "fail": 1,
+    "status": "RED",
+    "secs": 8,
+    "failed": [
+      "F2 dispatch: rebuilds between bounces do not reset the counter; the >="
+    ]
+  },
+  {
+    "file": "error-messages",
+    "tests": 7,
+    "pass": 7,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "evidence-streak-accounting",
+    "tests": 6,
+    "pass": 3,
+    "fail": 3,
+    "status": "RED",
+    "secs": 3,
+    "failed": [
+      "successful evidence-only decisions still trigger EVIDENCE SUFFICIENT a",
+      "a failed call between successful reads does not RESET the streak eithe",
+      "computer_fs counts as evidence only for its read actions, never mkdir/"
+    ]
+  },
+  {
+    "file": "evidence-survives-compaction",
+    "tests": 6,
+    "pass": 5,
+    "fail": 1,
+    "status": "RED",
+    "secs": 1,
+    "failed": [
+      "a restored ledger exposes the evidence to the model"
+    ]
+  },
+  {
+    "file": "execution-recovery",
+    "tests": 4,
+    "pass": 4,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 2,
+    "failed": []
+  },
+  {
+    "file": "fixable-final-block",
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 2,
+    "failed": []
+  },
+  {
+    "file": "flow-control-agent",
+    "tests": 9,
+    "pass": 3,
+    "fail": 6,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "\"enough evidence\" with no action arms a next-decision notice and the c",
+      "thinking-as-plan on a multi-part task is told that a thought-list is n",
+      "varied offsets over unchanged content run, then advise, then bounce ex",
+      "an edit opens a new evidence epoch so the post-edit re-read is fresh a",
+      "normal-size thinking stays silent; elevated and heavy thinking escalat",
+      "flow state is checkpointed with the run and an old snapshot without it"
+    ]
+  },
+  {
+    "file": "gen8-subagents",
+    "tests": 9,
+    "pass": 8,
+    "fail": 1,
+    "status": "RED",
+    "secs": 32,
+    "failed": [
+      "gen8 B: clicking the subagent card switches the live pane; clicking th"
+    ]
+  },
+  {
+    "file": "gen9-notebook",
+    "tests": 9,
+    "pass": 7,
+    "fail": 2,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "notebook and workspace pin survive forced compaction AND the raw-evict",
+      "agent run start: notebook created in notebookDir, pinned wire carries "
+    ]
+  },
+  {
+    "file": "large-paste-attachment",
+    "tests": 2,
+    "pass": 1,
+    "fail": 1,
+    "status": "RED",
+    "secs": 1,
+    "failed": [
+      "large paste attachment is a filesystem path, not copied into the agent"
+    ]
+  },
+  {
+    "file": "laya-scope",
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "mid-run-steering-and-patch-cadence",
+    "tests": 6,
+    "pass": 6,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 2,
+    "failed": []
+  },
+  {
+    "file": "native-dialog-handling",
+    "tests": 8,
+    "pass": 7,
+    "fail": 1,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "nativeSurfaceSeen serializes as an array and survives a continuation: "
+    ]
+  },
+  {
+    "file": "native-evidence-context",
+    "tests": 11,
+    "pass": 10,
+    "fail": 1,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "file content and observed Desktop paths reach the next decision"
+    ]
+  },
+  {
+    "file": "native-evidence-lifecycle",
+    "tests": 8,
+    "pass": 0,
+    "fail": 8,
+    "status": "RED",
+    "secs": 1,
+    "failed": [
+      "a wait in a native task keeps the domain and replaces pre-wait pixels",
+      "a native action breaks the consecutive-wait backoff streak",
+      "native wait works when the structural browser tab has closed",
+      "computer_observe replaces stale top-level native evidence",
+      "computer_window replaces stale top-level native evidence",
+      "computer_screenshot replaces stale top-level native evidence",
+      "switching to a browser read does not attach the old native image",
+      "refresh markers do not split an already-planned native batch"
+    ]
+  },
+  {
+    "file": "native-visual-actions",
+    "tests": 26,
+    "pass": 16,
+    "fail": 10,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "reported cross-action stroke payload remains invalid rather than silen",
+      "separate stroke action refreshes native evidence through the normal ch",
+      "a partially failed native action still requests fresh pixels",
+      "native vision rejection settles unverified without a model retry loop",
+      "fresh image remains pending across computer_observe after native mutat",
+      "fresh image remains pending across computer_window after native mutati",
+      "first native inspection obtains native pixels rather than browser evid",
+      "explicit native screenshot satisfies pending image without redundant r",
+      "openai does not silently replace rejected native images with empty DOM",
+      "ollama does not silently replace rejected native images with empty DOM"
+    ]
+  },
+  {
+    "file": "objective-ledger",
+    "tests": 11,
+    "pass": 11,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 11,
+    "failed": []
+  },
+  {
+    "file": "output-budget",
+    "tests": 4,
+    "pass": 3,
+    "fail": 1,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "the agent informs the model of the cut-off instead of scolding narrati"
+    ]
+  },
+  {
+    "file": "plan-and-skill-delivery",
+    "tests": 17,
+    "pass": 14,
+    "fail": 3,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "a summary that accounts for only part of the request is rejected",
+      "one bounce carries one demand: the accounting and the plan gates do no",
+      "the whole design skill reaches the model, including its quality-check "
+    ]
+  },
+  {
+    "file": "progress-state",
+    "tests": 7,
+    "pass": 7,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "prompt-compression-safety",
+    "tests": 6,
+    "pass": 6,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "provider-turn-ledger",
+    "tests": 14,
+    "pass": 14,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "real-verification",
+    "tests": 6,
+    "pass": 4,
+    "fail": 2,
+    "status": "RED",
+    "secs": 6,
+    "failed": [
+      "verified:true with NO evidence-producing tool call is downgraded, not ",
+      "evidence produced BEFORE the last mutation does not count as verificat"
+    ]
+  },
+  {
+    "file": "request-visibility",
+    "tests": 3,
+    "pass": 1,
+    "fail": 2,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "a long request is quoted whole, not cut to its first sentence",
+      "every copy of the request the model reads carries every ask"
+    ]
+  },
+  {
+    "file": "responses-continuity",
+    "tests": 8,
+    "pass": 5,
+    "fail": 3,
+    "status": "RED",
+    "secs": 1,
+    "failed": [
+      "native IDs and actual tool results survive an end-to-end agent decisio",
+      "incomplete responses are rejected without exposing partial actions",
+      "Astra selects Responses without changing the model; compatible models "
+    ]
+  },
+  {
+    "file": "run-forensics-fixes",
+    "tests": 6,
+    "pass": 6,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 13,
+    "failed": []
+  },
+  {
+    "file": "run-issues-fixes",
+    "tests": 12,
+    "pass": 12,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "skill-delivery-to-model",
+    "tests": 2,
+    "pass": 0,
+    "fail": 2,
+    "status": "RED",
+    "secs": 1,
+    "failed": [
+      "skill_search finds an installed skill by what it is for",
+      "skill_run gives the model the WHOLE skill body, not the list summary"
+    ]
+  },
+  {
+    "file": "stall-regressions",
+    "tests": 7,
+    "pass": 3,
+    "fail": 4,
+    "status": "RED",
+    "secs": 1,
+    "failed": [
+      "completed in-page probe evidence satisfies the coding gate (the 8-boun",
+      "terminal evidence still satisfies the coding gate",
+      "probe evidence with real failures does NOT satisfy the coding gate",
+      "non-coding tasks bypass the gate entirely"
+    ]
+  },
+  {
+    "file": "system-one-integrations",
+    "tests": 11,
+    "pass": 11,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "telemetry-scan-not-a-tool-call",
+    "tests": 5,
+    "pass": 4,
+    "fail": 1,
+    "status": "RED",
+    "secs": 2,
+    "failed": [
+      "a real model tool call is still counted while the telemetry scan is no"
+    ]
+  },
+  {
+    "file": "terminal-dead-end",
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 2,
+    "failed": []
+  },
+  {
+    "file": "token-compression",
+    "tests": 19,
+    "pass": 19,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "tool-result-archive",
+    "tests": 4,
+    "pass": 4,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "transport-retry",
+    "tests": 13,
+    "pass": 11,
+    "fail": 2,
+    "status": "RED",
+    "secs": 31,
+    "failed": [
+      "recovery exhaustion stays internal and the next decision can finish",
+      "a step timeout leaves no truncated reasoning fragment for the retry"
+    ]
+  },
+  {
+    "file": "turn-addition-semantics",
+    "tests": 6,
+    "pass": 5,
+    "fail": 1,
+    "status": "RED",
+    "secs": 1,
+    "failed": [
+      "turn-boundary framing: ADDITION is the default and carries the plan"
+    ]
+  },
+  {
+    "file": "verification-contradiction",
+    "tests": 3,
+    "pass": 2,
+    "fail": 1,
+    "status": "RED",
+    "secs": 1,
+    "failed": [
+      "verified:true with success:false is rejected as a contradiction"
+    ]
+  },
+  {
+    "file": "vision-delegate",
+    "tests": 3,
+    "pass": 3,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  },
+  {
+    "file": "visual-evidence",
+    "tests": 5,
+    "pass": 5,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 2,
+    "failed": []
+  },
+  {
+    "file": "wire-input-hygiene",
+    "tests": 7,
+    "pass": 6,
+    "fail": 1,
+    "status": "RED",
+    "secs": 3,
+    "failed": [
+      "real desktop tools still attach the playbook, as its own block with no"
+    ]
+  },
+  {
+    "file": "workspace-scope-default",
+    "tests": 4,
+    "pass": 4,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 2,
+    "failed": []
+  },
+  {
+    "file": "xkiro-wiring",
+    "tests": 12,
+    "pass": 12,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
+  }
+]

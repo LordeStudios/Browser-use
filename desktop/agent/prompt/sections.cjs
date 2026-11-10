@@ -158,6 +158,7 @@ function drawingPlaybookFor(desktop) {
 }
 
 module.exports = {
+  MODELING_PLAYBOOK, DRAWING_PLAYBOOK,
   PERSONA_PREFIX,
   PLAN_POLICY,
   EVIDENCE_POLICY,

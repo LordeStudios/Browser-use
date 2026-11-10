@@ -54,12 +54,15 @@ function retryBudget() {
 }
 
 // ---- Escalation backoff for parked runs (auto-resume). Growth is bounded;
-// ---- resumption is always scheduled — indefinite recovery.
-const ESCALATION_BASE_MS = Math.max(5_000, Number(process.env.BROWSER_USE_ESCALATION_RESUME_MS) || 60_000);
+// ---- resumption is always scheduled — indefinite recovery. The env knob is
+// ---- read at CALL time so tests and operators can retune cadence live.
+function escalationBaseMs() {
+  return Math.max(5_000, Number(process.env.BROWSER_USE_ESCALATION_RESUME_MS) || 60_000);
+}
 const ESCALATION_MAX_MS = 600_000;
 function escalationBackoffMs(attempts) {
   const n = Math.max(0, Number(attempts) || 0);
-  return Math.min(ESCALATION_MAX_MS, ESCALATION_BASE_MS * Math.pow(2, Math.min(n, 4)));
+  return Math.min(ESCALATION_MAX_MS, escalationBaseMs() * Math.pow(2, Math.min(n, 4)));
 }
 
 // ---- Sourced notices. Every injected guidance message carries a source —
@@ -114,7 +117,6 @@ module.exports = {
   RETRY_DELAYS_MS,
   nextRetryDelay,
   retryBudget,
-  ESCALATION_BASE_MS,
   ESCALATION_MAX_MS,
   escalationBackoffMs,
   recoveryNotice,

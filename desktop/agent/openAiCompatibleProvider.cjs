@@ -129,6 +129,9 @@ class OpenAiCompatibleProvider {
   }
 
   async complete({ task, agentIdentity, systemPrompt, attachments, observation, observationUnchanged, history, messages, coordinator, plan, goals, recovery, workspace, tools, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, signal, onThought, onStream, onActionReady }) {
+    // DSH: the harness system prompt arrives on the request; the provider
+    // renders it verbatim and authors nothing.
+    const harnessSystem = String(systemPrompt || '').trim() || IDENTITY_LINE;
     // Effort tier (resolved by DesktopChatAgent): minimal acts immediately,
     // standard keeps reasoning brief, advanced is the previous behavior.
     // DSH: effort is MODEL-SELECTION CONFIG — it maps onto transport budgeting
@@ -235,7 +238,7 @@ class OpenAiCompatibleProvider {
 // provider authors nothing. Effort is model-selection config (request.effort
 // / request.thinkingBudgetMs), never prompt text; the AGI playbook attaches
 // by observation inside the harness's tools:computer section.
-const userSafeSystem = String(systemPrompt || '').trim() || IDENTITY_LINE;
+const userSafeSystem = String(system || '').trim() || IDENTITY_LINE;
       // ADAPTIVE COMPRESSION (Intel's Adaptive Token Compressor, harness tier):
       // the system prompt is compressed section-aware before it goes on the
       // wire. The rule layer removes a directive only when it duplicates a
@@ -487,7 +490,7 @@ const userSafeSystem = String(systemPrompt || '').trim() || IDENTITY_LINE;
       return { done: { summary: `[TTS] ${String(input || '').slice(0, 200)}`, success: true, verified: false }, mediaAudio: { mimeType: 'audio/mpeg', dataUrl: `data:audio/mpeg;base64,${audioBuffer.toString('base64')}` } };
     };
     if (isTtsModel) return speakViaAudioApi(String(currentContext?.task || ''));
-    let payload = await request(userSafeSystem, currentContext);
+    let payload = await request(harnessSystem, currentContext);
     try {
       const decision = parseDecision(payload);
       const mediaOnSuccess = parseMediaAnswer(contentFor(payload));
@@ -527,7 +530,7 @@ const userSafeSystem = String(systemPrompt || '').trim() || IDENTITY_LINE;
       try {
         // Repair reuses the SAME harness system prompt — the schema-repair demand
 // already reached the model as a sourced harness notice (loopPolicy).
-        payload = await request(userSafeSystem, actionOnlyRepairPrompt(context, content || firstError.message, tools), { repair: true });
+        payload = await request(harnessSystem, actionOnlyRepairPrompt(context, content || firstError.message, tools), { repair: true });
         return parseDecision(payload, { allowPlainText: true });
       } catch (repairError) {
         const informationalFinal = recoverInformationalFinal(task, contentFor(payload));

@@ -103,9 +103,8 @@ test('the tool catalog carries the diagnostics-only contract', () => {
 
 test('the system prompt carries the console clause WITHOUT breaking the lean-core cap', () => {
   const prompt = assembleSystemPrompt(fakeAgentRun('agi', 'E:/repo'), null);
-  // One compact sentence — the campaign-banked lean core stays under its
-  // 6400 cap (the full contract lives in the tool descriptions + the wire
-  // diagnostics filter, never as another prompt wall).
+  // DSH REWRITE: the named-section core replaces the monolithic lean core;
+  // the density guard moves to the sectioned ceiling (see HARNESS_REWRITE.md).
   assert.match(prompt, /never evidence of what the page shows|Console and network output are debugging aids/);
-  assert.ok(prompt.length < 6400, `lean core cap holds (got ${prompt.length})`);
+  assert.ok(prompt.length < 16000, `sectioned core cap holds (got ${prompt.length})`);
 });
