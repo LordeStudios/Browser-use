@@ -1564,7 +1564,7 @@ function openReportPreview(report) {
   window.browserUseDesktop.openReportPreview({ path: report.path }).catch((error) => reportError(error, 'Could not open the report preview.'));
 }
 
-function appendMessageHoverActions(item, text) {
+function appendMessageHoverActions(item, text, { copyText = null } = {}) {
   const controls = document.createElement('div'); controls.className = 'agent-message-hover-actions';
   const add = (label, iconName, handler) => {
     const button = document.createElement('button'); button.type = 'button'; button.title = label; button.setAttribute('aria-label', label);
@@ -1574,8 +1574,8 @@ function appendMessageHoverActions(item, text) {
   };
   add('Helpful', 'thumbs-up', (button) => button.classList.toggle('is-selected'));
   add('Not helpful', 'thumbs-down', (button) => button.classList.toggle('is-selected'));
-  add('Copy action', 'copy', (button) => window.browserUseDesktop.copyText(text).then(() => flashCopyIcon(button)).catch(() => {}));
-  add('Copy page link', 'link', () => window.browserUseDesktop.copyText(state.active?.url || '').catch(() => {}));
+  add('Copy action', 'copy', (button) => copyWithFeedback(button, copyText ?? text));
+  add('Copy page link', 'link', (button) => copyWithFeedback(button, state.active?.url || '', { failure: 'Could not copy the page link.' }));
   add('Read aloud', 'speaker-high', () => { if ('speechSynthesis' in window) { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(text)); } });
   const time = document.createElement('time'); time.dateTime = new Date().toISOString(); time.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); controls.append(time);
   item.append(controls);
@@ -1715,7 +1715,7 @@ function appendRichAssistantText(target, text) {
       chip.title = 'Copy path';
       chip.append(icon('copy'), document.createTextNode(value.length > 60 ? `${value.slice(0, 57)}…` : value));
       chip.addEventListener('click', () => {
-        window.browserUseDesktop.copyText(value).then(() => flashCopyIcon(chip)).catch((error) => reportError(error, 'Could not copy the path.'));
+        copyWithFeedback(chip, value, { failure: 'Could not copy the path.' });
       });
       target.append(chip);
       continue;
@@ -2038,7 +2038,16 @@ function renderChatMessage(kind, text, detail = '', inspection = null, options =
       actionName.title = `${text} — ${target.full}`;
     }
     item.append(header);
-    appendMessageHoverActions(item, text);
+    // COPY = THE WHOLE CARD. Copying only the tool name is useless evidence:
+    // the user wants the action WITH its input and output (owner directive).
+    const cardInput = inspection?.input ?? null;
+    const cardOutput = options.targetOutput ?? inspection?.output ?? null;
+    const cardCopy = [
+      text,
+      cardInput != null ? `Input://n${diagnosticText(cardInput)}` : null,
+      cardOutput != null ? `Output://n${diagnosticText(cardOutput)}` : null
+    ].filter(Boolean).join('\n\n');
+    appendMessageHoverActions(item, text, { copyText: cardCopy });
     const screenshotUrl = screenshotDataUrl(options.screenshotPreview);
     if (screenshotUrl) {
       item.classList.add('is-screenshot');
@@ -2072,7 +2081,7 @@ function renderChatMessage(kind, text, detail = '', inspection = null, options =
       chip.append(icon('file'), document.createTextNode(writtenPath.length > 64 ? `${writtenPath.slice(0, 61)}…` : writtenPath));
       chip.addEventListener('click', (event) => {
         event.stopPropagation();
-        window.browserUseDesktop.copyText(writtenPath).then(() => flashCopyIcon(chip)).catch((error) => reportError(error, 'Could not copy the path.'));
+        copyWithFeedback(chip, writtenPath, { failure: 'Could not copy the path.' });
       });
       item.append(chip);
     }
@@ -2083,7 +2092,7 @@ function renderChatMessage(kind, text, detail = '', inspection = null, options =
         const sectionLabel = document.createElement('strong'); sectionLabel.textContent = labelText;
         const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'agent-inspection-copy'; copy.title = 'Copy diagnostics'; copy.setAttribute('aria-label', 'Copy diagnostics'); copy.append(icon('copy'));
         const output = diagnosticText(value);
-        copy.addEventListener('click', (event) => { event.stopPropagation(); window.browserUseDesktop.copyText(output).then(() => flashCopyIcon(copy)).catch((error) => reportError(error, 'Could not copy diagnostics.')); });
+        copy.addEventListener('click', (event) => { event.stopPropagation(); copyWithFeedback(copy, output, { failure: 'Could not copy diagnostics.' }); });
         const pre = document.createElement('pre'); pre.textContent = output;
         head.append(sectionLabel, copy); details.append(head, pre);
         if (labelText === 'Output' && appendPatchDiffView(details, value)) pre.hidden = true;
@@ -2151,7 +2160,7 @@ function renderChatMessage(kind, text, detail = '', inspection = null, options =
       return button;
     };
     const pillCopy = pillButton('copy', 'Copy message');
-    pillCopy.addEventListener('click', (event) => { event.stopPropagation(); window.browserUseDesktop.copyText(effectiveText()).then(() => flashCopyIcon(pillCopy)).catch(() => {}); });
+    pillCopy.addEventListener('click', (event) => { event.stopPropagation(); copyWithFeedback(pillCopy, effectiveText()); });
     const pillResend = pillButton('arrow-clockwise', 'Resend this message');
     pillResend.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -2168,7 +2177,7 @@ function renderChatMessage(kind, text, detail = '', inspection = null, options =
     item.classList.add('has-hover-copy');
     item.append(pill);
     const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'agent-message-copy'; copy.title = 'Copy message'; copy.setAttribute('aria-label', 'Copy message'); copy.append(icon('copy'));
-    copy.addEventListener('click', (event) => { event.stopPropagation(); window.browserUseDesktop.copyText(effectiveText()).then(() => flashCopyIcon(copy)).catch(() => {}); });
+    copy.addEventListener('click', (event) => { event.stopPropagation(); copyWithFeedback(copy, effectiveText()); });
     controls.append(copy);
   }
   const expandable = Boolean(inspection || options.expandable);
@@ -2197,7 +2206,7 @@ function renderChatMessage(kind, text, detail = '', inspection = null, options =
       const sectionLabel = document.createElement('strong'); sectionLabel.textContent = labelText;
       const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'agent-inspection-copy'; copy.title = 'Copy diagnostics'; copy.setAttribute('aria-label', 'Copy diagnostics'); copy.append(icon('copy'));
       const output = diagnosticText(value);
-      copy.addEventListener('click', (event) => { event.stopPropagation(); window.browserUseDesktop.copyText(output).then(() => flashCopyIcon(copy)).catch((error) => reportError(error, 'Could not copy diagnostics.')); });
+      copy.addEventListener('click', (event) => { event.stopPropagation(); copyWithFeedback(copy, output, { failure: 'Could not copy diagnostics.' }); });
       const pre = document.createElement('pre'); pre.textContent = output;
       head.append(sectionLabel, copy); details.append(head, pre);
       if (labelText === 'Output' && appendPatchDiffView(details, value)) pre.hidden = true;
@@ -4363,6 +4372,40 @@ function flashLabel(button, label, restore) {
 function flashCopyIcon(button) {
   button.classList.add('is-copied');
   setTimeout(() => button.classList.remove('is-copied'), COPY_FEEDBACK_MS);
+}
+
+// COPY FEEDBACK (owner directive): every copy button acknowledges the copy —
+// a stale button looks broken. Icon-only controls show a "Copied" badge (CSS
+// via data-copied-label); controls with a text label swap it, then restore.
+function showCopyFeedback(button, label = 'Copied') {
+  if (!button) return;
+  flashCopyIcon(button);
+  if (button.dataset.copyFeedbackAt) clearTimeout(Number(button.dataset.copyFeedbackAt));
+  const restoreLabel = button.dataset.copyOriginalLabel ?? button.textContent;
+  const restoreTitle = button.dataset.copyOriginalTitle ?? button.title;
+  const restoreAria = button.dataset.copyOriginalAria ?? button.getAttribute('aria-label');
+  button.dataset.copyOriginalLabel = restoreLabel;
+  button.dataset.copyOriginalTitle = restoreTitle ?? '';
+  if (restoreAria != null) button.dataset.copyOriginalAria = restoreAria;
+  button.dataset.copiedLabel = label;
+  button.title = label;
+  if (restoreAria != null) button.setAttribute('aria-label', label);
+  const hasText = String(restoreLabel || '').trim().length > 0;
+  if (hasText) button.textContent = label;
+  button.dataset.copyFeedbackAt = String(setTimeout(() => {
+    button.classList.remove('is-copied');
+    delete button.dataset.copiedLabel;
+    delete button.dataset.copyFeedbackAt;
+    button.title = button.dataset.copyOriginalTitle || '';
+    if (hasText) button.textContent = button.dataset.copyOriginalLabel;
+    if (button.dataset.copyOriginalAria != null) button.setAttribute('aria-label', button.dataset.copyOriginalAria);
+  }, COPY_FEEDBACK_MS));
+}
+
+function copyWithFeedback(button, text, { label = 'Copied', failure = 'Could not copy.' } = {}) {
+  return window.browserUseDesktop.copyText(String(text ?? ''))
+    .then(() => showCopyFeedback(button, label))
+    .catch((error) => reportError(error, failure));
 }
 
 function syncAgentOverlayScreenState() {

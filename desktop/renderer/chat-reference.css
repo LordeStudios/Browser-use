@@ -280,6 +280,33 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-message-copy { opacity: 0; }
 .agent-message:hover .agent-message-copy, .agent-message-copy:focus { opacity: 1; }
 .agent-copy-chat.is-copied, .agent-message-copy.is-copied, .agent-inspection-copy.is-copied, .agent-message-hover-actions button.is-copied { background: #263b13; color: #c8ff00; }
+/* COPY FEEDBACK: icon-only copy controls acknowledge with a visible badge —
+   a stale button reads as broken. Text buttons swap their label in JS. */
+.agent-message-hover-actions button.is-copied,
+.agent-inspection-copy.is-copied,
+.agent-copy-chat.is-copied,
+.agent-message-copy.is-copied { position: relative; }
+.agent-message-hover-actions button.is-copied::after,
+.agent-inspection-copy.is-copied::after,
+.agent-copy-chat.is-copied::after,
+.agent-message-copy.is-copied::after {
+  content: attr(data-copied-label);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #1d2a12;
+  border: 1px solid #3f5a22;
+  color: #c8ff00;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
+}
+.agent-file-chip.is-copied, .agent-action-target.is-copied { background: #263b13; color: #c8ff00; border-color: #3f5a22; }
 .agent-message-hover-actions { position: absolute; z-index: 3; top: -5px; right: 0; display: flex; align-items: center; gap: 2px; padding: 3px 6px; border: 1px solid #293438; border-radius: 8px; background: #10181a; box-shadow: 0 4px 12px #0008; opacity: 0; pointer-events: none; transition: opacity .12s ease; }
 .agent-message.is-tool:hover .agent-message-hover-actions, .agent-message-hover-actions:focus-within { opacity: 1; pointer-events: auto; }
 .agent-message-hover-actions button { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #9b9b9b; }
