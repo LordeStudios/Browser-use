@@ -353,6 +353,10 @@ class ProviderTurnLedger {
     this.request = sanitize(this.turns.length || this.summary
       ? { contextType: 'current_state', messages: additions, ...state }
       : { task, messages: additions, ...state, history: oldHistory || [] });
+    // The staged conversation messages (user prompts, steering, agent mail)
+    // are TRANSCRIPT items: they replay ahead of this turn's assistant
+    // message, verbatim — never inside a request snapshot.
+    this.stagedUserMessages = additions;
     // The STORED request must never embed the full run-history blob. It is
     // replayed verbatim on every future wire message (and restored from
     // checkpoints after a restart), so one long first turn permanently
@@ -422,6 +426,7 @@ class ProviderTurnLedger {
     } else if (compatible && format === 'anthropic' && payload?.content) this.replay.set(id, { identity, format, value: { role: 'assistant', content: copy(payload.content) } });
     else if (compatible && format === 'responses' && payload?.output) this.replay.set(id, { identity, format, value: copy(payload.output) });
     const mapped = actions.map((action, index) => ({ ...action, callId: calls[index].id }));
+    this.pending.userMessages = this.stagedUserMessages || [];
     if (Array.isArray(parsed.actions)) return { ...parsed, actions: mapped };
     if (Array.isArray(parsed.toolCalls)) return { ...parsed, toolCalls: mapped };
     if (parsed.done) return { ...parsed, actions: mapped };
@@ -456,7 +461,21 @@ class ProviderTurnLedger {
       ? { role: 'user', content: 'This is an automatically generated checkpoint condensing an earlier span of the conversation to free up context. Treat the captured context as established background and build on it without restating it. Continue the task directly from the messages that follow, without acknowledging this checkpoint.\n\n' + json({ contextType: 'state_snapshot', originalTask: this.originalTask, ...(taskLadder ? { taskLadder } : {}), ...gen9, ...this.summary, ...evidenceBlock, evidenceRule: 'Snapshot facts describe PAST states at the turns they were recorded. Never cite them as current verification; only the newest observation/screenshot/test output counts as evidence for a claim about NOW.' }) }
       : { role: 'user', content: json({ contextType: 'original_objective', task: this.originalTask, ...(taskLadder ? { taskLadder } : {}), ...gen9, ...evidenceBlock }) });
     for (const turn of this.turns) {
-      prior.push({ role: 'user', content: json(turn.request) });
+      // ALIGNMENT WITH THE REFERENCE HARNESS (packages/core/session surface):
+      // a transcript is the conversation — user messages, assistant turns and
+      // tool results — and nothing else. This ledger used to replay each prior
+      // turn's FULL request snapshot (observation, tool catalog, history,
+      // coordinator state, advisories) ahead of its assistant message, so a
+      // long run shipped stale observations and duplicate catalogs N times
+      // over and the model drowned in machine JSON instead of continuing a
+      // dialogue — the visible "same clicks on repeat, no real reasoning"
+      // degradation. The current request (fresh observation, state, tools)
+      // already rides as the final user message from the provider; prior
+      // turns contribute ONLY their real user messages, assistant message and
+      // tool results, exactly like the reference.
+      for (const userMessage of turn.userMessages || []) {
+        prior.push(userMessage);
+      }
       const replay = this.replay.get(turn.id);
       const native = replay?.identity === identity && replay.format === format ? replay.value : null;
       if (format === 'responses' && native) {

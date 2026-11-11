@@ -43,15 +43,21 @@ test('ledger truncates large results with a digest and keeps replay bounded', ()
 
 test('a failed or truncated summary never stops the run; turns are retained and bounded', async () => {
   const metrics = {};
-  const ledger = new ProviderTurnLedger({ maxTurns: 3, contextTokens: 1024, maxBytes: 50000 });
+  // The slim transcript no longer self-saturates, so force drives the
+  // compaction paths this test owns; the budget is real (30k) so a
+  // successful summary can actually land in phase two.
+  const ledger = new ProviderTurnLedger({ maxTurns: 3, contextTokens: 30_000, maxBytes: 50000 });
   const context = { task: 'Objective survives failure', messages: [], observation: { dom: { elements: [] } }, plan: [], goals: [], recovery: null };
+  // Result content is the wire-pressure vector (requests no longer replay):
+  // each result carries a few KB so the slim transcript crosses the threshold.
+  const bulky = (i) => [{ callId: 'c' + i, output: { ok: true, result: { index: i, payload: 'r'.repeat(3_000) } } }];
   ledger.begin(context);
   for (let i = 0; i < 5; i++) {
     ledger.accept({ actions: [{ name: 'browser_click', input: { element: i }, callId: 'c' + i }] }, { choices: [{ message: { content: null, tool_calls: [{ id: 'c' + i, type: 'function', function: { name: 'browser_click', arguments: JSON.stringify({ element: i }) } }] } }] }, 'openai');
-    ledger.begin({ ...context, history: [{ callId: 'c' + i, output: { ok: true, result: { index: i } } }] });
+    ledger.begin({ ...context, history: bulky(i) });
   }
   // Simulated provider truncation: the summary side-query throws.
-  await ledger.compact({ current: context, system: 'short', tools: [], outputTokens: 100, metrics, summarize: async () => { throw new Error('Compaction output was truncated.'); } });
+  await ledger.compact({ current: context, system: 'short', tools: [], outputTokens: 100, force: true, metrics, summarize: async () => { throw new Error('Compaction output was truncated.'); } });
   assert.equal(ledger.turns.length, 3, 'oldest groups trimmed to maxTurns, recent groups kept');
   assert.equal(metrics.compactionFailures, 1);
   assert.match(metrics.compactionFailureReason, /truncated/);
@@ -65,20 +71,21 @@ test('a failed or truncated summary never stops the run; turns are retained and 
     ledger.accept({ actions: [{ name: 'browser_click', input: { element: i }, callId: 'c' + i }] }, { choices: [{ message: { content: null, tool_calls: [{ id: 'c' + i, type: 'function', function: { name: 'browser_click', arguments: JSON.stringify({ element: i }) } }] } }] }, 'openai');
     ledger.begin({ ...context, history: [{ callId: 'c' + i, output: { ok: true, result: { index: i } } }] });
   }
-  await ledger.compact({ current: context, system: 'short', tools: [], outputTokens: 100, metrics, summarize: async () => ({ facts: ['recovered'], completed: [], openQuestions: [], constraints: [], nextActions: [] }) });
+  await ledger.compact({ current: context, system: 'short', tools: [], outputTokens: 100, force: true, metrics, summarize: async () => ({ facts: ['recovered'], completed: [], openQuestions: [], constraints: [], nextActions: [] }) });
   assert.equal(ledger.summary.facts[0], 'recovered');
 });
 
 test('ledger compacts whole turn groups only after validating a structured snapshot', async () => {
-  const ledger = new ProviderTurnLedger({ maxTurns: 24, contextTokens: 1024, maxBytes: 50000 });
+  const ledger = new ProviderTurnLedger({ maxTurns: 24, contextTokens: 30_000, maxBytes: 50000 });
   const context = { task: 'Keep the fixture objective', messages: [], observation: { dom: { elements: [] } }, plan: [], goals: [], recovery: null };
+  const bulky = (i) => [{ callId: 'c' + i, output: { ok: true, result: { changed: true, index: i, payload: 'r'.repeat(3_000) } } }];
   ledger.begin(context);
   for (let i = 0; i < 6; i++) {
     ledger.accept({ actions: [{ name: 'browser_click', input: { element: i }, callId: 'c' + i }] }, { choices: [{ message: { content: null, tool_calls: [{ id: 'c' + i, type: 'function', function: { name: 'browser_click', arguments: JSON.stringify({ element: i }) } }] } }] }, 'openai');
-    ledger.begin({ ...context, history: [{ callId: 'c' + i, output: { ok: true, result: { changed: true, index: i } } }] });
+    ledger.begin({ ...context, history: bulky(i) });
   }
   const before = ledger.turns.length;
-  await ledger.compact({ current: context, system: 'short', tools: [], outputTokens: 100, summarize: async () => ({ facts: ['fixture remains active'], completed: ['clicked known controls'], openQuestions: [], constraints: ['preserve user work'], nextActions: ['verify final state'] }) });
+  await ledger.compact({ current: context, system: 'short', tools: [], outputTokens: 100, force: true, summarize: async () => ({ facts: ['fixture remains active'], completed: ['clicked known controls'], openQuestions: [], constraints: ['preserve user work'], nextActions: ['verify final state'] }) });
   assert.ok(ledger.turns.length < before);
   assert.equal(ledger.summary.facts[0], 'fixture remains active');
   assert.equal(ledger.originalTask, 'Keep the fixture objective');
@@ -111,7 +118,10 @@ test('a restored legacy snapshot with an embedded history blob heals at load tim
   const ledger = new ProviderTurnLedger({ snapshot: poisoned });
   const wire = JSON.stringify(ledger.wireMessages({ format: 'json' }));
   assert.ok(wire.length < 10_000, `the wire must not replay the poison (got ${wire.length} bytes)`);
-  assert.match(wire, /historyOmitted/);
+  // Contract change: prior turns no longer replay their request snapshots at
+  // all, so the poison is not just healed — it never reaches the wire.
+  assert.doesNotMatch(wire, /current_state/);
+  assert.doesNotMatch(wire, /blob/);
 });
 
 test('failOpen evicts oldest turns by SIZE, so a poisoned ledger self-heals on the next turn', async () => {
@@ -119,18 +129,20 @@ test('failOpen evicts oldest turns by SIZE, so a poisoned ledger self-heals on t
   // Small byte floor + summarizer that always fails (e.g. a size-gated
   // gateway rejecting the summary request): compaction cannot succeed, so
   // failOpen must bound the wire by eviction, not just by turn count.
-  const ledger = new ProviderTurnLedger({ maxTurns: 24, contextTokens: 100_000, maxBytes: 60_000 });
+  // Result content is the pressure vector — requests no longer replay.
+  const ledger = new ProviderTurnLedger({ maxTurns: 24, contextTokens: 100_000, maxBytes: 8_000 });
   const context = { task: 'Recover by eviction', messages: [], plan: [], goals: [], recovery: null };
   ledger.begin(context);
   for (let i = 0; i < 6; i++) {
     ledger.accept({ actions: [{ name: 'computer_read', input: { path: `f${i}.js` }, callId: 'c' + i }] }, {}, 'json');
-    ledger.begin({ ...context, history: [{ callId: 'c' + i, output: { ok: true } }] });
-    ledger.turns.at(-1).request = { contextType: 'current_state', payload: 'z'.repeat(40_000) };
+    ledger.begin({ ...context, history: [{ callId: 'c' + i, output: { ok: true, result: { content: 'z'.repeat(2_000) } } }] });
   }
   assert.equal(ledger.turns.length, 6);
-  await ledger.compact({ current: context, system: 'short', tools: [], outputTokens: 100, metrics, summarize: async () => { throw new Error('Compaction request failed (403).'); } });
+  // force drives the failOpen path past the fill threshold (the slim
+  // transcript no longer self-saturates).
+  await ledger.compact({ current: context, system: 'short', tools: [], outputTokens: 100, force: true, metrics, summarize: async () => { throw new Error('Compaction request failed (403).'); } });
   const wireBytes = JSON.stringify(ledger.wireMessages({ format: 'json' })).length;
-  assert.ok(wireBytes <= 60_000, `the wire must fit the byte floor after eviction (got ${wireBytes})`);
+  assert.ok(wireBytes <= 8_000, `the wire must fit the byte floor after eviction (got ${wireBytes})`);
   assert.ok(ledger.turns.length < 6, 'the oldest poisoned turns must have been evicted');
   assert.ok((metrics.uncompactedTurnsDropped || 0) > 0);
   // The objective and the newest turn survive every eviction.
@@ -143,12 +155,12 @@ test('compaction summary input is field-bounded, so one giant group cannot break
   const context = { task: 'Bound summary input', messages: [], plan: [], goals: [], recovery: null };
   ledger.begin(context);
   ledger.accept({ actions: [{ name: 'computer_read', input: { path: 'big.js' } }] }, {}, 'json');
-  ledger.begin({ ...context, history: [] });
-  ledger.turns.at(-1).request = { contextType: 'current_state', payload: 'q'.repeat(500_000) };
+  // Result content is the pressure vector (requests no longer replay).
+  ledger.begin({ ...context, history: [{ callId: 'big', output: { ok: true, result: { content: 'q'.repeat(500_000) } } }] });
   ledger.accept({ actions: [{ name: 'browser_click', input: { element: 1 } }] }, {}, 'json');
   ledger.begin({ ...context, history: [] });
   const ok = await ledger.compact({
-    current: context, system: 'short', tools: [], outputTokens: 100,
+    current: context, system: 'short', tools: [], outputTokens: 100, force: true,
     summarize: async (prompt, input) => { summaryInput = input; return { facts: ['kept'], completed: [], openQuestions: [], constraints: [], nextActions: [] }; }
   });
   assert.notEqual(summaryInput, null, 'the summary request must actually run instead of failing on an oversized group');

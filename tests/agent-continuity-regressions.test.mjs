@@ -52,8 +52,11 @@ test('Responses receives ordered follow-up messages after its initial request', 
     history: [{ tool: 'computer_file', callId: 'c1', output: { ok: true, result: { content: 'actual result' } } }] });
   const state = JSON.parse(bodies[1].input.at(-1).content[0].text);
   assert.deepEqual(state.messages.map(m => m.content), ['New scope: inspect only the second file']);
-  const first = JSON.parse(bodies[1].input[1].content);
-  assert.equal(first.messages[0].content, messages[0].content, 'the earlier user turn remains in ordered history rather than being repeated in current state');
+  // Contract change: prior turns replay their real user messages verbatim
+  // (the reference harness's transcript shape), not a JSON request snapshot.
+  const first = bodies[1].input[1];
+  assert.equal(first.role, 'user');
+  assert.ok(String(first.content).includes('Original fixture request'), 'the earlier user turn remains in ordered history rather than being repeated in current state');
   assert.equal(bodies[1].input.find(i => i.type === 'function_call_output').call_id, 'c1');
 });
 
