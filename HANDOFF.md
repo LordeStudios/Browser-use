@@ -1,9 +1,77 @@
 # HANDOFF — browser-use desktop chat agent
 
-> **Session 3 handoff (2026-11-11, 08:46–10:36) — READ THIS FIRST.**
-> Session 2's handoff follows below as `SESSION 2 (historical)`.
-> Everything in this top section is newer, overrides the older status line, and
-> describes **uncommitted work in progress**.
+> **Session 4 handoff (2026-11-11, 10:46–13:20) — READ THIS FIRST.**
+> The session-3 handoff follows below as the first historical block. Everything
+> in this top section is newer and describes committed work.
+
+**HEAD:** `e101394` — two commits on top of session 3's `7a6c9b5`:
+| Commit | What it did |
+|---|---|
+| `eef3fe3` | **P0 truthful click reply.** `clickAt` sequences on delivery truth: `pointer.deliveryFallback` means the native event crossed, so only a superseded/cancelled operation vetoes a stage (a fallback-delivered press now pairs its release instead of stranding a held button). The final reply projects the last healthy visual stage + `committed: true`; a visual failure surfaces only as informational `visualInterrupted`. Re-pinned the superseded-release test (its own title says "already committed click" — the new shape is the first one that means it). Also committed session 3's uncommitted work, now tested: `hasCoordinatePair` treats element + schema-default `(0,0)` as the index path (the lichess `{"element":6,"x":0,"y":0}` → `label.hbg` bug), and `releaseTabPointerButtons` skips cancelling during `prepareNativeInput`'s own re-layout. Tests: pointer-controller **30/30** (2 new), gen2 **15/15** (1 new). |
+| `e101394` | **P0 DPR screenshot mapping.** `viewportPoint`'s screenshot branch had TWO bugs: it only fired when the model labeled `coordinateSpace:"screenshot"` (models mislabel image pixels as "viewport"), and it **multiplied** by `scaleX/scaleY` — the CSS→image direction, pushing screenshot-space clicks further off target. The capture's scale is image/CSS (1.25 at DPR 1.25), so image→CSS is a **division**: lichess `(286,579)` → `(229,463)`. The `screenshotId` alone now selects the screenshot frame regardless of the label; a stale/unmatched/scale-less id is rejected with the recovery message instead of silently assuming 1:1. Plain CSS coordinates without a screenshotId are untouched. The computer-pointer path keeps its opposite convention (physical pixels, multiply) and is unchanged. `browser_click`/`browser_drag` schema hints updated. New suite `tests/browser-screenshot-coordinates.test.mjs` **7/7**. |
+
+**Working tree:** clean. The temporary debug probe handler was **removed** from
+`desktop/main.cjs` and that removal produces a **zero-diff** (the probe was
+never committed — session 3 kept it uncommitted), so there is no third commit.
+
+## Session 4 traps & lessons
+
+- **`desktop/main.cjs` is mixed-EOL with a BOM** (CRLF for most lines, LF
+  patches inside). The Edit tool normalized it to LF and `git add` then
+  produced a **whole-file 5,979/5,979 EOL-flip commit** — caught, reverted via
+  `git reset --soft HEAD^`, and rebuilt byte-faithfully with a Node splice
+  script (`scratch/session4-splice-main.cjs`, kept as the pattern). Verify any
+  main.cjs commit with `git diff <parent> HEAD --stat -- desktop/main.cjs`;
+  it must never show thousands of lines.
+- The Edit tool preserved CRLF fine for `browserViewController.cjs` — the
+  corruption risk is per-file, so check `git diff --stat` after every file's
+  first edit, not just `node --check`.
+- **`desktop-ai-chat-agent` measured honestly: 94 tests, ~35 min serial.**
+  Tests 79/80/89 fail **identically on pristine HEAD** (79 burns a fixed
+  ~470 s provider-retry ladder; 89 a 120 s heartbeat timeout) — three more
+  pre-existing reds beyond session 3's documented 12/17/37/64. Test 91
+  "passes in 5 s standalone but appears to hang" in full-suite runs — it is
+  the next test after the ~10 min of serial timeout burn; run it by name.
+- Backup before editing uncommitted files (there is no `git checkout` escape):
+  session 4 kept `scratch/session4-backup/` of all four touched files.
+
+## Session 4 verification state (measured)
+
+| Suite | Result |
+|---|---|
+| agent-pointer-controller | **30/30** (was 28; +2 new) |
+| enforcement-gen2 | **15/15** (was 14; +1 new) |
+| browser-screenshot-coordinates (new) | **7/7** |
+| desktop-input-release | 13/13 parity |
+| input-drag | 3/3 |
+| computer-patch | 34/34 parity |
+| prompt-compression-safety | 6/6 |
+| desktop-thinking-hygiene | 13/13 |
+| desktop-package-contract | 11/13 — same 2 pre-existing reds |
+| desktop-openai-compatible-provider | 17/18 — test 4 verified pre-existing at HEAD via worktree |
+| desktop-ai-chat-agent | 7 pre-existing reds (12/17/37/64/79/80/89), all HEAD-identical; 91–94 pass standalone |
+
+## Session 4 remaining work
+
+- **P1 — live lichess verification still open.** The running dev instance is
+  now stale (started in session 3, without these fixes). Kill only the fork's
+  electron.exe (see §2d command below), relaunch with
+  `env -u ELECTRON_RUN_AS_NODE npm run desktop:dev`, navigate to
+  `https://lichess.org/training`, and drive a real click; chessground must
+  select a piece. The debug probe is gone — drive clicks through a real agent
+  task (`browser-use:agent-start` over the loopback bridge) or temporarily
+  re-add a probe (do not commit it).
+- **P2 — unchanged from session 3:** completion waterfall, decision/action
+  waterfalls, notebook wire trim (§4 of the session-3 block below).
+- The three `desktop-ai-chat-agent` HEAD-identical reds (79/80/89) are worth a
+  triage pass someday — they are behaviour differences from the reference
+  harness, not click-tool issues.
+
+---
+
+## SESSION 3 (historical) — root-cause findings and the fix queue
+
+> **Session 3 handoff (2026-11-11, 08:46–10:36).**
 
 **HEAD:** `4033085` "Input delivery must never depend on the pointer animation"
 **Working tree:** **3 modified files, uncommitted** — see §3.
@@ -121,6 +189,9 @@ tray or kill only the fork's processes:
 
 ## 3. Uncommitted working tree (3 files — commit or finish first)
 
+> **RESOLVED in session 4:** all three changes are committed (`eef3fe3`) and
+> tested; the probe (row 3) was removed outright. The tree is clean.
+
 | File | Change | Status |
 |---|---|---|
 | `desktop/agent/desktopAgentCoordinator.cjs` | `hasCoordinatePair`: element + `(0,0)` → index path (§2c.3) | syntax OK, **no test written** |
@@ -153,6 +224,11 @@ The user's "mainly remaining differences in loop" — none of these are done:
 
 ## 5. Temporary debug probe (REMOVE)
 
+> **REMOVED in session 4.** The probe was never committed, so its removal is a
+> zero-diff against HEAD; the byte-faithful splice is `scratch/session4-splice-main.cjs`.
+> The probe-based live-verification recipe below still describes how to drive
+> a probe click IF one is temporarily re-added (uncommitted) for a live check.
+
 `desktop/main.cjs:5561` `ipcMain.handle('browser-use:debug-page-probe', ...)` accepts
 `{expression}` (runs `browserViewController.evaluatePage`) or `{click:{x,y}}` (runs
 `browserViewController.clickAt`). Call over the loopback bridge:
@@ -170,6 +246,10 @@ to prove the click actually selects a piece. **The currently running dev instanc
 handler; any fresh instance will not.**
 
 ## 6. Priority list for the next agent
+
+> Session 4 status: P0 truthful reply ✅ (`eef3fe3`), P0 DPR mapping ✅
+> (`e101394`, plus the direction-inversion fix the queue missed), P0 probe
+> removal ✅, P1 tests for the two session-3 fixes ✅. Remaining below.
 
 - **P0 — truthful click reply** (`clickAt:444`): committed clicks must never say
   `interrupted`. Add a test that a delivered press+release reports `committed: true`.
