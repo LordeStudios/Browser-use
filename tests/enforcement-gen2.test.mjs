@@ -22,6 +22,26 @@ test('E1 mixed coordinate clicks stay coordinate-authoritative across string nor
   assert.match(actionHash(call), /coordinate/);
 });
 
+test('E1 element index with schema-default (0,0) coordinates means the element, not the page origin', () => {
+  // Lichess log: {"element": 6, "x": 0, "y": 0} took the coordinate path and
+  // clicked whatever sat at the page's top-left corner (hit: label.hbg). The
+  // (0,0) pair beside an element index is the schema placeholder, not a point.
+  assert.equal(hasCoordinatePair({ element: 6, x: 0, y: 0 }), false);
+  assert.equal(hasCoordinatePair({ index: '6', x: '0', y: '0' }), false, 'string-normalized placeholder counts too');
+  assert.equal(hasCoordinatePair({ x: 0, y: 0 }), true, 'a bare (0,0) with no element IS a deliberate origin click');
+  assert.equal(hasCoordinatePair({ element: 6, x: 0, y: 40 }), true, 'non-origin coordinates stay coordinate-authoritative');
+  assert.equal(hasCoordinatePair({ element: 6, x: 10, y: 0 }), true);
+
+  const state = createCoordinatorState();
+  recordObservation(state, obsA);
+  const call = { name: 'browser_click', input: { element: 6, x: 0, y: 0 } };
+  assert.ok(!/coordinate/.test(actionHash(call)), 'the placeholder click keys on the element, not the origin point');
+  bumpNavigationEpoch(state);
+  const rejected = staleAnchor(state, call);
+  assert.ok(rejected, 'an element+placeholder click is an element anchor: post-navigation it must be rejected as stale');
+  assert.match(rejected.advisory, /STALE ANCHOR/);
+});
+
 test('E1 gateway: fresh anchors pass; post-navigation element anchors are rejected with the fix named; x/y passes', () => {
   const state = createCoordinatorState();
   recordObservation(state, obsA);

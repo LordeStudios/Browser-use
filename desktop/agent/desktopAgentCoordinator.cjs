@@ -249,7 +249,14 @@ function hasCoordinatePair(input = {}) {
     if (typeof value !== 'string' || value.trim() === '') return false;
     return Number.isFinite(Number(value));
   };
-  return finiteCoordinate(input.x) && finiteCoordinate(input.y);
+  if (!finiteCoordinate(input.x) || !finiteCoordinate(input.y)) return false;
+  // A model that names an element and leaves the coordinates at the schema
+  // default (0,0) means "click that element". Treating (0,0) as an explicit
+  // point clicked whatever sits in the page's top-left corner — a random
+  // control — instead of the element the model chose.
+  const hasElement = input.element !== undefined || input.index !== undefined;
+  const isOrigin = Number(input.x) === 0 && Number(input.y) === 0;
+  return !(hasElement && isOrigin);
 }
 
 function actionHash(call, element = null, observation = null) {

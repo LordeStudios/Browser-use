@@ -146,6 +146,64 @@ test('a timed-out visual arrival still delivers the press through the direct rou
   assert.notEqual(controller.heldInputState('session-a'), null, 'the hold is tracked so the release pairs');
 });
 
+test('a click whose every visual stage times out still commits and reports the truth', async () => {
+  // clickAt sequences on DELIVERY truth: fallback-delivered stages commit, so
+  // the release must pair (a press left unpaired holds the page) and the reply
+  // must say committed — with the visual failure as informational context only.
+  const pointerVisualizer = {
+    move: () => Promise.resolve({ sequence: 1, timedOut: true }),
+    press: () => { throw new Error('visual press must be skipped when the visual move cannot proceed'); }
+  };
+  const { controller, nativeEvents } = harness(pointerVisualizer);
+  controller.hitTest = async () => ({ hit: true, tag: 'canvas', isCanvas: true });
+
+  const result = await controller.clickAt('tab-selected', { x: 200, y: 220 }, 'session-a');
+
+  assert.equal(result.input, 'mouse', 'a fully delivered click must not read as interrupted');
+  assert.equal(result.pointer.committed, true);
+  assert.equal(result.pointer.visualInterrupted, true);
+  assert.equal(result.pointer.interrupted, undefined);
+  assert.deepEqual(nativeEvents, [
+    { type: 'mouseMove', x: 200, y: 220 },
+    { type: 'mouseDown', x: 200, y: 220, button: 'left', clickCount: 1 },
+    { type: 'mouseUp', x: 200, y: 220, button: 'left', clickCount: 1 }
+  ], 'press and release must pair even when the cursor visual never arrived');
+});
+
+test('our own paintability preparation cannot cancel the operation it prepares', async () => {
+  // ensureTabPaintable re-lays-out the BrowserView and the pointer overlay
+  // reports that as a surface invalidation. That cancellation exists for
+  // FOREIGN layout changes: while clickAt's own preparation runs, the minted
+  // operation must survive, or the press dies and the page only ever sees a
+  // stray release (the chess "clicks once then replans forever" chain).
+  let paintable = false;
+  let preparationCalls = 0;
+  const pointerVisualizer = {
+    move: () => Promise.resolve({ sequence: 1, completed: true, status: 'settled' }),
+    press: () => Promise.resolve({ sequence: 2, completed: true, status: 'painted' })
+  };
+  const { controller, nativeEvents } = harness(pointerVisualizer);
+  controller.isTabPaintable = () => paintable;
+  controller.ensureTabPaintable = (tabId) => {
+    preparationCalls += 1;
+    controller.releaseTabPointerButtons(tabId, 'pointer-surface-invalidated');
+    paintable = true;
+    return true;
+  };
+  controller.hitTest = async () => ({ hit: true, tag: 'button' });
+
+  const result = await controller.clickAt('tab-selected', { x: 90, y: 80 }, 'session-a');
+
+  assert.equal(preparationCalls, 1);
+  assert.equal(result.input, 'mouse', 'the click must complete even though the layout pass fired during preparation');
+  assert.equal(result.pointer.committed, true);
+  assert.deepEqual(nativeEvents, [
+    { type: 'mouseMove', x: 90, y: 80 },
+    { type: 'mouseDown', x: 90, y: 80, button: 'left', clickCount: 1 },
+    { type: 'mouseUp', x: 90, y: 80, button: 'left', clickCount: 1 }
+  ]);
+});
+
 test('session cancellation during visual travel prevents a late held press', async () => {
   let resolveArrival;
   const pointerVisualizer = {
@@ -567,7 +625,12 @@ test('a superseded visual release still reports an already committed click', asy
     { type: 'mouseDown', x: 140, y: 180, button: 'left', clickCount: 1 },
     { type: 'mouseUp', x: 140, y: 180, button: 'left', clickCount: 1 }
   ]);
-  assert.equal(result.pointer.interrupted, true, 'the result still exposes that only the visual release was superseded');
+  // Contract change (session 4): a committed click NEVER reports interrupted —
+  // that lie made the model re-screenshot and replan after clicks that landed.
+  // The superseded visual release survives only as informational visualInterrupted.
+  assert.equal(result.pointer.interrupted, undefined, 'no interrupted flag may ride a committed click');
+  assert.equal(result.pointer.committed, true, 'the reply marks the click as committed');
+  assert.equal(result.pointer.visualInterrupted, true, 'the visual-only failure is kept as informational context');
 });
 
 test('drag steps wait for the painted pointer coordinate instead of running native input ahead', async () => {

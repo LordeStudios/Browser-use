@@ -51,6 +51,8 @@ class BrowserViewController {
     this.sessionInputGeneration = new Map();
     this.tabInputGeneration = new Map();
     this.pointerActionGeneration = new Map();
+    // Set while the input path re-lays-out its own surface (see prepareNativeInput).
+    this.suppressPointerInvalidation = false;
     // Only the newest top-level pointer operation for a tab may still own a
     // visual trajectory. Keeping the operation itself lets cancellation stop
     // the overlay at its currently rendered point instead of merely dropping
@@ -431,15 +433,15 @@ class BrowserViewController {
         return { tabId, x, y, input: 'cdp-background', button: normalizedButton, pointer: { mode: 'cdp-native-input', x, y, pageMutation: false }, batched: true, hit };
       }
       const moved = await this.mouseMove(tabId, { x, y }, { operation });
-      if (!this.inputOperationCurrent(operation) || inputWasInterrupted(moved)) return { tabId, x, y, input: 'interrupted', button: normalizeButton(button), pointer: safePointerProjection(moved.pointer) };
+      if (!this.inputOperationCurrent(operation) || inputDeliveryFailed(moved)) return { tabId, x, y, input: 'interrupted', button: normalizeButton(button), pointer: safePointerProjection(moved.pointer) };
       const pressed = await this.mouseDown(tabId, { x, y, button }, sessionId, operation);
-      if (inputWasInterrupted(pressed)) return { tabId, x, y, input: 'interrupted', button: normalizeButton(button), pointer: safePointerProjection(pressed.pointer) };
+      if (inputDeliveryFailed(pressed)) return { tabId, x, y, input: 'interrupted', button: normalizeButton(button), pointer: safePointerProjection(pressed.pointer) };
       const released = await this.mouseUp(tabId, { x, y, button }, sessionId, operation);
       // Once mouse-down commits, mouse-up is always delivered as an edge event.
       // A newer visual target may change where the tip ends, but the real click is
       // complete and must never be reported as retryable interruption.
       const hit = await this.hitTest(tabId, { x, y });
-      return { tabId, x, y, input: 'mouse', button: normalizeButton(button), pointer: safePointerProjection(released.pointer || pressed.pointer || moved.pointer), hit };
+      return { tabId, x, y, input: 'mouse', button: normalizeButton(button), pointer: committedClickPointer({ moved, pressed, released }), hit };
     } finally {
       if (ownsOperation) this.finishInputOperation(operation);
     }
@@ -748,7 +750,14 @@ class BrowserViewController {
     const tab = this.requireTab(tabId);
     const selected = this.getSelectedTabId() === tabId;
     if (this.isTabPaintable && !this.isTabPaintable(tabId) && selected) {
-      this.ensureTabPaintable?.(tabId);
+      // ensureTabPaintable re-lays-out the BrowserView, and the pointer
+      // overlay reports that as a surface change that cancels pending
+      // operations. That cancellation is for FOREIGN layout changes: our own
+      // preparation must not kill the operation we are about to dispatch, or
+      // the press is dropped and the page only ever sees a stray release.
+      const previous = this.suppressPointerInvalidation;
+      this.suppressPointerInvalidation = true;
+      try { this.ensureTabPaintable?.(tabId); } finally { this.suppressPointerInvalidation = previous; }
     }
     // A selected WebContents can remain live while Windows temporarily gives
     // its BrowserView no compositor surface. Delivering through the same
@@ -1025,7 +1034,9 @@ class BrowserViewController {
   }
 
   releaseTabPointerButtons(tabId, reason = 'pointer-surface-invalidated') {
-    this.cancelActivePointerOperations({ tabId, reason });
+    // Our own preparation reports a surface change too; cancelling here would
+    // drop the press of the click that triggered the preparation.
+    if (!this.suppressPointerInvalidation) this.cancelActivePointerOperations({ tabId, reason });
     const webContents = this.findLiveWebContents(tabId);
     const released = [];
     for (const [owner, held] of [...this.heldInput]) {
@@ -1554,6 +1565,35 @@ function pointerCannotProceed(result, { required = false, waitForArrival = true 
 
 function inputWasInterrupted(result) {
   return result?.input === 'interrupted' || pointerCannotProceed(result?.pointer);
+}
+
+// clickAt sequences its stages on DELIVERY truth, not on the animated pointer.
+// A stage whose visual failed while the operation stayed current dispatched its
+// native event through the direct route (pointer.deliveryFallback), so it did
+// NOT fail: the click must continue and pair its release. Only a stage that
+// genuinely did not deliver — a superseded or cancelled operation — vetoes.
+function inputDeliveryFailed(result) {
+  if (!result) return true;
+  if (result.input === 'interrupted') return true;
+  if (!pointerCannotProceed(result.pointer)) return false;
+  return result.pointer?.deliveryFallback !== true;
+}
+
+// The pointer of a click whose down/up edges both committed. mouseUp always
+// dispatches the release, so an interrupted-flavoured pointer here was a
+// VISUAL cancellation (superseded trajectory, lost acknowledgement), never a
+// failed click — and reporting it as one is what taught the model to
+// re-screenshot and replan after clicks that actually landed. Report the last
+// healthy visual stage, add the committed marker, and keep a visual failure
+// only as informational visualInterrupted.
+function committedClickPointer({ moved, pressed, released }) {
+  const stages = [released?.pointer, pressed?.pointer, moved?.pointer];
+  const visualFailed = stages.some((pointer) => pointerCannotProceed(pointer));
+  const healthy = stages.find((pointer) => pointer && !pointerCannotProceed(pointer));
+  const projected = safePointerProjection(healthy || released?.pointer || pressed?.pointer || moved?.pointer);
+  if (!projected || typeof projected !== 'object' || Array.isArray(projected)) return { committed: true };
+  const { interrupted, timedOut, failed, ...rest } = projected;
+  return { ...rest, ...(visualFailed ? { visualInterrupted: true } : {}), committed: true };
 }
 
 function trySendInputEvent(webContents, event) {
