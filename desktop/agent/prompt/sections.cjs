@@ -52,7 +52,7 @@ const PLAN_POLICY = [
 
 // evidence policy: what counts as evidence (absorbs V4 principle 2 + tool notes).
 const EVIDENCE_POLICY = [
-  'EVIDENCE — Act on the newest evidence; never re-read, re-search or re-observe what the latest observation, doneList or working memory already recorded unless your own mutation changed it. A dispatched action proves input arrived, not that an effect landed: claim an effect only on fresh evidence (a later observation or doneList confirmation); null or error confirms nothing. Captured evidence does not expire — re-verify only with a positive reason to doubt, using one corrected probe, never by re-running a completed flow.',
+  'EVIDENCE — Act on the newest evidence; never re-read, re-search or re-observe what the latest observation, doneList or working memory already recorded unless your own mutation changed it. Use the current observation once, then execute; never re-read unchanged page, file, or desktop state. After a mutation continue with the next grounded mutation; observe again only to discover new state or confirm the final effect. A dispatched action proves input arrived, not that an effect landed: claim an effect only on fresh evidence (a later observation or doneList confirmation); null or error confirms nothing. Captured evidence does not expire — re-verify only with a positive reason to doubt, using one corrected probe, never by re-running a completed flow.',
   'Surface facts: a browser_execute script without a final `return <expr>` returns null. A select fills by option value, not label — read its option values first. Console and network output are debugging aids only, never evidence of what the page shows or its load state. A DOM capture describes document structure; a visual surface (canvas, game, map, video) is described ONLY by screenshot pixels. Verify web work in the browser (reload, then fresh DOM for documents or browser_screenshot for visual surfaces), never from desktop capture. For UI work prefer the real browser_screenshot when checking layout, styling, or visual state.'
 ].join('\n\n');
 
@@ -94,9 +94,13 @@ const COMPLETION_POLICY = [
   '"verified: true" means confirming evidence for EACH requirement individually — never a general impression or an untaken screenshot. Finishing one part of a larger goal is not done. If the page cannot accept a requirement, take a page-valid adaptation if one exists and name the deviation; prefer digit-preserving values (literal, substitute, why) over a blanket verified:true; report blocked work honestly with browser_done success:false and the concrete blocker instead of cycling silently. Never strip or bypass page constraints (maxlength, required). Re-verify an uncertain claim with one corrected probe; never by re-executing a completed flow.'
 ].join('\n\n');
 
+// schema repair (one-shot corrective turn after an undecidable reply).
+const REPAIR_POLICY = 'REPAIR — Your last reply contained no executable decision. Return exactly one JSON object: either {"toolCalls":[…]} / {"actions":[…]} with real tool arguments, or the terminal {"done":{"summary":"…","success":true,"verified":true}}. Plain narration is not an action.';
+
 // deferred catalog note.
 const TOOLS_CATALOG_NOTE = [
-  'TOOLS — Tool schemas arrive compact: call tool_schema with a tool name to load its full argument list before first use. core tools are always served in full. No tool is ever hidden — everything in the catalog stays callable.'
+  'TOOLS — Tool schemas arrive compact: call tool_schema with a tool name to load its full argument list before first use. core tools are always served in full. No tool is ever hidden — everything in the catalog stays callable.',
+  'Routing: prefer browser_* for page work; computer_* for native dialogs, file pickers, native browser controls, or strict canvases. agent_message only for a concrete handoff or shared-resource decision — never to narrate progress.'
 ].join('\n\n');
 
 // computer mode (absorbs AGI_PROMPT; attached only in agi mode).
@@ -157,8 +161,27 @@ function drawingPlaybookFor(desktop) {
   return hasDrawingApp(desktop) ? DRAWING_PLAYBOOK : '';
 }
 
+// The DEFAULT harness system prompt, for a consumer that has no run shape to
+// assemble from (a provider called without a request prompt, a subagent's
+// first call, a probe). SAME registry, SAME sections, minimal context — never
+// a second, divergent prompt body.
+function defaultSystemPrompt(ctx = {}) {
+  const { createPromptRegistry } = require('../harness/promptRegistry.cjs');
+  const registry = createPromptRegistry();
+  registerPromptSections(registry, {
+    controlMode: ctx.controlMode || 'agi',
+    effort: ctx.effort || 'standard',
+    effortMode: ctx.effortMode || 'standard',
+    approvalMode: ctx.approvalMode || 'unattended',
+    modelingPlaybook: '',
+    drawingPlaybook: '',
+    instructionsFile: ''
+  });
+  return registry.render();
+}
+
 module.exports = {
-  MODELING_PLAYBOOK, DRAWING_PLAYBOOK,
+  MODELING_PLAYBOOK, DRAWING_PLAYBOOK, REPAIR_POLICY,
   PERSONA_PREFIX,
   PLAN_POLICY,
   EVIDENCE_POLICY,
@@ -168,5 +191,6 @@ module.exports = {
   TOOLS_CATALOG_NOTE,
   registerPromptSections,
   modelingPlaybookFor,
-  drawingPlaybookFor
+  drawingPlaybookFor,
+  defaultSystemPrompt
 };

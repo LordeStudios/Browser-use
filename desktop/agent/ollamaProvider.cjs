@@ -971,7 +971,7 @@ function createOllamaProvider({ baseUrl = DEFAULT_BASE_URL, model, fetchImpl = g
       // model may use — wire config (the tier maps onto think/num_predict on
       // this very request), not persona. It names the MECHANISM, never a
       // "harness" the model can then narrate.
-      const harnessSystem = `${effortPrompt}${effortEscalationPrompt ? `${effortPrompt ? ' ' : ''}${effortEscalationPrompt}` : ''}${effortPrompt || effortEscalationPrompt ? '\n\n' : ''}${String(systemPrompt || '').trim() || require('./harness/identity.cjs').IDENTITY_LINE}`;
+      const harnessSystem = `${effortPrompt}${effortEscalationPrompt ? `${effortPrompt ? ' ' : ''}${effortEscalationPrompt}` : ''}${effortPrompt || effortEscalationPrompt ? '\n\n' : ''}${String(systemPrompt || '').trim() || require('./prompt/sections.cjs').defaultSystemPrompt({ controlMode, effort: tier, effortMode })}`;
       let requestAttempt = 0;
       const telemetry = kind => ({ coordinator, kind, phase: kind === 'repair' ? 'repair' : 'decision', attempt: ++requestAttempt });
       const requestBody = (images) => ({

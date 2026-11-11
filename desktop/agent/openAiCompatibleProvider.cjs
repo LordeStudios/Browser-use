@@ -131,15 +131,9 @@ class OpenAiCompatibleProvider {
   async complete({ task, agentIdentity, systemPrompt, attachments, observation, observationUnchanged, history, messages, coordinator, plan, goals, recovery, workspace, tools, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, signal, onThought, onStream, onActionReady }) {
     // DSH: the harness system prompt arrives on the request; the provider
     // renders it verbatim and authors no persona.
-    const harnessSystemRaw = String(systemPrompt || '').trim() || IDENTITY_LINE;
-    // Effort tier (resolved by DesktopChatAgent): minimal acts immediately,
-    // standard keeps reasoning brief, advanced is the previous behavior.
-    // The per-request EFFORT PROTOCOL below is the one provider-owned block:
-    // it states the tier this request runs at and the escalation channel the
-    // model may use — wire config (the tier maps onto reasoning_effort /
-    // thinking on this very request), not persona. It names the MECHANISM,
-    // never a "harness" the model can then narrate.
     const effortTier = ['minimal', 'standard', 'advanced'].includes(effort) ? effort : 'advanced';
+    const harnessSystemRaw = String(systemPrompt || '').trim()
+      || require('./prompt/sections.cjs').defaultSystemPrompt({ effort: effortTier, effortMode });
     const effortSystemPrompt = effortTier === 'minimal'
       ? 'Reasoning effort: minimal. Decide and act immediately on the freshest evidence; skip deliberation entirely and issue the fewest actions that make progress.'
       : effortTier === 'standard'
@@ -546,7 +540,9 @@ const userSafeSystem = String(system || '').trim() || IDENTITY_LINE;
       try {
         // Repair reuses the SAME harness system prompt — the schema-repair demand
 // already reached the model as a sourced harness notice (loopPolicy).
-        payload = await request(harnessSystem, actionOnlyRepairPrompt(context, content || firstError.message, tools), { repair: true });
+        // The corrective turn keeps the harness system prompt and adds the
+        // one-shot repair directive (a harness section, not provider prose).
+        payload = await request(`${harnessSystem}\n\n${require('./prompt/sections.cjs').REPAIR_POLICY}`, actionOnlyRepairPrompt(context, content || firstError.message, tools), { repair: true });
         return parseDecision(payload, { allowPlainText: true });
       } catch (repairError) {
         const informationalFinal = recoverInformationalFinal(task, contentFor(payload));
