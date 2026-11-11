@@ -139,7 +139,11 @@ function registerPromptSections(registry, ctx = {}) {
   registry.section({ name: 'policy:batching', order: ORDERS.POLICY_GOAL + 20, text: BATCHING_POLICY, interpolate: false });
   registry.section({ name: 'policy:failure', order: ORDERS.POLICY_GOAL + 30, text: FAILURE_POLICY, interpolate: false });
   registry.section({ name: 'policy:approval', order: ORDERS.POLICY_APPROVAL, text: approvalPolicySection(ctx), interpolate: false });
-  registry.section({ name: 'policy:effort', order: ORDERS.POLICY_EFFORT, text: effortPolicySection(ctx), interpolate: false });
+  // NO policy:effort section here. The per-request effort protocol is
+  // provider-owned wire config (the tier maps onto think/num_predict /
+  // reasoning_effort on THAT request), and the providers prepend it. A second
+  // copy here would put two effort ladders in one prompt — the exact
+  // self-conflicting-prompt shape this rewrite exists to remove.
   registry.section({ name: 'tools:catalog-note', order: ORDERS.TOOLS_CATALOG_NOTE, text: TOOLS_CATALOG_NOTE, interpolate: false });
   registry.section({ name: 'tools:computer', order: ORDERS.TOOLS_COMPUTER, text: computerSection(ctx), interpolate: false });
   registry.section({ name: 'context:instructions-file', order: ORDERS.CONTEXT_INSTRUCTIONS_FILE, text: instructionFileSection(ctx), interpolate: false });

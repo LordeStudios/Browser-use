@@ -32,17 +32,20 @@
       "fresh AGI uses desktop metadata first; vision=auto",
       "fresh AGI uses desktop metadata first; vision=always",
       "fresh AGI uses desktop metadata first; vision=off",
-      "a diagnosis task gets an answer-now nudge, not the coding nudge"
+      "Ollama has one computer schema catalog and measures stream plus repair"
     ]
   },
   {
     "file": "agent-effort",
     "tests": 10,
-    "pass": 8,
-    "fail": 2,
+    "pass": 5,
+    "fail": 5,
     "status": "RED",
-    "secs": 0,
+    "secs": 1,
     "failed": [
+      "ollama provider maps tiers onto the think flag, decision budget, and p",
+      "ollama auto mode advertises the escalation channel and effortNeeded su",
+      "openai-compatible protocol maps effort onto reasoning_effort and think",
       "auto demotes one rung after two consecutive big-thinking no-action dec",
       "a decision with a real mutation resets the speculation streak"
     ]
@@ -169,7 +172,7 @@
     "pass": 12,
     "fail": 1,
     "status": "RED",
-    "secs": 12,
+    "secs": 15,
     "failed": [
       "browser_* tools work headless through the CLI CDP adapter (navigate/sc"
     ]
@@ -274,15 +277,12 @@
   {
     "file": "desktop-openai-compatible-provider",
     "tests": 18,
-    "pass": 14,
-    "fail": 4,
+    "pass": 17,
+    "fail": 1,
     "status": "RED",
     "secs": 1,
     "failed": [
-      "OpenAI-compatible provider keeps keys private and returns a structured",
-      "OpenAI-compatible provider falls back to the same DOM context when a m",
-      "OpenAI-compatible provider performs one schema repair instead of surfa",
-      "anthropic route marks the system block as cacheable"
+      "OpenAI-compatible provider falls back to the same DOM context when a m"
     ]
   },
   {
@@ -320,14 +320,11 @@
   {
     "file": "desktop-thinking-hygiene",
     "tests": 13,
-    "pass": 11,
-    "fail": 2,
-    "status": "RED",
+    "pass": 13,
+    "fail": 0,
+    "status": "GREEN",
     "secs": 0,
-    "failed": [
-      "a subagent-authored card carries a producer badge",
-      "a badged message keeps its model-facing text separate from the user bo"
-    ]
+    "failed": []
   },
   {
     "file": "enforcement-gen2",
@@ -427,7 +424,7 @@
     "pass": 8,
     "fail": 1,
     "status": "RED",
-    "secs": 14,
+    "secs": 3,
     "failed": [
       "gen8 B: clicking the subagent card switches the live pane; clicking th"
     ]
@@ -516,8 +513,8 @@
   {
     "file": "native-visual-actions",
     "tests": 26,
-    "pass": 16,
-    "fail": 10,
+    "pass": 15,
+    "fail": 11,
     "status": "RED",
     "secs": 1,
     "failed": [
@@ -529,6 +526,7 @@
       "fresh image remains pending across computer_window after native mutati",
       "first native inspection obtains native pixels rather than browser evid",
       "explicit native screenshot satisfies pending image without redundant r",
+      "ollama structural repair retains native pixels and coordinate metadata",
       "openai does not silently replace rejected native images with empty DOM",
       "ollama does not silently replace rejected native images with empty DOM"
     ]
@@ -599,7 +597,7 @@
     "pass": 6,
     "fail": 0,
     "status": "GREEN",
-    "secs": 2,
+    "secs": 1,
     "failed": []
   },
   {
@@ -608,7 +606,7 @@
     "pass": 1,
     "fail": 2,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "a long request is quoted whole, not cut to its first sentence",
       "every copy of the request the model reads carries every ask"
@@ -764,12 +762,13 @@
   {
     "file": "wire-input-hygiene",
     "tests": 7,
-    "pass": 6,
-    "fail": 1,
+    "pass": 5,
+    "fail": 2,
     "status": "RED",
     "secs": 0,
     "failed": [
-      "real desktop tools still attach the playbook, as its own block with no"
+      "real desktop tools still attach the playbook, as its own block with no",
+      "agentMessages from other sessions reach the model on every provider pr"
     ]
   },
   {

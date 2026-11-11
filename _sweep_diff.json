@@ -26,7 +26,20 @@
       "fresh AGI uses desktop metadata first; vision=auto",
       "fresh AGI uses desktop metadata first; vision=always",
       "fresh AGI uses desktop metadata first; vision=off",
-      "a diagnosis task gets an answer-now nudge, not the coding nudge"
+      "Ollama has one computer schema catalog and measures stream plus repair"
+    ]
+  },
+  {
+    "file": "agent-effort",
+    "kind": "REGRESSED",
+    "fork": "5/10",
+    "base": "8/10",
+    "detail": [
+      "ollama provider maps tiers onto the think flag, decision budget, and p",
+      "ollama auto mode advertises the escalation channel and effortNeeded su",
+      "openai-compatible protocol maps effort onto reasoning_effort and think",
+      "auto demotes one rung after two consecutive big-thinking no-action dec",
+      "a decision with a real mutation resets the speculation streak"
     ]
   },
   {
@@ -40,18 +53,6 @@
     ]
   },
   {
-    "file": "desktop-openai-compatible-provider",
-    "kind": "REGRESSED",
-    "fork": "14/18",
-    "base": "17/18",
-    "detail": [
-      "OpenAI-compatible provider keeps keys private and returns a structured",
-      "OpenAI-compatible provider falls back to the same DOM context when a m",
-      "OpenAI-compatible provider performs one schema repair instead of surfa",
-      "anthropic route marks the system block as cacheable"
-    ]
-  },
-  {
     "file": "desktop-package-contract",
     "kind": "REGRESSED",
     "fork": "11/13",
@@ -59,16 +60,6 @@
     "detail": [
       "missing bound tab is a bounded recoverable advisory, not an infinite t",
       "desktop agent shell keeps the compact dark reference controls wired to"
-    ]
-  },
-  {
-    "file": "desktop-thinking-hygiene",
-    "kind": "REGRESSED",
-    "fork": "11/13",
-    "base": "13/13",
-    "detail": [
-      "a subagent-authored card carries a producer badge",
-      "a badged message keeps its model-facing text separate from the user bo"
     ]
   },
   {
@@ -100,6 +91,25 @@
     ]
   },
   {
+    "file": "native-visual-actions",
+    "kind": "REGRESSED",
+    "fork": "15/26",
+    "base": "16/26",
+    "detail": [
+      "reported cross-action stroke payload remains invalid rather than silen",
+      "separate stroke action refreshes native evidence through the normal ch",
+      "a partially failed native action still requests fresh pixels",
+      "native vision rejection settles unverified without a model retry loop",
+      "fresh image remains pending across computer_observe after native mutat",
+      "fresh image remains pending across computer_window after native mutati",
+      "first native inspection obtains native pixels rather than browser evid",
+      "explicit native screenshot satisfies pending image without redundant r",
+      "ollama structural repair retains native pixels and coordinate metadata",
+      "openai does not silently replace rejected native images with empty DOM",
+      "ollama does not silently replace rejected native images with empty DOM"
+    ]
+  },
+  {
     "file": "plan-and-skill-delivery",
     "kind": "REGRESSED",
     "fork": "14/17",
@@ -122,13 +132,13 @@
     ]
   },
   {
-    "file": "agent-effort",
-    "kind": "same",
-    "fork": "8/10",
-    "base": "8/10",
+    "file": "wire-input-hygiene",
+    "kind": "REGRESSED",
+    "fork": "5/7",
+    "base": "6/7",
     "detail": [
-      "auto demotes one rung after two consecutive big-thinking no-action dec",
-      "a decision with a real mutation resets the speculation streak"
+      "real desktop tools still attach the playbook, as its own block with no",
+      "agentMessages from other sessions reach the model on every provider pr"
     ]
   },
   {
@@ -300,6 +310,15 @@
     ]
   },
   {
+    "file": "desktop-openai-compatible-provider",
+    "kind": "same",
+    "fork": "17/18",
+    "base": "17/18",
+    "detail": [
+      "OpenAI-compatible provider falls back to the same DOM context when a m"
+    ]
+  },
+  {
     "file": "desktop-research-agent",
     "kind": "same",
     "fork": "11/11",
@@ -314,6 +333,13 @@
     "detail": [
       "research is model-decided: research_task spawns the subagent and its f"
     ]
+  },
+  {
+    "file": "desktop-thinking-hygiene",
+    "kind": "same",
+    "fork": "13/13",
+    "base": "13/13",
+    "detail": []
   },
   {
     "file": "enforcement-gen2",
@@ -412,24 +438,6 @@
       "computer_screenshot replaces stale top-level native evidence",
       "switching to a browser read does not attach the old native image",
       "refresh markers do not split an already-planned native batch"
-    ]
-  },
-  {
-    "file": "native-visual-actions",
-    "kind": "same",
-    "fork": "16/26",
-    "base": "16/26",
-    "detail": [
-      "reported cross-action stroke payload remains invalid rather than silen",
-      "separate stroke action refreshes native evidence through the normal ch",
-      "a partially failed native action still requests fresh pixels",
-      "native vision rejection settles unverified without a model retry loop",
-      "fresh image remains pending across computer_observe after native mutat",
-      "fresh image remains pending across computer_window after native mutati",
-      "first native inspection obtains native pixels rather than browser evid",
-      "explicit native screenshot satisfies pending image without redundant r",
-      "openai does not silently replace rejected native images with empty DOM",
-      "ollama does not silently replace rejected native images with empty DOM"
     ]
   },
   {
@@ -584,15 +592,6 @@
     "fork": "5/5",
     "base": "5/5",
     "detail": []
-  },
-  {
-    "file": "wire-input-hygiene",
-    "kind": "same",
-    "fork": "6/7",
-    "base": "6/7",
-    "detail": [
-      "real desktop tools still attach the playbook, as its own block with no"
-    ]
   },
   {
     "file": "workspace-scope-default",
