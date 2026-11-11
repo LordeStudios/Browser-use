@@ -421,6 +421,12 @@ class BrowserViewController {
   async clickAt(tabId, { x, y, button = 'left' } = {}, sessionId, inputOperation = null) {
     const ownsOperation = !inputOperation;
     const operation = inputOperation || this.inputOperationToken(sessionId, tabId);
+    const priorPointer = this.lastPointer.get(tabId);
+    // Board games treat a click on the already-clicked point as a DESELECT:
+    // the live chess run repeated the same square three and four times because
+    // nothing in the reply told it that. Name the repeat in the reply so the
+    // model can tell an aimed second click from an accidental re-click.
+    const repeatPoint = Number(priorPointer?.x) === Number(x) && Number(priorPointer?.y) === Number(y);
     try {
       const prepared = this.prepareNativeInput(tabId);
       const normalizedButton = normalizeButton(button);
@@ -446,7 +452,7 @@ class BrowserViewController {
       // A newer visual target may change where the tip ends, but the real click is
       // complete and must never be reported as retryable interruption.
       const hit = await this.hitTest(tabId, { x, y });
-      return { tabId, x, y, input: 'mouse', button: normalizeButton(button), pointer: committedClickPointer({ moved, pressed, released }), hit };
+      return { tabId, x, y, input: 'mouse', button: normalizeButton(button), ...(repeatPoint ? { repeatPoint: true } : {}), pointer: committedClickPointer({ moved, pressed, released }), hit };
     } finally {
       if (ownsOperation) this.finishInputOperation(operation);
     }
@@ -1353,13 +1359,21 @@ class BrowserViewController {
     return this.lastViewport.get(String(tabId))?.devicePixelRatio ?? null;
   }
 
-  // Post-input hit test: what element actually sits at the clicked CSS point.
-  // Canvas surfaces report the canvas itself, which is the correct proof that
-  // the coordinate reached page content rather than an off-board overlay.
+  // Post-input hit test: what element actually sits at the clicked CSS point,
+  // PLUS the page's text tail. Canvas surfaces report the canvas itself —
+  // correct proof the coordinate reached page content, but for board/canvas
+  // games it says NOTHING about what the click DID (selected? moved? nothing?).
+  // The text tail carries exactly that state for most pages (move lists, turn
+  // and status lines, button labels, validation errors), so the model can
+  // verify a click's effect from the click result instead of re-screenshotting
+  // and re-deriving the whole scene — the loop the live chess runs burned
+  // minutes on.
   async hitTest(tabId, { x, y }) {
     const expression = `(() => {
           const el = document.elementFromPoint(${JSON.stringify(x)}, ${JSON.stringify(y)});
-          if (!el) return { hit: false, tag: null };
+          const text = String((document.body && document.body.innerText) || '');
+          const tail = text.replace(/\\s+/g, ' ').trim().slice(-240);
+          if (!el) return { hit: false, tag: null, textLength: text.length, textTail: tail };
           const rect = el.getBoundingClientRect();
           return {
             hit: true,
@@ -1368,35 +1382,45 @@ class BrowserViewController {
             classes: typeof el.className === 'string' ? el.className.slice(0, 120) : null,
             role: el.getAttribute?.('role') || null,
             isCanvas: el.tagName === 'CANVAS',
-            rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) }
+            rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
+            textLength: text.length,
+            textTail: tail
           };
         })()`;
+    const startedAt = Date.now();
     const attempt = () => {
       const tab = this.requireTab(tabId);
       return withTimeout(
         this.evaluatePage(tab, 'post-input hit test', expression, 3_000, 'Timed out hit-testing the clicked point.')
       );
     };
+    const describe = (error) => (error instanceof Error
+      ? `${error.name}: ${error.message || `(no message; ${error.constructor?.name || 'Error'} after ${Date.now() - startedAt}ms)`}`
+      : String(error));
     try {
       return await attempt();
     } catch (firstError) {
       // The read runs IMMEDIATELY after the release dispatch, and the live
       // chess run showed it failing right there while the SAME evaluate path
       // succeeded for browser_execute seconds later — a contention window,
-      // not a broken page. One bounded retry separates those cases; a second
+      // not a broken page. Two bounded retries separate those cases; a third
       // failure is real and must name exactly what broke.
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      try {
-        return await attempt();
-      } catch (error) {
-        const first = firstError instanceof Error ? `${firstError.name}: ${firstError.message || '(no message)'}` : String(firstError);
-        const detail = error instanceof Error ? `${error.name}: ${error.message || '(no message)'}` : String(error);
-        return {
-          hit: null,
-          reason: 'hit-test-unavailable',
-          error: detail.slice(0, 200),
-          ...(detail === first ? {} : { firstError: first.slice(0, 200) })
-        };
+      for (let attempt_ = 1; attempt_ <= 2; attempt_ += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        try {
+          return await attempt();
+        } catch (error) {
+          if (attempt_ === 2) {
+            const detail = describe(error);
+            const first = describe(firstError);
+            return {
+              hit: null,
+              reason: 'hit-test-unavailable',
+              error: detail.slice(0, 200),
+              ...(detail === first ? {} : { firstError: first.slice(0, 200) })
+            };
+          }
+        }
       }
     }
   }

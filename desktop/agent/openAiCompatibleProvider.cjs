@@ -140,8 +140,13 @@ class OpenAiCompatibleProvider {
     // Anthropic's 1_024 floor / 32_000 ceiling). An unnamed budget keeps
     // the tier's previous shape — the tier ladder owns the default.
     const namedBudgetMs = Number.isFinite(Number(thinkingBudgetMs)) && Number(thinkingBudgetMs) >= 0 ? Number(thinkingBudgetMs) : null;
+    // A budget under 5s means "act immediately": on the anthropic route that
+    // is thinking OFF, not a token floor — the 1_024-token minimum still
+    // burned 60-90s per decision on slow relays (the second live chess run
+    // thought 65s/91s on a 3s rapid budget). Larger budgets map onto the
+    // nearest knob (~2ms per reasoning token, clamped 1_024..32_000).
     const anthropicThinkingBudget = namedBudgetMs === null ? null
-      : namedBudgetMs <= 0 ? 'off'
+      : namedBudgetMs < 5_000 ? 'off'
         : Math.min(Math.max(Math.round(namedBudgetMs / 2), 1_024), 32_000);
     const openAiReasoningEffort = namedBudgetMs === null ? null
       : namedBudgetMs < 15_000 ? 'low'
