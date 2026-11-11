@@ -130,14 +130,28 @@ class OpenAiCompatibleProvider {
 
   async complete({ task, agentIdentity, systemPrompt, attachments, observation, observationUnchanged, history, messages, coordinator, plan, goals, recovery, workspace, tools, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, signal, onThought, onStream, onActionReady }) {
     // DSH: the harness system prompt arrives on the request; the provider
-    // renders it verbatim and authors nothing.
-    const harnessSystem = String(systemPrompt || '').trim() || IDENTITY_LINE;
+    // renders it verbatim and authors no persona.
+    const harnessSystemRaw = String(systemPrompt || '').trim() || IDENTITY_LINE;
     // Effort tier (resolved by DesktopChatAgent): minimal acts immediately,
     // standard keeps reasoning brief, advanced is the previous behavior.
-    // DSH: effort is MODEL-SELECTION CONFIG — it maps onto transport budgeting
-    // (max_tokens below); the prompt-side tier text lives in the harness's
-    // policy:effort section, not here.
+    // The per-request EFFORT PROTOCOL below is the one provider-owned block:
+    // it states the tier this request runs at and the escalation channel the
+    // model may use — wire config (the tier maps onto reasoning_effort /
+    // thinking on this very request), not persona. It names the MECHANISM,
+    // never a "harness" the model can then narrate.
     const effortTier = ['minimal', 'standard', 'advanced'].includes(effort) ? effort : 'advanced';
+    const effortSystemPrompt = effortTier === 'minimal'
+      ? 'Reasoning effort: minimal. Decide and act immediately on the freshest evidence; skip deliberation entirely and issue the fewest actions that make progress.'
+      : effortTier === 'standard'
+        ? 'Reasoning effort: standard. Keep private reasoning to one or two short sentences, then act.'
+        : '';
+    // Auto effort: the model may request one tier more depth, but only with a
+    // concrete reason; the harness clamps abuse (see applyEffortEscalation).
+    const effortEscalationPrompt = effortMode === 'auto'
+      ? ` Reasoning effort starts at ${effortTier} and adjusts to the task: set "effortNeeded" one step toward "standard" or "minimal" + a one-sentence "effortReason" when the task clearly needs less thinking, or one step toward "advanced" when a phase genuinely needs deeper reasoning. One step per decision; never adjust by habit. You may instead put "thinkingBudgetMs" (a NUMBER of milliseconds) as a TOP-LEVEL field of your decision JSON, next to actions/assistantText — it is read directly and sets the reasoning budget of your next decision: 0 = act immediately with no reasoning, 3000 = minimal, 20000 = brief, 60000 = deliberate. State it in the JSON every decision you want it to hold; a summary line does not set it. Stop reasoning the moment the next action is clear.`
+      : '';
+    const effortPrefix = `${effortSystemPrompt}${effortEscalationPrompt ? `${effortSystemPrompt ? ' ' : ''}${effortEscalationPrompt}` : ''}${effortSystemPrompt || effortEscalationPrompt ? '\n\n' : ''}`;
+    const harnessSystem = `${effortPrefix}${harnessSystemRaw}`;
     const ledger = turnLedger || this.turnLedger;
     const identity = `${this.providerId}:${this.baseUrl}:${this.model}`;
     // CAPABILITY METADATA LATCH: resolve THIS model's image-input support
@@ -235,9 +249,11 @@ class OpenAiCompatibleProvider {
 // whole ~4,500-character AGI/Coding-mode playbook to every request — a one-word
 // "hello" arrived with desktop-control and repo-editing rules.
 // DSH: the system prompt comes from the harness registry verbatim — the
-// provider authors nothing. Effort is model-selection config (request.effort
-// / request.thinkingBudgetMs), never prompt text; the AGI playbook attaches
-// by observation inside the harness's tools:computer section.
+// provider authors no PERSONA. The per-request EFFORT PROTOCOL is the one
+// provider-owned block: it states the tier this request runs at and the
+// escalation channel the model may use, which is wire config (the tier maps
+// onto reasoning_effort/thinking on this very request), not persona. It names
+// the MECHANISM, never a "harness" the model can narrate.
 const userSafeSystem = String(system || '').trim() || IDENTITY_LINE;
       // ADAPTIVE COMPRESSION (Intel's Adaptive Token Compressor, harness tier):
       // the system prompt is compressed section-aware before it goes on the

@@ -62,15 +62,6 @@
     ]
   },
   {
-    "file": "browser-wait",
-    "kind": "REGRESSED",
-    "fork": "8/9",
-    "base": "9/9",
-    "detail": [
-      "first wait honors the exact requested ms"
-    ]
-  },
-  {
     "file": "desktop-openai-compatible-provider",
     "kind": "REGRESSED",
     "fork": "14/18",
@@ -95,43 +86,12 @@
   {
     "file": "desktop-thinking-hygiene",
     "kind": "REGRESSED",
-    "fork": "9/13",
+    "fork": "10/13",
     "base": "13/13",
     "detail": [
-      "near-duplicate reasoning counts as a stall, not just verbatim repeats",
       "the provider prompt never names a \"harness\" the model can narrate",
       "a subagent-authored card carries a producer badge",
       "a badged message keeps its model-facing text separate from the user bo"
-    ]
-  },
-  {
-    "file": "enforcement-gen2",
-    "kind": "REGRESSED",
-    "fork": "13/14",
-    "base": "14/14",
-    "detail": [
-      "E5: an over-budget deliberation arms a one-shot notice; three in a row"
-    ]
-  },
-  {
-    "file": "enforcement-gen3",
-    "kind": "REGRESSED",
-    "fork": "10/12",
-    "base": "12/12",
-    "detail": [
-      "E8 dispatch: a blocked-done right after a tamper bounce is bounced onc",
-      "E8 dispatch: a blocked-done WITH a post-bounce probe passes the proven"
-    ]
-  },
-  {
-    "file": "evidence-streak-accounting",
-    "kind": "REGRESSED",
-    "fork": "3/6",
-    "base": "6/6",
-    "detail": [
-      "successful evidence-only decisions still trigger EVIDENCE SUFFICIENT a",
-      "a failed call between successful reads does not RESET the streak eithe",
-      "computer_fs counts as evidence only for its read actions, never mkdir/"
     ]
   },
   {
@@ -141,20 +101,6 @@
     "base": "6/6",
     "detail": [
       "a restored ledger exposes the evidence to the model"
-    ]
-  },
-  {
-    "file": "flow-control-agent",
-    "kind": "REGRESSED",
-    "fork": "3/9",
-    "base": "9/9",
-    "detail": [
-      "\"enough evidence\" with no action arms a next-decision notice and the c",
-      "thinking-as-plan on a multi-part task is told that a thought-list is n",
-      "varied offsets over unchanged content run, then advise, then bounce ex",
-      "an edit opens a new evidence epoch so the post-edit re-read is fresh a",
-      "normal-size thinking stays silent; elevated and heavy thinking escalat",
-      "flow state is checkpointed with the run and an old snapshot without it"
     ]
   },
   {
@@ -188,16 +134,6 @@
     ]
   },
   {
-    "file": "real-verification",
-    "kind": "REGRESSED",
-    "fork": "4/6",
-    "base": "6/6",
-    "detail": [
-      "verified:true with NO evidence-producing tool call is downgraded, not ",
-      "evidence produced BEFORE the last mutation does not count as verificat"
-    ]
-  },
-  {
     "file": "responses-continuity",
     "kind": "REGRESSED",
     "fork": "5/8",
@@ -218,24 +154,6 @@
       "terminal evidence still satisfies the coding gate",
       "probe evidence with real failures does NOT satisfy the coding gate",
       "non-coding tasks bypass the gate entirely"
-    ]
-  },
-  {
-    "file": "telemetry-scan-not-a-tool-call",
-    "kind": "REGRESSED",
-    "fork": "4/5",
-    "base": "5/5",
-    "detail": [
-      "a real model tool call is still counted while the telemetry scan is no"
-    ]
-  },
-  {
-    "file": "verification-contradiction",
-    "kind": "REGRESSED",
-    "fork": "2/3",
-    "base": "3/3",
-    "detail": [
-      "verified:true with success:false is rejected as a contradiction"
     ]
   },
   {
@@ -297,6 +215,13 @@
     "kind": "same",
     "fork": "11/11",
     "base": "11/11",
+    "detail": []
+  },
+  {
+    "file": "browser-wait",
+    "kind": "same",
+    "fork": "9/9",
+    "base": "9/9",
     "detail": []
   },
   {
@@ -409,10 +334,31 @@
     ]
   },
   {
+    "file": "enforcement-gen2",
+    "kind": "same",
+    "fork": "14/14",
+    "base": "14/14",
+    "detail": []
+  },
+  {
+    "file": "enforcement-gen3",
+    "kind": "same",
+    "fork": "12/12",
+    "base": "12/12",
+    "detail": []
+  },
+  {
     "file": "error-messages",
     "kind": "same",
     "fork": "7/7",
     "base": "7/7",
+    "detail": []
+  },
+  {
+    "file": "evidence-streak-accounting",
+    "kind": "same",
+    "fork": "6/6",
+    "base": "6/6",
     "detail": []
   },
   {
@@ -427,6 +373,13 @@
     "kind": "same",
     "fork": "3/3",
     "base": "3/3",
+    "detail": []
+  },
+  {
+    "file": "flow-control-agent",
+    "kind": "same",
+    "fork": "9/9",
+    "base": "9/9",
     "detail": []
   },
   {
@@ -528,6 +481,13 @@
     "detail": []
   },
   {
+    "file": "real-verification",
+    "kind": "same",
+    "fork": "6/6",
+    "base": "6/6",
+    "detail": []
+  },
+  {
     "file": "request-visibility",
     "kind": "same",
     "fork": "1/3",
@@ -569,6 +529,13 @@
     "detail": []
   },
   {
+    "file": "telemetry-scan-not-a-tool-call",
+    "kind": "same",
+    "fork": "5/5",
+    "base": "5/5",
+    "detail": []
+  },
+  {
     "file": "terminal-dead-end",
     "kind": "same",
     "fork": "3/3",
@@ -607,6 +574,13 @@
     "detail": [
       "turn-boundary framing: ADDITION is the default and carries the plan"
     ]
+  },
+  {
+    "file": "verification-contradiction",
+    "kind": "same",
+    "fork": "3/3",
+    "base": "3/3",
+    "detail": []
   },
   {
     "file": "vision-delegate",

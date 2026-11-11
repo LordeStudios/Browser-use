@@ -536,6 +536,8 @@ class DesktopChatAgent {
       // threshold is measured against it.
       watchdogFires: 0,
       overThoughtStreak: 0,
+      speculationStreak: 0,
+      effortTierDemotions: 0,
       requirementLedger: parseNumberedRequirements(task).map((req) => ({ ...req, status: 'open', evidence: null })),
       lastCheckpointStep: -1,
       eventRevision: continuation ? Number(previous.eventRevision || 0) : 0,
@@ -1034,6 +1036,34 @@ class DesktopChatAgent {
           // terminates a run.
           {
             const thinkingChars = Math.max(0, String(run.activeThoughtAccumulator?.() || '').length - Number(run.thoughtBaseChars || 0));
+            // ── EFFORT DEMOTION (auto mode) ──
+            // Runs START at advanced, which on OpenAI-compatible routes means
+            // the provider's own (unbounded) reasoning budget, and only the
+            // MODEL could step the ladder down — which speculation-heavy
+            // models never request. A decision that burns a large thinking
+            // stream without executing a mutation is a harness-side signal:
+            // two in a row step the tier down one rung, so long
+            // investigations stop paying the full thinking toll per action.
+            // Any decision with a mutation (or a normal executed batch) resets.
+            const executable = calls.some((call) => !['update_plan', 'browser_done'].includes(call.name));
+            // Low-yield = the decision produced NO executable action at all
+            // (pure speculation, plan bookkeeping, or an empty response). Real
+            // work — including long-thinking investigations that end in
+            // reads — is never penalized.
+            const lowYield = calls.length === 0 || (!executable && thinkingChars > 16_000);
+            if (run.settings.effort === 'auto' && run.effortTier !== 'minimal' && lowYield) {
+              run.speculationStreak = (run.speculationStreak || 0) + 1;
+              if (run.speculationStreak >= 2) {
+                const demoted = EFFORT_TIERS[Math.max(0, EFFORT_TIERS.indexOf(run.effortTier) - 1)];
+                if (demoted !== run.effortTier) {
+                  run.effortTier = demoted;
+                  run.effortTierDemotions = (run.effortTierDemotions || 0) + 1;
+                }
+                run.speculationStreak = 0;
+              }
+            } else if (executable) {
+              run.speculationStreak = 0;
+            }
             const deliberationMs = thinkingChars >= 1_024 ? thinkingMs : 0;
             const thinkingTier = thinkingBudgetTier({ chars: thinkingChars, ms: deliberationMs });
             run.lastThinkingTier = thinkingTier;
@@ -2974,7 +3004,7 @@ module.exports = {
   DesktopChatAgent, isMultipartTask, isMultiAskTask, multiAskChecklist, ACTIONS,
   externalProviderBlock, MAX_BROWSER_WAIT_MS, EFFORT_TIERS, normalizeEffortSetting,
   normalizeEffortTier, nextEffortTier, applyEffortEscalation, defaultResearchAgent,
-  inspectionValue, archiveToolResult, toolDefinitions,
+  inspectionValue, archiveToolResult, toolDefinitions, codingCheckSatisfied,
   isTaskAddition, turnBoundaryNotice, steeringAdditionNotice, steeringReplacementNotice,
   normalizeToolCalls,
   isAnswerOnlyTask, isAnswerOnlyRequest, isAnalysisOnlyRequest, claimsCompletion, turnHasMutations,

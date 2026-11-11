@@ -964,9 +964,14 @@ function createOllamaProvider({ baseUrl = DEFAULT_BASE_URL, model, fetchImpl = g
       const planToolEntry = agiTools
         ? { name: 'update_plan', input: { goals: 'optional model-authored array of {id,text,status}; omit to keep unchanged, [] clears', goalOperations: 'optional goal add/update/remove/clear operations; no goal is required', steps: 'optional full replacement array of strings or {id, text, status, verification}', operations: 'optional edits: add, update, remove, or clear; target existing tasks by id; choose the task count yourself' } }
         : { name: 'update_plan', input: { steps: 'optional full replacement array of strings or {id, text, status, verification}', operations: 'optional edits: add, update, remove, or clear; target existing tasks by id; choose the task count yourself' } };
-      // DSH: the harness system prompt arrives on the request; the provider
-      // renders it verbatim (effort stays config: think flag + num_predict).
-      const harnessSystem = String(systemPrompt || '').trim() || require('./harness/identity.cjs').IDENTITY_LINE;
+      // DSH: the harness owns the system prompt (identity, persona,
+      // policies, tool guidance) and the provider renders it verbatim. The
+      // per-request EFFORT PROTOCOL is the one provider-owned block: it
+      // states the tier this request runs at and the escalation channel the
+      // model may use — wire config (the tier maps onto think/num_predict on
+      // this very request), not persona. It names the MECHANISM, never a
+      // "harness" the model can then narrate.
+      const harnessSystem = `${effortPrompt}${effortEscalationPrompt ? `${effortPrompt ? ' ' : ''}${effortEscalationPrompt}` : ''}${effortPrompt || effortEscalationPrompt ? '\n\n' : ''}${String(systemPrompt || '').trim() || require('./harness/identity.cjs').IDENTITY_LINE}`;
       let requestAttempt = 0;
       const telemetry = kind => ({ coordinator, kind, phase: kind === 'repair' ? 'repair' : 'decision', attempt: ++requestAttempt });
       const requestBody = (images) => ({

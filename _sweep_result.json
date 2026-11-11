@@ -41,7 +41,7 @@
     "pass": 5,
     "fail": 5,
     "status": "RED",
-    "secs": 0,
+    "secs": 1,
     "failed": [
       "ollama provider maps tiers onto the think flag, decision budget, and p",
       "ollama auto mode advertises the escalation channel and effortNeeded su",
@@ -67,7 +67,7 @@
     "pass": 1,
     "fail": 2,
     "status": "RED",
-    "secs": 0,
+    "secs": 1,
     "failed": [
       "observation recovery continues the same run without the generic recove",
       "repeated malformed provider decisions reset internally and preserve co"
@@ -185,7 +185,7 @@
     "pass": 3,
     "fail": 0,
     "status": "GREEN",
-    "secs": 0,
+    "secs": 1,
     "failed": []
   },
   {
@@ -325,12 +325,11 @@
   {
     "file": "desktop-thinking-hygiene",
     "tests": 13,
-    "pass": 9,
-    "fail": 4,
+    "pass": 10,
+    "fail": 3,
     "status": "RED",
     "secs": 0,
     "failed": [
-      "near-duplicate reasoning counts as a stall, not just verbatim repeats",
       "the provider prompt never names a \"harness\" the model can narrate",
       "a subagent-authored card carries a producer badge",
       "a badged message keeps its model-facing text separate from the user bo"
@@ -339,25 +338,20 @@
   {
     "file": "enforcement-gen2",
     "tests": 14,
-    "pass": 13,
-    "fail": 1,
-    "status": "RED",
+    "pass": 14,
+    "fail": 0,
+    "status": "GREEN",
     "secs": 1,
-    "failed": [
-      "E5: an over-budget deliberation arms a one-shot notice; three in a row"
-    ]
+    "failed": []
   },
   {
     "file": "enforcement-gen3",
     "tests": 12,
-    "pass": 10,
-    "fail": 2,
-    "status": "RED",
-    "secs": 1,
-    "failed": [
-      "E8 dispatch: a blocked-done right after a tamper bounce is bounced onc",
-      "E8 dispatch: a blocked-done WITH a post-bounce probe passes the proven"
-    ]
+    "pass": 12,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 0,
+    "failed": []
   },
   {
     "file": "enforcement-gen4",
@@ -389,15 +383,11 @@
   {
     "file": "evidence-streak-accounting",
     "tests": 6,
-    "pass": 3,
-    "fail": 3,
-    "status": "RED",
+    "pass": 6,
+    "fail": 0,
+    "status": "GREEN",
     "secs": 1,
-    "failed": [
-      "successful evidence-only decisions still trigger EVIDENCE SUFFICIENT a",
-      "a failed call between successful reads does not RESET the streak eithe",
-      "computer_fs counts as evidence only for its read actions, never mkdir/"
-    ]
+    "failed": []
   },
   {
     "file": "evidence-survives-compaction",
@@ -431,18 +421,11 @@
   {
     "file": "flow-control-agent",
     "tests": 9,
-    "pass": 3,
-    "fail": 6,
-    "status": "RED",
+    "pass": 9,
+    "fail": 0,
+    "status": "GREEN",
     "secs": 1,
-    "failed": [
-      "\"enough evidence\" with no action arms a next-decision notice and the c",
-      "thinking-as-plan on a multi-part task is told that a thought-list is n",
-      "varied offsets over unchanged content run, then advise, then bounce ex",
-      "an edit opens a new evidence epoch so the post-edit re-read is fresh a",
-      "normal-size thinking stays silent; elevated and heavy thinking escalat",
-      "flow state is checkpointed with the run and an old snapshot without it"
-    ]
+    "failed": []
   },
   {
     "file": "gen8-subagents",
@@ -450,7 +433,7 @@
     "pass": 8,
     "fail": 1,
     "status": "RED",
-    "secs": 6,
+    "secs": 3,
     "failed": [
       "gen8 B: clicking the subagent card switches the live pane; clicking th"
     ]
@@ -461,7 +444,7 @@
     "pass": 7,
     "fail": 2,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "notebook and workspace pin survive forced compaction AND the raw-evict",
       "agent run start: notebook created in notebookDir, pinned wire carries "
@@ -524,7 +507,7 @@
     "pass": 0,
     "fail": 8,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "a wait in a native task keeps the domain and replaces pre-wait pixels",
       "a native action breaks the consecutive-wait backoff streak",
@@ -542,7 +525,7 @@
     "pass": 16,
     "fail": 10,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "reported cross-action stroke payload remains invalid rather than silen",
       "separate stroke action refreshes native evidence through the normal ch",
@@ -619,14 +602,11 @@
   {
     "file": "real-verification",
     "tests": 6,
-    "pass": 4,
-    "fail": 2,
-    "status": "RED",
-    "secs": 2,
-    "failed": [
-      "verified:true with NO evidence-producing tool call is downgraded, not ",
-      "evidence produced BEFORE the last mutation does not count as verificat"
-    ]
+    "pass": 6,
+    "fail": 0,
+    "status": "GREEN",
+    "secs": 1,
+    "failed": []
   },
   {
     "file": "request-visibility",
@@ -634,7 +614,7 @@
     "pass": 1,
     "fail": 2,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "a long request is quoted whole, not cut to its first sentence",
       "every copy of the request the model reads carries every ask"
@@ -709,13 +689,11 @@
   {
     "file": "telemetry-scan-not-a-tool-call",
     "tests": 5,
-    "pass": 4,
-    "fail": 1,
-    "status": "RED",
+    "pass": 5,
+    "fail": 0,
+    "status": "GREEN",
     "secs": 0,
-    "failed": [
-      "a real model tool call is still counted while the telemetry scan is no"
-    ]
+    "failed": []
   },
   {
     "file": "terminal-dead-end",
@@ -820,7 +798,7 @@
     "pass": 12,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 3,
     "failed": []
   }
 ]
