@@ -252,10 +252,13 @@ test('a model-named thinking budget is consumed once; silence falls back to the 
       }
     })
   });
-  const run = await agent.start({ task: 'You play chess, you are playing white', settings: { effort: 'auto' }, provider: { id: 'mock' } });
+  // The rapid default keys off SPEED language only — never a task topic (the
+  // harness stays task-agnostic; the chess vocabulary that used to live in
+  // isRapidTask is gone).
+  const run = await agent.start({ task: 'Do this as fast as possible', settings: { effort: 'auto' }, provider: { id: 'mock' } });
   assert.equal(run.status, 'completed');
   assert.ok(budgets.length >= 3, `expected at least three decisions, got ${budgets.length}`);
-  assert.equal(budgets[0], 3_000, 'a rapid (chess) task starts at the 3s default');
+  assert.equal(budgets[0], 3_000, 'a rapid (explicit speed request) task starts at the 3s default');
   assert.equal(budgets[1], 154_000, 'the named budget is honored exactly for the next decision');
   assert.equal(budgets[2], 3_000, 'a decision that does not re-name the budget falls back to the default, not the ratchet');
 });

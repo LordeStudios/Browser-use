@@ -2207,7 +2207,28 @@ function buildElementCollectorScript({ interactiveOnly, includeText, maxElements
     // The helper is inlined from the module below so tests exercise the SAME
     // code the page runs.
     const finalElements = (${selectElementsByAnchor.toString()})(elements, cap, anchor);
-    const visualTargets = Array.from(document.querySelectorAll(VISUAL_TARGET_SELECTOR))
+    // CUSTOM ELEMENTS are how canvas/board interfaces expose their visual
+    // objects: a <piece> sprite, a <tile> card, a <marker> token. The tag
+    // carries the object kind, the class names the instance ("black queen"),
+    // and the rect gives the position. No mainstream layout framework uses
+    // dashed tag names, so collecting them inside interaction regions is
+    // generic - and it is the only way an agent can READ a canvas board's
+    // state instead of re-deriving it from pixels every decision (the live
+    // chess run clicked one square repeatedly because it never saw the
+    // pieces).
+    const regionElements = Array.from(document.querySelectorAll(INTERACTION_REGION_SELECTOR));
+    const customElements = [];
+    for (const region of regionElements) {
+      for (const candidate of region.querySelectorAll('*')) {
+        if (candidate.tagName && candidate.tagName.includes('-')) {
+          customElements.push(candidate);
+          if (customElements.length >= 256) break;
+        }
+      }
+      if (customElements.length >= 256) break;
+    }
+    const visualTargetElements = Array.from(new Set([...document.querySelectorAll(VISUAL_TARGET_SELECTOR), ...customElements]));
+    const visualTargets = visualTargetElements
       .slice(0, 256)
       .map((element) => {
         if (!(element instanceof HTMLElement) && !(element instanceof SVGElement)) return null;
@@ -2216,9 +2237,18 @@ function buildElementCollectorScript({ interactiveOnly, includeText, maxElements
         if (hidden(element, style, rect) || rect.width * rect.height < 100) return null;
         if (rect.right < 0 || rect.bottom < 0 || rect.left > window.innerWidth || rect.top > window.innerHeight) return null;
         const classes = typeof element.className === 'string' ? element.className : element.getAttribute('class') || '';
+        // A SHORT ancestor class chain: state and orientation markers live on
+        // ancestors (a flipped board, a selected row, an active panel), and
+        // without them the agent cannot interpret the object's position.
+        const ancestors = [];
+        for (let parent = element.parentElement, depth = 0; parent && depth < 3; parent = parent.parentElement, depth += 1) {
+          const parentClasses = typeof parent.className === 'string' ? parent.className : '';
+          if (parentClasses) ancestors.push(parentClasses.slice(0, 80));
+        }
         return {
           tag: element.tagName.toLowerCase(),
           classes: String(classes).slice(0, 160),
+          ...(ancestors.length ? { ancestors } : {}),
           role: element.getAttribute('role') || '',
           label: String(element.getAttribute('aria-label') || element.getAttribute('title') || element.getAttribute('data-piece') || element.getAttribute('data-square') || '').slice(0, 120),
           rect: { x: Math.round(rect.left), y: Math.round(rect.top), w: Math.round(rect.width), h: Math.round(rect.height) },
@@ -2227,7 +2257,7 @@ function buildElementCollectorScript({ interactiveOnly, includeText, maxElements
       })
       .filter(Boolean)
       .slice(0, 96);
-    const regions = Array.from(document.querySelectorAll(INTERACTION_REGION_SELECTOR))
+    const regions = regionElements
       .map((element) => {
         if (!(element instanceof HTMLElement) && !(element instanceof SVGElement)) return null;
         const style = getComputedStyle(element);

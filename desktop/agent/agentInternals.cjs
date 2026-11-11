@@ -1236,12 +1236,15 @@ function isCheapInformationalTask(task) {
   return /[?？]\s*$/.test(request) || /^(?:hi|hello|hey|thanks|thank you|what is|who is|how are you)\b/i.test(request);
 }
 
-// Rapid surfaces cannot afford the normal deliberation ceiling. A game,
-// live page, timer, chess match, or explicit "act now" request should emit the
-// first grounded action within seconds; the next observation can supply the
-// detail. This is a routing hint, not task-specific behavior.
+// Rapid surfaces cannot afford the normal deliberation ceiling: an explicit
+// "act now" request, a timer/ticking surface, or a real-time/live page should
+// emit the first grounded action within seconds — the next observation can
+// supply the detail. This is a routing hint read from TIME-PRESSURE LANGUAGE
+// ONLY. It must never key off the task's TOPIC: the harness stays
+// task-agnostic (owner directive 2026-11-11 — no game/chess vocabulary; a
+// topic keyword is not an urgency signal).
 function isRapidTask(task) {
-  return /\b(?:rapid|quick(?:ly)?|as fast as possible|immediately|right now|real[- ]time|live|game|play|beat|chess|stockfish|timer|ticking)\b/i.test(String(task || ''));
+  return /\b(?:rapid|quick(?:ly)?|as fast as possible|asap|immediately|right (?:now|away)|no delay|real[- ]time|live|timer|ticking|urgent)\b/i.test(String(task || ''));
 }
 
 // OWNER DIRECTIVE (2026-10-15): mid-run, queued, and fast-forwarded user
