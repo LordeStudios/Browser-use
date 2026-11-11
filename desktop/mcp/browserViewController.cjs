@@ -76,6 +76,9 @@ class BrowserViewController {
     // the tab stops waiting on the visual (input goes straight to delivery).
     this.visualizerStrikes = new Map();
     this.visualizerBroken = new Set();
+    // Learned delivery channel per tab: 'native' once CDP input proved
+    // swallowed. Reusing it skips a dead dispatch + probe + retry per click.
+    this.deliveryChannel = new Map();
     this.globalInputGeneration = 0;
     // tabId -> { at, elements[] }. Snapshot indices are only valid for the newest
     // DOM read of that tab, which keeps index-based clicks deterministic.
@@ -440,6 +443,22 @@ class BrowserViewController {
       const prepared = this.prepareNativeInput(tabId);
       const normalizedButton = normalizeButton(button);
       const background = this.getSelectedTabId() !== tabId || prepared.forceBackground;
+      if (!background && this.deliveryChannel.get(String(tabId)) === 'native') {
+        // Learned channel: CDP input proved swallowed on this tab, so the
+        // native pipeline IS the click path (one injection + probe, no dead
+        // dispatch). Real-time sequences are impossible while paying for a
+        // dead channel on every click.
+        this.assertPointerAllowed(tabId, 'browser_click');
+        if (!this.inputOperationCurrent(operation)) return { tabId, x, y, input: 'interrupted', button: normalizedButton, pointer: { interrupted: true, reason: 'input-operation-cancelled' } };
+        this.lastPointer.set(tabId, { x, y });
+        const native = await this.clickViaNative(tabId, { x, y, button: normalizedButton });
+        return {
+          tabId, x, y, input: 'mouse', button: normalizedButton,
+          ...(repeatPoint ? { repeatPoint: true } : {}),
+          ...(native ? { delivered: native.delivered, delivery: 'native' } : {}),
+          hit: native?.hit || null
+        };
+      }
       if (background && typeof this.debuggerLeaseManager?.sendBatch === 'function') {
         this.assertPointerAllowed(tabId, 'browser_click');
         if (!this.inputOperationCurrent(operation)) return { tabId, x, y, input: 'interrupted', button: normalizedButton, pointer: { interrupted: true, reason: 'input-operation-cancelled' } };
@@ -474,6 +493,25 @@ class BrowserViewController {
     } finally {
       if (ownsOperation) this.finishInputOperation(operation);
     }
+  }
+
+  // A tab whose CDP input is swallowed keeps the native channel: retrying the
+  // dead channel on every click costs a full CDP dispatch plus a probe plus the
+  // retry (~300ms) and makes real-time sequences impossible. The channel is
+  // learned once per tab and reused.
+  async clickViaNative(tabId, { x, y, button }) {
+    const webContents = this.requireTab(tabId)?.webContents;
+    if (!webContents || typeof webContents.sendInputEvent !== 'function' || webContents.isDestroyed?.()) return null;
+    webContents.sendInputEvent({ type: 'mouseMove', x, y });
+    await new Promise((resolve) => setTimeout(resolve, 8));
+    webContents.sendInputEvent({ type: 'mouseDown', x, y, button, clickCount: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 8));
+    webContents.sendInputEvent({ type: 'mouseUp', x, y, button, clickCount: 1 });
+    const dispatchedAt = Date.now();
+    const probed = await this.hitTest(tabId, { x, y }).catch(() => null);
+    const delivered = Array.isArray(probed?.pageClicks) && probed.pageClicks.some((entry) => Number(entry?.at) >= dispatchedAt - 80
+      && Math.abs(Number(entry?.x) - x) <= 2 && Math.abs(Number(entry?.y) - y) <= 2);
+    return { hit: probed, delivered, delivery: 'native' };
   }
 
   // VERIFIED CLICK DELIVERY: a dispatched click is not a delivered click. The
@@ -512,6 +550,7 @@ class BrowserViewController {
       const retried = await this.hitTest(tabId, { x, y }).catch(() => hit);
       const landed = Array.isArray(retried?.pageClicks) && retried.pageClicks.some((entry) => Number(entry?.at) >= dispatchedAt
         && Math.abs(Number(entry?.x) - x) <= 2 && Math.abs(Number(entry?.y) - y) <= 2);
+      if (landed) this.deliveryChannel.set(String(tabId), 'native');
       return { hit: retried || hit, delivered: landed, delivery: 'electron-retry' };
     } catch {
       return { hit, delivered: false, delivery: 'cdp' };

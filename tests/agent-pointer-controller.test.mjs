@@ -962,3 +962,36 @@ test('a click the page received is reported as delivered over CDP, with no retry
   assert.equal(result.delivered, true);
   assert.equal(sent.length, 0, 'a delivered click never touches the native pipeline');
 });
+
+test('once CDP is learned swallowed, later clicks use the native channel directly', async () => {
+  // ~1.2s per click came from paying a dead CDP dispatch + probe + retry on
+  // every click. The channel is learned per tab: after one successful native
+  // retry, the native pipeline IS the click path.
+  const { BrowserViewController } = require('../desktop/mcp/browserViewController.cjs');
+  const nativeDelivered = [];
+  let cdpDispatches = 0;
+  const tab = {
+    id: 'tab-1',
+    webContents: {
+      isDestroyed: () => false,
+      sendInputEvent: (event) => { if (event.type === 'mouseUp') nativeDelivered.push({ x: event.x, y: event.y, at: Date.now(), tag: 'button' }); },
+      debugger: { isAttached: () => false, attach: () => {}, detach: () => {}, sendCommand: async () => { cdpDispatches += 1; return {}; } },
+      executeJavaScript: async () => ({
+        hit: true, tag: 'button', id: null, classes: 'field', role: null, isCanvas: false,
+        rect: { x: 0, y: 0, width: 10, height: 10 }, textLength: 10, textTail: 'tail',
+        pageClicks: nativeDelivered.slice(-2),
+        lastDown: nativeDelivered.length ? nativeDelivered.at(-1) : null,
+        lastUp: nativeDelivered.length ? nativeDelivered.at(-1) : null
+      })
+    }
+  };
+  const controller = new BrowserViewController({ getTabs: () => [tab], getSelectedTabId: () => 'tab-1', getConsoleEntries: () => [], normalizeUrl: (value) => value });
+  await controller.clickAt('tab-1', { x: 40, y: 60 }, 'session-a');
+  await controller.clickAt('tab-1', { x: 40, y: 60 }, 'session-a');
+  assert.equal(controller.deliveryChannel.get('tab-1'), 'native', 'the working channel is remembered');
+  const cdpAfterLearning = cdpDispatches;
+  const third = await controller.clickAt('tab-1', { x: 80, y: 90 }, 'session-a');
+  assert.equal(third.delivery, 'native');
+  assert.equal(third.delivered, true);
+  assert.equal(cdpDispatches, cdpAfterLearning, 'a learned-native tab never pays for a dead CDP dispatch again');
+});
