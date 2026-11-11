@@ -99,17 +99,31 @@ function tick(now) {
 function acknowledgeAfterPaint(sequence, status, frameCount, beforeAcknowledge = null) {
   const paintToken = state.paintToken;
   let remaining = Math.max(1, frameCount);
+  let settled = false;
+  // The ack must never HANG on rAF. A freshly shown, transparent, non-focusable
+  // overlay can miss frames (Windows compositor, occlusion), and an un-acked
+  // command made the harness hide the window on timeout — which guaranteed the
+  // next command could never paint either: a permanent ack-timeout cycle on
+  // every click (~700ms x 2 = the observed 1.2s/click). The frame wait is the
+  // preferred signal; this bounded fallback keeps the contract alive.
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(fallbackTimer);
+    beforeAcknowledge?.();
+    pointer.dataset.paintConfirmedAt = String(Date.now());
+    host.acknowledge({ sequence, status });
+  };
+  const fallbackTimer = setTimeout(finish, 180);
   const waitForFrame = () => {
     requestAnimationFrame(() => {
-      if (paintToken !== state.paintToken) return;
+      if (settled || paintToken !== state.paintToken) return;
       remaining -= 1;
       if (remaining > 0) {
         waitForFrame();
         return;
       }
-      beforeAcknowledge?.();
-      pointer.dataset.paintConfirmedAt = String(Date.now());
-      host.acknowledge({ sequence, status });
+      finish();
     });
   };
   waitForFrame();

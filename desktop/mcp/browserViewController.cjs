@@ -487,6 +487,11 @@ class BrowserViewController {
         tabId, x, y, input: 'mouse', button: normalizeButton(button),
         ...(repeatPoint ? { repeatPoint: true } : {}),
         pointer: committedClickPointer({ moved, pressed, released }),
+        // WHY the cursor animation was unavailable (tab-not-visible /
+        // pointer-unavailable / pointer-surface-unavailable / ack timeout):
+        // without this the reply only said visualInterrupted:true and the
+        // visualizer's own gate stayed invisible.
+        ...(moved?.pointer?.reason ? { visualReason: String(moved.pointer.reason).slice(0, 80) } : {}),
         ...(enforced.delivered === null ? {} : { delivered: enforced.delivered, delivery: enforced.delivery }),
         hit
       };

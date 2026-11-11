@@ -2,7 +2,7 @@
 
 const POINTER_COMMAND_CHANNEL = 'browser-use:agent-pointer-command';
 const POINTER_ACK_CHANNEL = 'browser-use:agent-pointer-ack';
-const POINTER_ACK_TIMEOUT_MS = 700;
+const POINTER_ACK_TIMEOUT_MS = 450;
 const POINTER_READY_TIMEOUT_MS = 1_500;
 
 class AgentPointerOverlay {
@@ -33,6 +33,10 @@ class AgentPointerOverlay {
     this.readyPromise = null;
     this.resolveReady = null;
     this.recoveryTimer = null;
+    // Consecutive ack timeouts. A single timeout must NOT hide the window:
+    // hiding guarantees the next command cannot paint, so the old
+    // hide-on-first-timeout behaviour created a permanent failure cycle.
+    this.ackTimeouts = 0;
     this.ackListener = (event, payload) => this.onAcknowledge(event, payload);
     this.ipcMain.on(POINTER_ACK_CHANNEL, this.ackListener);
   }
@@ -367,6 +371,8 @@ class AgentPointerOverlay {
         if (!this.pending.has(sequence)) return;
         this.pending.delete(sequence);
         resolve({ sequence, timedOut: true });
+        this.ackTimeouts = (this.ackTimeouts || 0) + 1;
+        if (this.ackTimeouts < 3) return;
         const pointerWindow = this.liveWindow();
         if (pointerWindow) this.handleRendererFailure(pointerWindow, 'pointer-renderer-ack-timeout');
       }, POINTER_ACK_TIMEOUT_MS);
@@ -385,6 +391,7 @@ class AgentPointerOverlay {
     const sequence = Number(payload.sequence);
     const pending = this.pending.get(sequence);
     if (!pending) return;
+    this.ackTimeouts = 0;
     clearTimeout(pending.timer);
     this.pending.delete(sequence);
     if (pending.command?.type === 'press' && payload.status === 'painted') {

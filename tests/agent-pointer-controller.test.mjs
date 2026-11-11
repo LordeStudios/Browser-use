@@ -995,3 +995,18 @@ test('once CDP is learned swallowed, later clicks use the native channel directl
   assert.equal(third.delivered, true);
   assert.equal(cdpDispatches, cdpAfterLearning, 'a learned-native tab never pays for a dead CDP dispatch again');
 });
+
+test('the overlay never hangs on paint frames and never hides on a single ack timeout', () => {
+  // The ack-timeout cycle: one missed ack hid the overlay window, and a hidden
+  // window can never paint - so every later command timed out too (the live
+  // 1.2s/click). The page now acks within a bounded fallback, and the overlay
+  // only recycles after THREE consecutive timeouts.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const page = fs.readFileSync(path.join(process.cwd(), 'desktop/renderer/agent-pointer.js'), 'utf8');
+  assert.match(page, /setTimeout\(finish, 180\)/, 'the ack has a bounded rAF fallback');
+  const overlay = fs.readFileSync(path.join(process.cwd(), 'desktop/pointer/agentPointerOverlay.cjs'), 'utf8');
+  assert.match(overlay, /POINTER_ACK_TIMEOUT_MS = 450/, 'the ack window is short');
+  assert.match(overlay, /this\.ackTimeouts < 3/, 'one timeout is a strike, not a hide');
+  assert.match(overlay, /this\.ackTimeouts = 0;\r?\n    clearTimeout\(pending\.timer\)/, 'a good ack resets the strikes');
+});
