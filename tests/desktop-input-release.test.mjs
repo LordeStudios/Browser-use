@@ -172,7 +172,7 @@ test('pointer actions use native input without executing page JavaScript', async
 
   assert.equal(scripts.length, 0, 'input must not inject or execute code in the page');
   assert.deepEqual(events, [
-    { type: 'mouseMoved', x: 12, y: 24 },
+    { type: 'mouseMoved', x: 12, y: 24, buttons: 0 },
     { type: 'mousePressed', x: 30, y: 40, button: 'left', buttons: 1, clickCount: 1 },
     { type: 'mouseReleased', x: 50, y: 60, button: 'left', buttons: 0, clickCount: 1 }
   ]);
@@ -199,7 +199,7 @@ test('selected native input reattaches one transiently detached BrowserView befo
   controller.mouseMove(tab.id, { x: 18, y: 26 });
 
   assert.equal(recoveryCalls, 1);
-  assert.deepEqual(events, [{ type: 'mouseMoved', x: 18, y: 26 }]);
+  assert.deepEqual(events, [{ type: 'mouseMoved', x: 18, y: 26, buttons: 0 }]);
 });
 
 test('selected input uses same-tab CDP when shell reattachment cannot restore the native view', async () => {
@@ -218,7 +218,7 @@ test('selected input uses same-tab CDP when shell reattachment cannot restore th
 
   assert.equal(recoveryCalls, 1);
   assert.deepEqual(outcome, { tabId: tab.id, input: 'cdp' });
-  assert.deepEqual(events, [{ type: 'mouseMoved', x: 18, y: 26 }]);
+  assert.deepEqual(events, [{ type: 'mouseMoved', x: 18, y: 26, buttons: 0 }]);
 });
 
 test('scroll uses a valid native pointer and reports read-only movement evidence', async () => {
@@ -293,11 +293,11 @@ test('drag interpolates native input without executing page JavaScript', async (
   // move(start) + down(start) + move(interpolated 1) + move(interpolated 2) + move(end) + up(end)
   assert.equal(mouseEvents.length, 6);
 
-  assert.deepEqual(mouseEvents[0], { type: 'mouseMoved', x: 10, y: 20 });
+  assert.deepEqual(mouseEvents[0], { type: 'mouseMoved', x: 10, y: 20, buttons: 0 });
   assert.deepEqual(mouseEvents[1], { type: 'mousePressed', x: 10, y: 20, button: 'left', buttons: 1, clickCount: 1 });
-  assert.deepEqual(mouseEvents[2], { type: 'mouseMoved', x: 17, y: 27 });
-  assert.deepEqual(mouseEvents[3], { type: 'mouseMoved', x: 23, y: 33 });
-  assert.deepEqual(mouseEvents[4], { type: 'mouseMoved', x: 30, y: 40 });
+  assert.deepEqual(mouseEvents[2], { type: 'mouseMoved', x: 17, y: 27, buttons: 1 });
+  assert.deepEqual(mouseEvents[3], { type: 'mouseMoved', x: 23, y: 33, buttons: 1 });
+  assert.deepEqual(mouseEvents[4], { type: 'mouseMoved', x: 30, y: 40, buttons: 1 });
   assert.deepEqual(mouseEvents[5], { type: 'mouseReleased', x: 30, y: 40, button: 'left', buttons: 0, clickCount: 1 });
   assert.equal(scripts.length, 0, 'drag must not inject a page overlay');
 });

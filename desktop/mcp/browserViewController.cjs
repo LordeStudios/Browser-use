@@ -443,7 +443,7 @@ class BrowserViewController {
         const hit = await this.hitTest(tabId, { x, y }).catch(() => ({ hit: null, reason: 'hit-test-unavailable' }));
         return { tabId, x, y, input: 'cdp-background', button: normalizedButton, pointer: { mode: 'cdp-native-input', x, y, pageMutation: false }, batched: true, hit };
       }
-      const moved = await this.mouseMove(tabId, { x, y }, { operation });
+      const moved = await this.mouseMove(tabId, { x, y }, { operation, sessionId });
       if (!this.inputOperationCurrent(operation) || inputDeliveryFailed(moved)) return { tabId, x, y, input: 'interrupted', button: normalizeButton(button), pointer: safePointerProjection(moved.pointer) };
       const pressed = await this.mouseDown(tabId, { x, y, button }, sessionId, operation);
       if (inputDeliveryFailed(pressed)) return { tabId, x, y, input: 'interrupted', button: normalizeButton(button), pointer: safePointerProjection(pressed.pointer) };
@@ -590,6 +590,12 @@ class BrowserViewController {
     this.assertPointerAllowed(tabId, 'browser_mousemove');
     const ownsOperation = !operation;
     const activeOperation = operation || this.inputOperationToken(sessionId, tabId);
+    // CDP requires the mask of currently-held buttons on EVERY event; the old
+    // sendInputEvent route inferred it. Without it, a move during a press
+    // claims no button is held and the page never enters drag mode - drags
+    // simply did nothing (the live drag failure).
+    const heldMask = this.heldButtonMask(sessionId, tabId);
+    const moveEvent = { type: 'mouseMoved', x, y, buttons: heldMask };
     return this.runInputOperation(activeOperation, ownsOperation, () => {
       if (!this.inputOperationCurrent(activeOperation)) {
         return { tabId, input: 'interrupted', pointer: { interrupted: true, reason: 'input-operation-cancelled' } };
@@ -612,11 +618,11 @@ class BrowserViewController {
           // The cursor visual is decoration: deliver the hover position even
           // when its acknowledgement is lost.
           this.lastPointer.set(tabId, { x, y });
-          const outcome = this.dispatchInput(tabId, prepared.tab.webContents, { type: 'mouseMoved', x, y }, 'mouse', prepared.forceBackground);
+          const outcome = this.dispatchInput(tabId, prepared.tab.webContents, moveEvent, 'mouse', prepared.forceBackground);
           return addPointerOutcome(outcome, { ...safePointerProjection(visualResult), deliveryFallback: true });
         }
         this.lastPointer.set(tabId, { x, y });
-        const outcome = this.dispatchInput(tabId, prepared.tab.webContents, { type: 'mouseMoved', x, y }, 'mouse', prepared.forceBackground);
+        const outcome = this.dispatchInput(tabId, prepared.tab.webContents, moveEvent, 'mouse', prepared.forceBackground);
         return addPointerOutcome(outcome, visualResult);
       });
     });
@@ -629,10 +635,17 @@ class BrowserViewController {
     const owner = inputOwner(sessionId);
     const ownsOperation = !inputOperation;
     const operation = inputOperation || this.inputOperationToken(sessionId, tabId);
-    const continueAfterRelease = (release, requireCommittedCleanup = false) => this.runInputOperation(operation, ownsOperation, () => (
-      Promise.resolve(release).then((released) => {
-        if (!this.inputOperationCurrent(operation) || (requireCommittedCleanup && released !== true)) {
-          return { tabId, input: 'interrupted', pointer: { interrupted: true, reason: 'prior-button-release-unavailable' } };
+    const continueAfterRelease = (release) => this.runInputOperation(operation, ownsOperation, () => (
+      // A prior release that failed (slow or starved debugger queue) must NEVER
+      // cancel the next press. With CDP the per-tab lease already guarantees
+      // the release command reaches the page BEFORE this press command, so the
+      // ordering this wait protected is safe even when the release's own
+      // completion is unknown. Aborting here is what made "only the first
+      // click register" across a click sequence (the live chess run: click 1
+      // landed, every later click died on the prior release's rejection).
+      Promise.resolve(release).catch(() => undefined).then(() => {
+        if (!this.inputOperationCurrent(operation)) {
+          return { tabId, input: 'interrupted', pointer: { interrupted: true, reason: 'input-operation-cancelled' } };
         }
         return this.mouseDown(tabId, { x, y, button: normalizedButton }, sessionId, operation);
       })
@@ -648,7 +661,7 @@ class BrowserViewController {
     }
     const priorCleanup = this.consumeReleasedButtonTombstone(owner, tabId, normalizedButton);
     if (priorCleanup && typeof priorCleanup.then === 'function') {
-      return continueAfterRelease(priorCleanup, true);
+      return continueAfterRelease(priorCleanup);
     }
     const prepared = this.prepareNativeInput(tabId);
     return this.runInputOperation(operation, ownsOperation, () => {
@@ -731,7 +744,18 @@ class BrowserViewController {
           this.lastPointer.set(tabId, releasePoint);
           // Native release is the safety edge. Only forget the held state after
           // dispatch succeeds; click feedback is best-effort and cannot block it.
-          const dispatched = this.dispatchInput(tabId, prepared.tab.webContents, { type: 'mouseReleased', ...releasePoint, button: normalizedButton, buttons: 0, clickCount: 1 }, 'mouse', prepared.forceBackground);
+          // A release that the debugger queue drops is retried ONCE: a lost
+          // mouseup leaves the page's button stuck down, and the next click
+          // then lands as a drag or is swallowed entirely.
+          const releaseEvent = { type: 'mouseReleased', ...releasePoint, button: normalizedButton, buttons: 0, clickCount: 1 };
+          const dispatched = Promise.resolve(this.dispatchInput(tabId, prepared.tab.webContents, releaseEvent, 'mouse', prepared.forceBackground))
+            .catch((error) => {
+              // A cancelled operation must not re-dispatch; anything else gets
+              // ONE retry: a dropped release leaves the page's button stuck
+              // down, and the next click then lands as a drag or is swallowed.
+              if (!this.inputOperationCurrent(operation)) throw error;
+              return this.dispatchInput(tabId, prepared.tab.webContents, releaseEvent, 'mouse', prepared.forceBackground);
+            });
           const outcome = this.trackPendingButtonRelease(owner, tabId, normalizedButton, dispatched);
           return afterMaybePromise(outcome, (settledOutcome) => {
             this.forgetHeld(sessionId, tabId, 'buttons', normalizedButton);
@@ -882,7 +906,7 @@ class BrowserViewController {
 
     const operation = this.inputOperationToken(sessionId, tabId);
     try {
-      const initialMove = await this.mouseMove(tabId, { x: startX, y: startY }, { operation });
+      const initialMove = await this.mouseMove(tabId, { x: startX, y: startY }, { operation, sessionId });
       if (inputWasInterrupted(initialMove)) return { tabId, startX, startY, endX, endY, input: 'interrupted', pointer: initialMove.pointer };
       const down = await this.mouseDown(tabId, { x: startX, y: startY, button: 'left' }, sessionId, operation);
       if (inputWasInterrupted(down)) return { tabId, startX, startY, endX, endY, input: 'interrupted', pointer: down.pointer };
@@ -904,7 +928,8 @@ class BrowserViewController {
           const movement = await this.mouseMove(tabId, { x: cx, y: cy }, {
             waitForPointer: true,
             pointerDurationMs: Math.max(16, delay),
-            operation
+            operation,
+            sessionId
           });
           if (inputWasInterrupted(movement)) {
             interrupted = movement;
@@ -1300,6 +1325,17 @@ class BrowserViewController {
     return Boolean(held && held.tabId === tabId && held[kind]?.has(value));
   }
 
+  // The mask of buttons currently held in this tab for this owner — CDP
+  // requires it on every mouse event (a move during a press must say which
+  // button is down, or the page never starts a drag).
+  heldButtonMask(sessionId, tabId) {
+    const held = this.heldInput.get(inputOwner(sessionId));
+    if (!held || held.tabId !== tabId || !held.buttons?.size) return 0;
+    let mask = 0;
+    for (const button of held.buttons) mask |= mouseButtonMask(button);
+    return mask;
+  }
+
   heldInputState(sessionId) {
     const held = this.heldInput.get(inputOwner(sessionId));
     return held ? { tabId: held.tabId, buttons: [...held.buttons], keys: [...held.keys] } : null;
@@ -1409,9 +1445,12 @@ class BrowserViewController {
     const startedAt = Date.now();
     const attempt = () => {
       const tab = this.requireTab(tabId);
-      return withTimeout(
-        this.evaluatePage(tab, 'post-input hit test', expression, 3_000, 'Timed out hit-testing the clicked point.')
-      );
+      // evaluatePage already bounds itself (3s + its own message). Wrapping it
+      // in a SECOND withTimeout without arguments made that outer timer fire
+      // immediately (setTimeout with an undefined delay) and killed EVERY hit
+      // test with a messageless Error — the 100% hit-test failure on the live
+      // chess run, and the reason the model never saw the board rect.
+      return this.evaluatePage(tab, 'post-input hit test', expression, 3_000, 'Timed out hit-testing the clicked point.');
     };
     const describe = (error) => {
       if (!(error instanceof Error)) return String(error);

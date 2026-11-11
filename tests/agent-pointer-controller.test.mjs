@@ -131,7 +131,7 @@ test('a superseded click cannot reclaim the pointer or press after a newer move'
     ['move', 'tab-selected', { x: 80, y: 420 }],
     ['move', 'tab-selected', { x: 500, y: 120 }]
   ]);
-  assert.deepEqual(nativeEvents, [{ type: 'mouseMoved', x: 500, y: 120 }]);
+  assert.deepEqual(nativeEvents, [{ type: 'mouseMoved', x: 500, y: 120, buttons: 0 }]);
 });
 
 test('a timed-out visual arrival still delivers the press through the direct route', async () => {
@@ -173,7 +173,7 @@ test('a click whose every visual stage times out still commits and reports the t
   assert.equal(result.pointer.visualInterrupted, true);
   assert.equal(result.pointer.interrupted, undefined);
   assert.deepEqual(nativeEvents, [
-    { type: 'mouseMoved', x: 200, y: 220 },
+    { type: 'mouseMoved', x: 200, y: 220, buttons: 0 },
     { type: 'mousePressed', x: 200, y: 220, button: 'left', buttons: 1, clickCount: 1 },
     { type: 'mouseReleased', x: 200, y: 220, button: 'left', buttons: 0, clickCount: 1 }
   ], 'press and release must pair even when the cursor visual never arrived');
@@ -207,7 +207,7 @@ test('our own paintability preparation cannot cancel the operation it prepares',
   assert.equal(result.input, 'mouse', 'the click must complete even though the layout pass fired during preparation');
   assert.equal(result.pointer.committed, true);
   assert.deepEqual(nativeEvents, [
-    { type: 'mouseMoved', x: 90, y: 80 },
+    { type: 'mouseMoved', x: 90, y: 80, buttons: 0 },
     { type: 'mousePressed', x: 90, y: 80, button: 'left', buttons: 1, clickCount: 1 },
     { type: 'mouseReleased', x: 90, y: 80, button: 'left', buttons: 0, clickCount: 1 }
   ]);
@@ -631,7 +631,7 @@ test('a superseded visual release still reports an already committed click', asy
 
   assert.equal(result.input, 'mouse', 'a caller must not retry a click whose down/up edges both committed');
   assert.deepEqual(nativeEvents, [
-    { type: 'mouseMoved', x: 140, y: 180 },
+    { type: 'mouseMoved', x: 140, y: 180, buttons: 0 },
     { type: 'mousePressed', x: 140, y: 180, button: 'left', buttons: 1, clickCount: 1 },
     { type: 'mouseReleased', x: 140, y: 180, button: 'left', buttons: 0, clickCount: 1 }
   ]);
@@ -770,7 +770,7 @@ test('a superseded move cannot dispatch its stale final native position', async 
 
   assert.equal(staleResult.input, 'interrupted');
   assert.equal(winningResult.input, 'cdp');
-  assert.deepEqual(nativeEvents, [{ type: 'mouseMoved', x: 460, y: 90 }]);
+  assert.deepEqual(nativeEvents, [{ type: 'mouseMoved', x: 460, y: 90, buttons: 0 }]);
 });
 
 test('release remains an edge event when its visual movement is superseded', async () => {
@@ -823,4 +823,77 @@ test('a pointer renderer failure during release cannot suppress native mouseUp',
   assert.equal(result.input, 'cdp');
   assert.deepEqual(nativeEvents, [{ type: 'mouseReleased', x: 180, y: 190, button: 'left', buttons: 0, clickCount: 1 }]);
   assert.equal(controller.heldInputState('session-a'), null);
+});
+
+test('a drag carries the held-button mask on its moves, so the page enters drag mode', async () => {
+  // CDP requires the mask of held buttons on EVERY event. The old
+  // sendInputEvent route inferred it; the CDP route does not, so a drag
+  // delivered "move with no button held" and the page never started a drag.
+  const { controller, nativeEvents } = harness({
+    move: async () => ({ sequence: 1, completed: true }),
+    press: async () => ({ sequence: 2, completed: true }),
+    release: async () => ({ sequence: 3, completed: true })
+  });
+  await controller.drag('tab-selected', { startX: 100, startY: 100, endX: 200, endY: 200, steps: 4, durationMs: 40 }, 'session-a');
+  const moves = nativeEvents.filter(event => event.type === 'mouseMoved');
+  assert.ok(moves.length >= 2, 'the drag moved the pointer');
+  assert.equal(moves[0].buttons, 0, 'the approach move has no button held');
+  assert.ok(moves.slice(1).every(move => move.buttons === 1), 'every move during the press carries the held button');
+});
+
+test('a prior release that FAILED does not kill the next click', async () => {
+  // The live chess run's "only the first click registers": click 1's release
+  // was dropped by the starved debugger queue, and the pending-release gate
+  // propagated that rejection out of the next press — so every later click
+  // died before it pressed. The lease already orders the release command
+  // ahead of the press, so a failed release must never cancel the press.
+  const { BrowserViewController } = require('../desktop/mcp/browserViewController.cjs');
+  const nativeEvents = [];
+  let releaseAttempts = 0;
+  const tab = {
+    id: 'tab-1',
+    webContents: {
+      isDestroyed: () => false,
+      debugger: {
+        isAttached: () => false,
+        attach: () => {},
+        detach: () => {},
+        sendCommand: async (method, params) => {
+          if (method === 'Input.dispatchMouseEvent' && params?.type === 'mouseReleased') {
+            releaseAttempts += 1;
+            if (releaseAttempts <= 2) throw new Error('debugger queue dropped the release');
+          }
+          nativeEvents.push(params);
+          return {};
+        }
+      }
+    }
+  };
+  const controller = new BrowserViewController({ getTabs: () => [tab], getSelectedTabId: () => 'tab-1', getConsoleEntries: () => [], normalizeUrl: (value) => value });
+  // The first click's release is genuinely lost, so that click reports failure.
+  await controller.clickAt('tab-1', { x: 140, y: 180 }, 'session-a').catch(() => {});
+  // The SECOND click must still press: a lost release must not cascade.
+  await controller.clickAt('tab-1', { x: 220, y: 260 }, 'session-a');
+  const presses = nativeEvents.filter(event => event.type === 'mousePressed');
+  assert.equal(presses.length, 2, 'both clicks press even though the first release failed');
+});
+
+test('the post-input hit test resolves against the page instead of timing out at once', async () => {
+  // Regression: the retry wrapper called withTimeout(promise) with no delay,
+  // so its timer fired immediately and every hit test died with a messageless
+  // Error (the live run's 100% hit-test failure — and the reason the model
+  // never saw the board rect).
+  const { BrowserViewController } = require('../desktop/mcp/browserViewController.cjs');
+  const tab = {
+    id: 'tab-1',
+    webContents: {
+      isDestroyed: () => false,
+      executeJavaScript: async () => ({ hit: true, tag: 'cg-board', id: null, classes: '', role: null, isCanvas: false, rect: { x: 14, y: 64, width: 493, height: 493 }, textLength: 40, textTail: 'tail' })
+    }
+  };
+  const controller = new BrowserViewController({ getTabs: () => [tab], getSelectedTabId: () => 'tab-1', getConsoleEntries: () => [], normalizeUrl: (value) => value });
+  const hit = await controller.hitTest('tab-1', { x: 200, y: 300 });
+  assert.equal(hit.hit, true);
+  assert.equal(hit.tag, 'cg-board');
+  assert.equal(hit.rect.width, 493);
 });

@@ -130,7 +130,7 @@ test('clickElement resolves the latest snapshot index and sends real mouse event
 
   assert.equal(clicked.element.id, 'ellipse');
   assert.deepEqual(inputEvents, [
-    { type: 'mouseMoved', x: 90, y: 50 },
+    { type: 'mouseMoved', x: 90, y: 50, buttons: 0 },
     { type: 'mousePressed', x: 90, y: 50, button: 'left', buttons: 1, clickCount: 1 },
     { type: 'mouseReleased', x: 90, y: 50, button: 'left', buttons: 0, clickCount: 1 }
   ]);
@@ -370,7 +370,7 @@ test('stale selectors rematch a unique element identity after a dynamic rerender
   };
   const clicked = await controller.clickElement('tab-1', { index: 0 }, 'session-a');
   assert.equal(clicked.element.selector, '.new-ellipse');
-  assert.deepEqual(inputEvents.at(-3), { type: 'mouseMoved', x: 100, y: 60 });
+  assert.deepEqual(inputEvents.at(-3), { type: 'mouseMoved', x: 100, y: 60, buttons: 0 });
 });
 
 test('stale or missing indices fail closed instead of clicking a wrong element', async () => {
