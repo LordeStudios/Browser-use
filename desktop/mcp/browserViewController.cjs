@@ -1338,10 +1338,7 @@ class BrowserViewController {
   // Canvas surfaces report the canvas itself, which is the correct proof that
   // the coordinate reached page content rather than an off-board overlay.
   async hitTest(tabId, { x, y }) {
-    try {
-      const tab = this.requireTab(tabId);
-      const hit = await withTimeout(
-        this.evaluatePage(tab, 'post-input hit test', `(() => {
+    const expression = `(() => {
           const el = document.elementFromPoint(${JSON.stringify(x)}, ${JSON.stringify(y)});
           if (!el) return { hit: false, tag: null };
           const rect = el.getBoundingClientRect();
@@ -1354,23 +1351,40 @@ class BrowserViewController {
             isCanvas: el.tagName === 'CANVAS',
             rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) }
           };
-        })()`,
-          3_000, 'Timed out hit-testing the clicked point.'
-        )
+        })()`;
+    const attempt = () => {
+      const tab = this.requireTab(tabId);
+      return withTimeout(
+        this.evaluatePage(tab, 'post-input hit test', expression, 3_000, 'Timed out hit-testing the clicked point.')
       );
-      return hit;
-    } catch (error) {
-      // The blanket sentinel hid WHY the post-input read failed (3s timeout
-      // under load, a dead tab, a page-eval error), so neither the model nor
-      // the operator could tell a slow page from a broken one — the model just
-      // re-screenshotted to compensate. Surface the real reason; the sentinel
-      // shape stays for compatibility.
-      return { hit: null, reason: 'hit-test-unavailable', error: String(error?.message || error).slice(0, 200) };
+    };
+    try {
+      return await attempt();
+    } catch (firstError) {
+      // The read runs IMMEDIATELY after the release dispatch, and the live
+      // chess run showed it failing right there while the SAME evaluate path
+      // succeeded for browser_execute seconds later — a contention window,
+      // not a broken page. One bounded retry separates those cases; a second
+      // failure is real and must name exactly what broke.
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      try {
+        return await attempt();
+      } catch (error) {
+        const first = firstError instanceof Error ? `${firstError.name}: ${firstError.message || '(no message)'}` : String(firstError);
+        const detail = error instanceof Error ? `${error.name}: ${error.message || '(no message)'}` : String(error);
+        return {
+          hit: null,
+          reason: 'hit-test-unavailable',
+          error: detail.slice(0, 200),
+          ...(detail === first ? {} : { firstError: first.slice(0, 200) })
+        };
+      }
     }
   }
 
   async evaluatePage(tab, purpose, expression, timeoutMs, timeoutMessage) {
     const evaluate = async () => {
+      let cdpFailure = null;
       if (this.debuggerLeaseManager) {
         try {
           const response = await this.debuggerLeaseManager.send(tab.id, purpose, 'Runtime.evaluate', {
@@ -1385,14 +1399,21 @@ class BrowserViewController {
           }
           if (Object.prototype.hasOwnProperty.call(response?.result || {}, 'value')) return response.result.value;
           throw new Error('The page evaluation returned no serializable value.');
-        } catch {
+        } catch (error) {
           // A DevTools attachment or a transient CDP handoff issue must not
           // turn a healthy bound page into an agent dead end. Fall back to the
           // older isolated page evaluator; the bounded caller still owns the
-          // timeout and error surface.
+          // timeout and error surface. Remember WHY the CDP path refused so a
+          // fallback failure can name both stages instead of a bare Error.
+          cdpFailure = String(error?.message || error).slice(0, 300);
         }
       }
-      return tab.webContents.executeJavaScript(String(expression), true);
+      try {
+        return await tab.webContents.executeJavaScript(String(expression), true);
+      } catch (error) {
+        const detail = String(error?.message || error);
+        throw new Error(`page eval failed (${cdpFailure ? `cdp path: ${cdpFailure}; ` : ''}fallback: ${detail || 'no error text'})`.slice(0, 500));
+      }
     };
     return withTimeout(evaluate(), timeoutMs, timeoutMessage);
   }

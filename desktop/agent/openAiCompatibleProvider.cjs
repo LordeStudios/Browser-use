@@ -128,10 +128,24 @@ class OpenAiCompatibleProvider {
     return this.visualCapability;
   }
 
-  async complete({ task, agentIdentity, systemPrompt, attachments, observation, observationUnchanged, history, messages, coordinator, plan, goals, recovery, workspace, tools, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, signal, onThought, onStream, onActionReady }) {
+  async complete({ task, agentIdentity, systemPrompt, attachments, observation, observationUnchanged, history, messages, coordinator, plan, goals, recovery, workspace, tools, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, thinkingBudgetMs, signal, onThought, onStream, onActionReady }) {
     // the harness system prompt arrives on the request; the provider
     // renders it verbatim and authors no persona.
     const effortTier = ['minimal', 'standard', 'advanced'].includes(effort) ? effort : 'advanced';
+    // The model-named reasoning budget (ms) rides as wire config — this
+    // mapping is its ONLY enforcement point. Named 0 means "act
+    // immediately": the anthropic route skips extended thinking entirely
+    // and the openai route drops to its lowest effort. Larger budgets map
+    // onto the nearest knob (~2ms per reasoning token, clamped to
+    // Anthropic's 1_024 floor / 32_000 ceiling). An unnamed budget keeps
+    // the tier's previous shape — the tier ladder owns the default.
+    const namedBudgetMs = Number.isFinite(Number(thinkingBudgetMs)) && Number(thinkingBudgetMs) >= 0 ? Number(thinkingBudgetMs) : null;
+    const anthropicThinkingBudget = namedBudgetMs === null ? null
+      : namedBudgetMs <= 0 ? 'off'
+        : Math.min(Math.max(Math.round(namedBudgetMs / 2), 1_024), 32_000);
+    const openAiReasoningEffort = namedBudgetMs === null ? null
+      : namedBudgetMs < 15_000 ? 'low'
+        : namedBudgetMs < 60_000 ? 'medium' : 'high';
     const harnessSystemRaw = String(systemPrompt || '').trim()
       || require('./prompt/sections.cjs').defaultSystemPrompt({ effort: effortTier, effortMode });
     const effortSystemPrompt = effortTier === 'minimal'
@@ -302,7 +316,9 @@ const userSafeSystem = String(system || '').trim() || IDENTITY_LINE;
               // Minimal effort skips extended thinking entirely (omit the
               // field — Anthropic has no "disabled" type); standard keeps the
               // previous 1_024 budget; advanced is exactly previous behavior.
-              ...(effortTier === 'minimal' ? {} : { thinking: { type: 'enabled', budget_tokens: 1_024 } }),
+              // A model-named budget overrides the tier: 0 turns thinking
+              // off, anything larger becomes the token budget.
+              ...(effortTier === 'minimal' || anthropicThinkingBudget === 'off' ? {} : { thinking: { type: 'enabled', budget_tokens: anthropicThinkingBudget ?? 1_024 } }),
               ...(activeTools.length ? { tools: activeTools } : {}),
               system: usePromptCache
                 ? [{ type: 'text', text: compressedSystem, cache_control: { type: 'ephemeral' } }]
@@ -311,9 +327,12 @@ const userSafeSystem = String(system || '').trim() || IDENTITY_LINE;
             }
           : { model: this.model, max_tokens: maxTokens, temperature: 0, stream: wantsStream,
               // OpenAI-style reasoning effort: minimal->low, standard->medium;
-              // advanced omits the field (previous behavior). Broadly
-              // OpenAI-compatible servers ignore unknown/extra parameters.
-              ...(effortTier === 'advanced' ? {} : { reasoning_effort: effortTier === 'minimal' ? 'low' : 'medium' }),
+              // advanced omits the field (previous behavior). A model-named
+              // budget overrides the tier with its nearest effort rung.
+              // Broadly OpenAI-compatible servers ignore unknown parameters.
+              ...(openAiReasoningEffort === null
+                ? (effortTier === 'advanced' ? {} : { reasoning_effort: effortTier === 'minimal' ? 'low' : 'medium' })
+                : { reasoning_effort: openAiReasoningEffort }),
               ...(activeTools.length ? { tools: activeTools, tool_choice: 'auto' } : {}),
               messages: [{ role: 'system', content: compressedSystem }, ...prior, { role: 'user', content: openAiUserContent(wireContext, activeVisuals) }] };
         let response, payload, transportFailed = false;

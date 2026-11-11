@@ -259,3 +259,34 @@ test('a model-named thinking budget is consumed once; silence falls back to the 
   assert.equal(budgets[1], 154_000, 'the named budget is honored exactly for the next decision');
   assert.equal(budgets[2], 3_000, 'a decision that does not re-name the budget falls back to the default, not the ratchet');
 });
+
+test('a model-named thinking budget rides the wire as real config, not decoration', async () => {
+  // Session-4 live evidence: the chess run's decisions carried budgets while
+  // NEITHER provider accepted the field, so "AS FAST AS POSSIBLE" still
+  // thought 15-70s per decision. The named budget now maps onto each
+  // protocol's own knob; an unnamed budget keeps the tier's shape.
+  const openAiBodies = [];
+  const openAi = createOpenAiCompatibleProvider({
+    providerId: 'openai',
+    baseUrl: 'https://fixture.invalid/v1',
+    model: 'gpt-fixture',
+    apiKey: 'key',
+    fetchImpl: async (_url, init) => { openAiBodies.push(JSON.parse(init.body)); return jsonResponse({ choices: [{ message: { content: DONE_CALL } }] }); }
+  });
+  await openAi.complete({ ...BASE, effort: 'advanced', effortMode: 'auto', thinkingBudgetMs: 3_000 });
+  await openAi.complete({ ...BASE, effort: 'advanced', effortMode: 'auto', thinkingBudgetMs: 90_000 });
+  await openAi.complete({ ...BASE, effort: 'advanced', effortMode: 'auto' });
+  assert.equal(openAiBodies[0].reasoning_effort, 'low', 'a named 3s budget drops the openai route to low effort');
+  assert.equal(openAiBodies[1].reasoning_effort, 'high', 'a named 90s budget maps to high effort');
+  assert.equal(openAiBodies[2].reasoning_effort, undefined, 'an unnamed budget keeps the tier shape (advanced omits)');
+
+  const ollamaBodies = [];
+  const ollama = createOllamaProvider({
+    model: 'kimi-k2.7',
+    fetchImpl: async (_url, options) => { ollamaBodies.push(JSON.parse(options.body)); return jsonResponse({ message: { content: DONE_CALL } }); }
+  });
+  await ollama.complete({ ...BASE, effort: 'advanced', effortMode: 'auto', thinkingBudgetMs: 0 });
+  await ollama.complete({ ...BASE, effort: 'advanced', effortMode: 'auto' });
+  assert.equal(ollamaBodies[0].think, false, 'a named 0 budget turns thinking off');
+  assert.equal(ollamaBodies[1].think, undefined, 'an unnamed budget keeps the tier shape');
+});

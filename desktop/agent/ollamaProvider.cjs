@@ -915,11 +915,18 @@ function createOllamaProvider({ baseUrl = DEFAULT_BASE_URL, model, fetchImpl = g
     summarizeFor(system, input, signal, coordinator) {
       return summarizeConversation({ protocol: 'ollama', model: selectedModel, endpoint: `${normalizedBaseUrl}/api/chat`, headers: { 'content-type': 'application/json' }, fetchImpl, coordinator, system, input, signal });
     },
-    async complete({ task, agentIdentity, systemPrompt, attachments, observation, observationUnchanged, history, messages, coordinator, plan, goals, recovery, workspace, tools, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, signal, onThought, onStream }) {
+    async complete({ task, agentIdentity, systemPrompt, attachments, observation, observationUnchanged, history, messages, coordinator, plan, goals, recovery, workspace, tools, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, thinkingBudgetMs, signal, onThought, onStream }) {
       // Effort tier (resolved by DesktopChatAgent): minimal acts immediately,
       // standard keeps reasoning brief, advanced is the previous behavior.
       const tier = ['minimal', 'standard', 'advanced'].includes(effort) ? effort : 'advanced';
       const effortDecisionTokens = tier === 'minimal' ? 1_536 : tier === 'standard' ? 2_048 : DECISION_MAX_TOKENS;
+      // The model-named reasoning budget (ms) rides as wire config: a budget
+      // under 5s — including a named 0, "act immediately" — turns thinking
+      // off, because a thinking model's floor latency exceeds such a budget
+      // anyway. Unnamed budgets keep the tier's shape: the tier ladder owns
+      // the default, the named knob only tightens.
+      const namedBudgetMs = Number.isFinite(Number(thinkingBudgetMs)) && Number(thinkingBudgetMs) >= 0 ? Number(thinkingBudgetMs) : null;
+      const budgetThinkOff = namedBudgetMs !== null && namedBudgetMs < 5_000;
       const effortPrompt = tier === 'minimal'
         ? 'Reasoning effort: minimal. Decide and act immediately on the freshest observation; skip deliberation entirely, never emit a thinking block, and issue the fewest actions that make progress.'
         : tier === 'standard'
@@ -978,10 +985,11 @@ function createOllamaProvider({ baseUrl = DEFAULT_BASE_URL, model, fetchImpl = g
           model: selectedModel,
           stream: true,
           format: 'json',
-          // Minimal effort explicitly turns thinking off. Ollama >= 0.9 honors
-          // `think`; older servers silently ignore unknown fields, so this is
-          // safe without a capability probe.
-          ...(tier === 'minimal' ? { think: false } : {}),
+          // Minimal effort — or a model-named "act immediately" budget —
+          // explicitly turns thinking off. Ollama >= 0.9 honors `think`;
+          // older servers silently ignore unknown fields, so this is safe
+          // without a capability probe.
+          ...((tier === 'minimal' || budgetThinkOff) ? { think: false } : {}),
           options: { temperature: 0, num_predict: isLongReportRequest(task) ? LONG_REPORT_MAX_TOKENS : effortDecisionTokens },
           messages: [
             {
