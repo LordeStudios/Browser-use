@@ -3184,17 +3184,28 @@ function viewportPoint(run, xValue, yValue, actionLabel, tabId = null, options =
   // Screenshot-frame coordinates are image pixels. Map them into CSS viewport
   // pixels through the capture's scale before bounds validation, so canvas and
   // pixel-reasoned clicks land at any DPR, zoom, or window size.
-  if (options.coordinateSpace === 'screenshot') {
+  // The screenshotId ALONE selects this frame: models mislabel image pixels as
+  // "viewport" (lichess 2026-11-11: DPR 1.25 turned y=579 image px into a CSS
+  // click below a board whose bottom edge was y=557), so a present
+  // screenshotId is the authoritative declaration — and a stale or unmatched
+  // one is rejected instead of being silently read 1:1.
+  const screenshotId = options.screenshotId === undefined || options.screenshotId === null || String(options.screenshotId) === ''
+    ? null : String(options.screenshotId);
+  if (options.coordinateSpace === 'screenshot' || screenshotId) {
     const shot = run?.visualEvidence;
-    const scaleX = Number(shot?.scaleX);
-    const scaleY = Number(shot?.scaleY);
-    if (!shot?.screenshotId || shot.screenshotId !== options.screenshotId) {
+    if (!screenshotId || !shot?.screenshotId || shot.screenshotId !== screenshotId) {
       throw new Error(`${actionLabel} screenshot coordinates require the latest screenshotId from browser_screenshot for this run.`);
     }
+    const scaleX = Number(shot.scaleX);
+    const scaleY = Number(shot.scaleY);
     if (!(scaleX > 0) || !(scaleY > 0)) {
       throw new Error(`${actionLabel} cannot map screenshot coordinates: the capture did not include a CSS-viewport scale. Use CSS-viewport coordinates instead.`);
     }
-    return viewportPoint(run, x * scaleX, y * scaleY, actionLabel, tabId, { coordinateSpace: 'viewport' });
+    // The capture's scale is image/CSS (physical px per CSS px, e.g. 1.25 at
+    // DPR 1.25), so image pixels map to CSS by DIVIDING. The previous
+    // multiplication produced the CSS→image direction and pushed every
+    // screenshot-space click further off target instead of onto it.
+    return viewportPoint(run, x / scaleX, y / scaleY, actionLabel, tabId, { coordinateSpace: 'viewport' });
   }
   // Coordinates belong to the TARGET tab: validate against that tab's own
   // observation when one exists, falling back to the run's latest frame.
@@ -3315,13 +3326,13 @@ function toolDefinitions(task = '', controlMode = 'browser', { usedSkills = [], 
   const inputs = {
     browser_observe: { tabId: TAB_TARGET_HINT },
     browser_mousemove: { x: 'current viewport x', y: 'current viewport y', tabId: TAB_TARGET_HINT },
-    browser_click: { element: 'optional DOM index; used when x/y are absent; if finite x/y are also supplied, they intentionally take precedence', x: 'CSS-viewport x (default); with coordinateSpace="screenshot", image-pixel x', y: 'CSS-viewport y (default); with coordinateSpace="screenshot", image-pixel y', coordinateSpace: '"viewport" (default) or "screenshot"', screenshotId: 'required when coordinateSpace="screenshot": the latest screenshotId from browser_screenshot', tabId: TAB_TARGET_HINT },
+    browser_click: { element: 'optional DOM index; used when x/y are absent; if finite x/y are also supplied, they intentionally take precedence', x: 'CSS-viewport x (default); image-pixel x when screenshotId is passed', y: 'CSS-viewport y (default); image-pixel y when screenshotId is passed', coordinateSpace: '"viewport" (default) or "screenshot"', screenshotId: 'the latest screenshotId from browser_screenshot; passing it maps x/y from that image\'s pixels to viewport pixels at the captured DPR/zoom', tabId: TAB_TARGET_HINT },
     computer_patch: { path: 'absolute path of the file to patch', patch: 'legacy *** Begin Patch / *** End Patch context patch; PRIMARY tool', acknowledgeExistingChanges: 'optional protected-change acknowledgment', expectedHash: 'current file hash' },
     computer_patch_live: { path: 'absolute path of the file to edit', ops: 'ordered per-line ops after primary patch failures', },
     computer_patch_chunk: { path: 'absolute file to edit', mode: 'overwrite|append|insert', content: 'raw text chunk; no line numbers or anchors — final fallback after cumulative failures' },
     browser_target_click: { target: 'unique visual target identity from the latest visualTargets observation', tabId: TAB_TARGET_HINT },
     browser_target_drag: { from: 'unique visual target identity from the latest visualTargets observation', to: 'unique visual target identity from the latest visualTargets observation', steps: 'optional 1-100', durationMs: 'optional 5-5000', tabId: TAB_TARGET_HINT },
-    browser_drag: { startX: 'viewport x', startY: 'viewport y', endX: 'viewport x', endY: 'viewport y', steps: 'optional 1-100', durationMs: 'optional 5-5000', tabId: TAB_TARGET_HINT },
+    browser_drag: { startX: 'viewport x, or image-pixel x when screenshotId is passed', startY: 'viewport y, or image-pixel y when screenshotId is passed', endX: 'viewport x, or image-pixel x when screenshotId is passed', endY: 'viewport y, or image-pixel y when screenshotId is passed', steps: 'optional 1-100', durationMs: 'optional 5-5000', screenshotId: 'optional: the latest browser_screenshot screenshotId when coordinates were read from the image', tabId: TAB_TARGET_HINT },
     browser_type: { element: 'optional current DOM index', text: 'text to append via native keyboard input', tabId: TAB_TARGET_HINT },
     browser_fill: { element: 'current DOM index', text: 'replaces the field value; returns matched proof', tabId: TAB_TARGET_HINT },
     browser_scroll: { deltaX: 'horizontal pixels', deltaY: 'vertical pixels', tabId: TAB_TARGET_HINT },
@@ -3750,7 +3761,7 @@ module.exports = {
   defaultDeterministicResearch, coerceElementIndex, countAccountingLines, requestInstructionCount,
   stalePageFiles, lastPageChangeAfter, historyEntryMutated, historyEntryConfirmsChange, historyEntryVerified,
   observationFingerprint, FAST_PATH_ACTIONS, PROGRESS_GUARDED_READ_ACTIONS, READ_ONLY_ACTION_NAMES,
-  actionRiskLevel, riskGateFor,
+  actionRiskLevel, riskGateFor, viewportPoint,
   fallbackConversationTitle, normalizeConversationTitle,
   DEFAULT_SETTINGS, WAIT_BACKOFF_MS: null,
   // Shared stall-ladder budget (): the over-thought ladder and the
