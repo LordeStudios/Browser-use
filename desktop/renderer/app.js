@@ -441,6 +441,31 @@ function initChatTimeline() {
   if (!panel) return;
   panel.append(chatTimeline);
   chatTimeline.addEventListener('mouseenter', () => { ensureChatTimelineObserver(); rebuildChatTimeline(); });
+  // ONE JOINED HOVER REGION. The strip and the expanded window used to be two
+  // unconnected boxes separated by a dead seam inside a pointer-events:none
+  // parent, so moving from the strip to a message row crossed empty space and
+  // the window collapsed before the click landed. The open state is now owned
+  // by the strip AND the window with a short close delay (hover intent): the
+  // seam is crossable, and the window stays open while the pointer travels to
+  // a row.
+  let closeTimer = null;
+  const openTimeline = () => {
+    if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+    chatTimeline.classList.add('is-open');
+  };
+  const closeTimelineSoon = () => {
+    if (closeTimer) clearTimeout(closeTimer);
+    closeTimer = setTimeout(() => {
+      closeTimer = null;
+      if (!chatTimeline.matches(':hover') && !chatTimeline.contains(document.activeElement)) chatTimeline.classList.remove('is-open');
+    }, 260);
+  };
+  for (const node of [chatTimelineTrack, chatTimelineWindow]) {
+    node.addEventListener('pointerenter', openTimeline);
+    node.addEventListener('pointerleave', closeTimelineSoon);
+  }
+  chatTimeline.addEventListener('focusin', openTimeline);
+  chatTimeline.addEventListener('focusout', (event) => { if (!chatTimeline.contains(event.relatedTarget)) closeTimelineSoon(); });
   chatTimelineInitialized = true;
   ensureChatTimelineObserver();
 }
@@ -6031,15 +6056,20 @@ agentTask?.addEventListener('paste', (event) => {
   const text = event.clipboardData?.getData('text/plain');
   if (typeof text === 'string' && text) {
     // Large paste: never insert the payload into the contenteditable DOM. That
-    // blocks the renderer and duplicates the entire string into the task,
-    // history, provider context, and IPC. The main process reads the current
-    // clipboard and writes an app-owned text attachment asynchronously.
-    const LARGE_PASTE_CHARS = 16_000;
-    if (text.length >= LARGE_PASTE_CHARS) {
+    // blocks the renderer (a 100k paste reflows for seconds and can freeze the
+    // machine), duplicates the string into the task/history/provider context,
+    // and leaves the model with an unreadable wall of text. Coding tools turn
+    // a long paste into a DOCUMENT the model reads; this does the same: the
+    // paste is intercepted BEFORE any DOM insertion (synchronous preventDefault,
+    // zero-latency), and the payload travels straight to the main process as a
+    // text attachment — the string never touches the contenteditable.
+    const LARGE_PASTE_CHARS = 2_000;
+    const LARGE_PASTE_LINES = 40;
+    if (text.length >= LARGE_PASTE_CHARS || text.split('\n').length >= LARGE_PASTE_LINES) {
       event.preventDefault();
       setAttachmentStatus('Packaging large paste as a text attachment…');
-      void window.browserUseDesktop.savePastedTextAttachment({ name: 'pasted-text' })
-        .then((attachment) => { addAgentPathAttachment(attachment); setAttachmentStatus(`Attached ${attachment.name}; send to let the agent read it.`); })
+      void window.browserUseDesktop.savePastedTextAttachment({ name: 'pasted-text', text })
+        .then((attachment) => { addAgentPathAttachment(attachment); setAttachmentStatus(`Attached ${attachment.name} (${Math.max(1, Math.round((Number(attachment.size) || 0) / 1024))} KB); send to let the agent read it.`); })
         .catch((error) => setAttachmentStatus(error?.message || 'The large paste could not be attached.'));
       return;
     }

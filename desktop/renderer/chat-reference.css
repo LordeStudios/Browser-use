@@ -1352,7 +1352,10 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
   pointer-events: auto;
   display: none;
   position: absolute;
-  right: 18px;
+  /* Overlap the strip by 2px: a dead seam between trigger and panel is what
+     collapsed the window mid-travel (the card vanished before the pointer
+     reached a row). The card now physically touches the strip. */
+  right: 16px;
   top: 0;
   width: 300px;
   max-height: 100%;
@@ -1364,7 +1367,10 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
   box-shadow: 0 14px 38px #0007;
   scrollbar-width: thin;
 }
+/* Hover-intent open state (JS) plus the CSS fallback: the strip and the window
+   behave as ONE joined hover region. */
 .agent-timeline:hover .agent-timeline-window,
+.agent-timeline.is-open .agent-timeline-window,
 .agent-timeline:focus-within .agent-timeline-window { display: flex; flex-direction: column; gap: 3px; }
 .agent-timeline-row {
   display: flex;

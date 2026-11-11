@@ -5452,11 +5452,16 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('browser-use:copy-text', (_event, text) => { clipboard.writeText(String(text || '')); return true; });
   ipcMain.handle('browser-use:save-pasted-text-attachment', async (_event, request = {}) => {
-    // Large paste handling: read from the main-process clipboard and write it
-    // straight to the app-owned attachments folder. The renderer never puts
-    // the large string into the contenteditable DOM or sends it through the
-    // agent request body.
-    const text = clipboard.readText();
+    // Large paste handling: the renderer intercepted the paste BEFORE any DOM
+    // insertion and sends the payload HERE (request.text). Reading the
+    // clipboard instead would be a race (the clipboard may change or be
+    // empty) and would make the attach dependent on a second system call.
+    // The text goes straight to an app-owned attachments file; the renderer
+    // never puts the large string into the contenteditable DOM or the agent
+    // request body.
+    const text = typeof request.text === 'string' && request.text
+      ? request.text
+      : clipboard.readText();
     if (!text) throw new Error('The clipboard has no text to attach.');
     const max = 50 * 1024 * 1024;
     if (Buffer.byteLength(text, 'utf8') > max) throw new Error('The pasted text exceeds the 50MB attachment limit.');
