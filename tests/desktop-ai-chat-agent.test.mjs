@@ -2388,6 +2388,39 @@ test('grounds coordinate actions against the explicitly targeted background tab'
   assert.deepEqual(click[2], { x: 1200, y: 800 });
 });
 
+test('an element drag resolves both DOM centers and ignores guessed coordinates', async () => {
+  // The drag-relay run never attempted a drag: only coordinates existed, and
+  // its pixel arithmetic kept drifting. Two DOM indices resolve to exact
+  // centers, so a drag has zero offset whatever the model computed.
+  const controller = createController();
+  const dragged = [];
+  controller.drag = async (tabId, args) => { dragged.push(args); return { tabId, ...args, input: 'mouse' }; };
+  controller.elementSnapshots = new Map();
+  controller.domSnapshot = async (tabId) => {
+    const elements = [
+      { index: 0, tag: 'div', name: 'token 1', text: '1', rect: { x: 100, y: 200, w: 74, h: 74 }, center: { x: 137, y: 237 }, enabled: true },
+      { index: 1, tag: 'div', name: 'slot 1', text: 'slot 1', rect: { x: 400, y: 500, w: 112, h: 108 }, center: { x: 456, y: 554 }, enabled: true }
+    ];
+    controller.elementSnapshots.set(tabId, { at: Date.now(), elements });
+    return { tabId, url: 'https://example.test/', title: 'Example', viewport: { width: 1280, height: 720 }, truncated: false, elements };
+  };
+  const agent = new DesktopChatAgent({
+    controller, getSelectedTabId: () => 'tab-1', emit: () => {},
+    createProvider: () => createProvider([
+      { toolCalls: [{ name: 'browser_drag', input: { fromElement: 0, toElement: 1, startX: 5, startY: 5, endX: 6, endY: 6 } }] },
+      { toolCalls: [{ name: 'browser_done', input: { summary: 'Dragged.', success: true, verified: true } }] }
+    ])
+  });
+  const run = await agent.start({ task: 'Drag token 1 into slot 1', provider: { id: 'mock' } });
+  assert.equal(run.status, 'completed');
+  assert.equal(dragged.length, 1, 'the drag executed');
+  assert.deepEqual(
+    { startX: dragged[0].startX, startY: dragged[0].startY, endX: dragged[0].endX, endY: dragged[0].endY },
+    { startX: 137, startY: 237, endX: 456, endY: 554 },
+    'both centers come from the DOM, never from the guessed coordinates'
+  );
+});
+
 test('an element index beats guessed coordinates: the DOM rect is exact', async () => {
   // The click-order run clicked element 40 (Reset at 790,500) with a guessed
   // (825,648) and hit <main>. A DOM target resolved against the current

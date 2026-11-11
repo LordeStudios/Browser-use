@@ -34,6 +34,8 @@ function makeDom() {
     replaceChildren(...nodes) { this.children = nodes; }
     insertAdjacentHTML(_pos, markup) { this.innerHTML += markup; }
     addEventListener(type, fn) { (this.listeners[type] ||= []).push(fn); }
+    setAttribute(name, value) { (this.attributes ||= {})[name] = String(value); }
+    getAttribute(name) { return (this.attributes || {})[name] ?? null; }
     querySelector(selector) {
       const match = /\[data-value="([^"]+)"\]/.exec(selector);
       if (!match) return null;

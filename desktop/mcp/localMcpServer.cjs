@@ -466,11 +466,13 @@ function toolDefinitions() {
     toolDefinition('browser_mousemove', 'Move the pointer in the explicitly bound desktop tab.', coordinateProperties(), ['x', 'y']),
     toolDefinition('browser_mousedown', 'Press a mouse button in the explicitly bound desktop tab.', { ...coordinateProperties(), button: stringProperty('left, middle, or right') }, ['x', 'y']),
     toolDefinition('browser_mouseup', 'Release a mouse button in the explicitly bound desktop tab.', { ...coordinateProperties(), button: stringProperty('left, middle, or right') }, ['x', 'y']),
-    toolDefinition('browser_drag', 'Perform a mouse drag operation from (startX, startY) to (endX, endY) in the explicitly bound desktop tab.', {
-      startX: numberProperty('Drag start X coordinate.'),
-      startY: numberProperty('Drag start Y coordinate.'),
-      endX: numberProperty('Drag end X coordinate.'),
-      endY: numberProperty('Drag end Y coordinate.'),
+    toolDefinition('browser_drag', 'Drag in the explicitly bound desktop tab. PREFERRED: fromElement/toElement (DOM indices) — drags between their exact centers. Fallback: (startX, startY) to (endX, endY).', {
+      fromElement: numberProperty('DOM index of the source element (preferred: exact center).'),
+      toElement: numberProperty('DOM index of the destination element (preferred: exact center).'),
+      startX: numberProperty('Drag start X coordinate (fallback when fromElement/toElement are omitted).'),
+      startY: numberProperty('Drag start Y coordinate (fallback).'),
+      endX: numberProperty('Drag end X coordinate (fallback).'),
+      endY: numberProperty('Drag end Y coordinate (fallback).'),
       steps: numberProperty('Number of movement steps. Defaults to 10.'),
       durationMs: numberProperty('Total drag duration in milliseconds. Defaults to 300.')
     }, ['startX', 'startY', 'endX', 'endY']),

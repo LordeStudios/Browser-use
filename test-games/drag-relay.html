@@ -318,6 +318,9 @@
     values.forEach((value, index) => {
       const token = document.createElement('div');
       token.className = 'token';
+      token.setAttribute('role', 'button');
+      token.setAttribute('tabindex', '0');
+      token.setAttribute('aria-label', `token ${value} — drag me to slot ${value}`);
       token.dataset.value = String(value);
       token.dataset.originX = String(spots[index].x);
       token.dataset.originY = String(spots[index].y);
@@ -331,6 +334,8 @@
     for (const value of slotOrder) {
       const slot = document.createElement('div');
       slot.className = 'slot';
+      slot.setAttribute('tabindex', '0');
+      slot.setAttribute('aria-label', `slot ${value} — drop token ${value} here`);
       slot.dataset.value = String(value);
       const label = document.createElement('span');
       label.className = 'slot-label';
@@ -339,7 +344,9 @@
       armButton.type = 'button';
       armButton.className = 'arm';
       armButton.dataset.value = String(value);
-      armButton.textContent = 'arm ✓';
+      armButton.setAttribute('aria-label', `arm slot ${value}`);
+      armButton.title = `arm slot ${value}`;
+      armButton.textContent = `arm ${value} ✓`;
       armButton.addEventListener('click', () => arm(value));
       slot.append(label, armButton);
       slotsHost.append(slot);

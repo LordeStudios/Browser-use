@@ -2398,6 +2398,27 @@ async function executeAction(controller, run, call) {
       throw new Error('browser_click requires either an element index or {x, y} coordinates.');
     }
     if (call.name === 'browser_drag') {
+      // ELEMENT-FIRST DRAG: two DOM targets resolve to exact centers — the
+      // browser lays them out, so the drag has 0 offset regardless of the
+      // model's pixel arithmetic (the drag-relay run never even attempted a
+      // drag because only coordinates were available). Coordinates remain the
+      // fallback when an index cannot be resolved.
+      const fromIndex = coerceElementIndex(call.input.fromElement !== undefined ? call.input.fromElement : call.input.from);
+      const toIndex = coerceElementIndex(call.input.toElement !== undefined ? call.input.toElement : call.input.to);
+      if (fromIndex !== undefined && toIndex !== undefined) {
+        const fromEl = resolveSnapshotElement(controller, targetTabId, { input: { element: fromIndex } });
+        const toEl = resolveSnapshotElement(controller, targetTabId, { input: { element: toIndex } });
+        if (fromEl?.center && toEl?.center) {
+          return pointerActionOutput(await controller.drag(targetTabId, {
+            startX: Math.round(fromEl.center.x),
+            startY: Math.round(fromEl.center.y),
+            endX: Math.round(toEl.center.x),
+            endY: Math.round(toEl.center.y),
+            steps: clamp(call.input.steps ?? 12, 1, 100),
+            durationMs: clamp(call.input.durationMs ?? 300, 5, 5_000)
+          }, run.id), 'element drag');
+        }
+      }
       const frame = { coordinateSpace: call.input.coordinateSpace, screenshotId: call.input.screenshotId };
       const start = viewportPoint(run, call.input.startX, call.input.startY, 'browser_drag start', targetTabId, frame);
       const end = viewportPoint(run, call.input.endX, call.input.endY, 'browser_drag end', targetTabId, frame);
@@ -3382,13 +3403,13 @@ function toolDefinitions(task = '', controlMode = 'browser', { usedSkills = [], 
   const inputs = {
     browser_observe: { tabId: TAB_TARGET_HINT },
     browser_mousemove: { x: 'current viewport x', y: 'current viewport y', tabId: TAB_TARGET_HINT },
-    browser_click: { element: 'optional DOM index; used when x/y are absent; if finite x/y are also supplied, they intentionally take precedence', x: 'CSS-viewport x (default); image-pixel x when screenshotId is passed', y: 'CSS-viewport y (default); image-pixel y when screenshotId is passed', coordinateSpace: '"viewport" (default) or "screenshot"', screenshotId: 'the latest screenshotId from browser_screenshot; passing it maps x/y from that image\'s pixels to viewport pixels at the captured DPR/zoom', tabId: TAB_TARGET_HINT },
+    browser_click: { element: 'DOM index — PREFERRED and exact: the browser lays the element out, so a resolved index wins over guessed coordinates; x/y are the fallback', x: 'CSS-viewport x (default); image-pixel x when screenshotId is passed', y: 'CSS-viewport y (default); image-pixel y when screenshotId is passed', coordinateSpace: '"viewport" (default) or "screenshot"', screenshotId: 'the latest screenshotId from browser_screenshot; passing it maps x/y from that image\'s pixels to viewport pixels at the captured DPR/zoom', tabId: TAB_TARGET_HINT },
     computer_patch: { path: 'absolute path of the file to patch', patch: 'legacy *** Begin Patch / *** End Patch context patch; PRIMARY tool', acknowledgeExistingChanges: 'optional protected-change acknowledgment', expectedHash: 'current file hash' },
     computer_patch_live: { path: 'absolute path of the file to edit', ops: 'ordered per-line ops after primary patch failures', },
     computer_patch_chunk: { path: 'absolute file to edit', mode: 'overwrite|append|insert', content: 'raw text chunk; no line numbers or anchors — final fallback after cumulative failures' },
     browser_target_click: { target: 'unique visual target identity from the latest visualTargets observation', tabId: TAB_TARGET_HINT },
     browser_target_drag: { from: 'unique visual target identity from the latest visualTargets observation', to: 'unique visual target identity from the latest visualTargets observation', steps: 'optional 1-100', durationMs: 'optional 5-5000', tabId: TAB_TARGET_HINT },
-    browser_drag: { startX: 'viewport x, or image-pixel x when screenshotId is passed', startY: 'viewport y, or image-pixel y when screenshotId is passed', endX: 'viewport x, or image-pixel x when screenshotId is passed', endY: 'viewport y, or image-pixel y when screenshotId is passed', steps: 'optional 1-100', durationMs: 'optional 5-5000', screenshotId: 'optional: the latest browser_screenshot screenshotId when coordinates were read from the image', tabId: TAB_TARGET_HINT },
+    browser_drag: { fromElement: 'DOM index of the source element — PREFERRED: drags from its exact center', toElement: 'DOM index of the destination element — PREFERRED: drags to its exact center', startX: 'viewport x (fallback when fromElement/toElement are omitted)', startY: 'viewport y (fallback)', endX: 'viewport x (fallback)', endY: 'viewport y (fallback)', steps: 'optional 1-100', durationMs: 'optional 5-5000', screenshotId: 'optional: the latest browser_screenshot screenshotId when coordinates were read from the image', tabId: TAB_TARGET_HINT },
     browser_type: { element: 'optional current DOM index', text: 'text to append via native keyboard input', tabId: TAB_TARGET_HINT },
     browser_fill: { element: 'current DOM index', text: 'replaces the field value; returns matched proof', tabId: TAB_TARGET_HINT },
     browser_scroll: { deltaX: 'horizontal pixels', deltaY: 'vertical pixels', tabId: TAB_TARGET_HINT },
