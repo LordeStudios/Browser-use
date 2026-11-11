@@ -819,7 +819,7 @@ class DesktopChatAgent {
                 return this.withDecisionWatchdog(run, (onActivity) => provider.complete({
                   task: run.task,
                   agentIdentity: run.agentIdentity,
-                  // : the harness owns the system prompt (identity,
+                  // the harness owns the system prompt (identity,
                   // persona, policies, tool guidance). Providers render it
                   // verbatim as the system message and add nothing of their own.
                   systemPrompt: assembleSystemPrompt(run, latestObservation),

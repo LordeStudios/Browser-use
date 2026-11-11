@@ -64,7 +64,7 @@ export async function buildMessages(ctx, registry, goal, lastResult = null) {
   const info = await ctx.browser.getCurrentInfo().catch(() => ({}));
   const events = ctx.eventBus.recent(10);
   const system = renderSystemPrompt();
-  // : identity/persona/policies in the system prompt; volatile facts in
+  // identity/persona/policies in the system prompt; volatile facts in
   // the superseding runtime-context user message; the decision payload last.
   return [
     { role: 'system', content: system },

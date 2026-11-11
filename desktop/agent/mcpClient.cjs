@@ -28,7 +28,7 @@ const PROTOCOL_VERSION = '2024-11-05';
 const SUPPORTED_PROTOCOL_VERSIONS = Object.freeze(['2025-06-18', '2025-03-26', PROTOCOL_VERSION]);
 const CLIENT_INFO = { name: 'browser-use', version: 'gen9' };
 const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
-const HANAKE_TIMEOUT_MS = 15000;
+const HANDSHAKE_TIMEOUT_MS = 15000;
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_CAP_MS = 60000;
 const SERVER_NAME_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -285,7 +285,7 @@ class McpClientConnection {
         transport.start();
         this.transport = transport;
         transport.onClose = (error) => this.onTransportClosed(error);
-        const raw = await this.withTimeout(this.initialize(transport), HANAKE_TIMEOUT_MS, 'initialize handshake');
+        const raw = await this.withTimeout(this.initialize(transport), HANDSHAKE_TIMEOUT_MS, 'initialize handshake');
         this.serverInfo = raw?.serverInfo || null;
         const listed = await this.withTimeout(this.request('tools/list'), DEFAULT_REQUEST_TIMEOUT_MS, 'tools/list');
         this.tools = normalizeTools(listed);
@@ -318,7 +318,7 @@ class McpClientConnection {
     let lastError = null;
     for (const protocolVersion of versions) {
       try {
-        const result = await this.request('initialize', { protocolVersion, capabilities: {}, clientInfo: CLIENT_INFO }, HANAKE_TIMEOUT_MS);
+        const result = await this.request('initialize', { protocolVersion, capabilities: {}, clientInfo: CLIENT_INFO }, HANDSHAKE_TIMEOUT_MS);
         this.protocolVersion = String(result?.protocolVersion || protocolVersion);
         // notifications/initialized is a notification (no id, no reply expected).
         try { transport.send({ jsonrpc: '2.0', method: 'notifications/initialized' }); } catch { /* best effort */ }

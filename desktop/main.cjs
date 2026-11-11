@@ -1,4 +1,54 @@
 ﻿const { app, BrowserWindow, BrowserView, ipcMain, session, clipboard, nativeImage, Menu, safeStorage, Tray, powerSaveBlocker, shell, screen, dialog } = require('electron');
+// ── IPC REPLY CONTRACT ──────────────────────────────────────────────────────
+// Electron serializes a handler's RETURN VALUE; any live value a module
+// attached to a state record (a callback, a BigInt, a non-plain instance)
+// fails that serialization, and the user sees "An object could not be
+// cloned" while the action silently does nothing. The SEND path already
+// learned this the hard way (safeIpcSend always projects; probing first was
+// "the source of the remaining cancel errors"). The reply path now follows
+// the SAME contract for every handler at one insertion point, and names the
+// exact offending path in the console the first time it fires, so the source
+// field is identified and fixed rather than masked.
+const ipcCloneOffendersLogged = new Set();
+function findCloneOffenderPath(value, path = 'reply', depth = 0, ancestors = []) {
+  if (depth > 8) return null;
+  if (value === null || typeof value !== 'object') {
+    return (typeof value === 'function' || typeof value === 'symbol') ? path : null;
+  }
+  if (ancestors.includes(value)) return null;
+  ancestors.push(value);
+  try {
+    if (Array.isArray(value)) {
+      for (let index = 0; index < value.length; index += 1) {
+        const found = findCloneOffenderPath(value[index], `${path}[${index}]`, depth + 1, ancestors);
+        if (found) return found;
+      }
+    } else {
+      for (const [key, item] of Object.entries(value)) {
+        const found = findCloneOffenderPath(item, `${path}.${key}`, depth + 1, ancestors);
+        if (found) return found;
+      }
+    }
+  } finally { ancestors.pop(); }
+  return null;
+}
+function safeIpcReply(channel, payload) {
+  try {
+    structuredClone(payload);
+    return payload;
+  } catch (error) {
+    const where = findCloneOffenderPath(payload) || 'unlocated';
+    if (!ipcCloneOffendersLogged.has(where)) {
+      ipcCloneOffendersLogged.add(where);
+      try { addConsoleEntry({ kind: 'agent', level: 'error', message: `[IPC] ${channel} reply carried a non-cloneable value at ${where} (${String(error?.message || error).slice(0, 160)}). The JSON-safe projection was sent; fix the source field at that path to restore full fidelity.` }); } catch { /* console best effort */ }
+    }
+    return safeIpcValue(payload);
+  }
+}
+// Wrap ONCE at the registry level: every current and future ipcMain.handle
+// reply is protected without touching 148 individual registrations.
+const ipcMainHandleRaw = ipcMain.handle.bind(ipcMain);
+ipcMain.handle = (channel, handler) => ipcMainHandleRaw(channel, async (...args) => safeIpcReply(channel, await handler(...args)));
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
@@ -30,6 +80,7 @@ const { createOllamaProvider, preflightOllama } = require('./agent/ollamaProvide
 const { createCloudProvider, redactKey } = require('./agent/cloudProvider.cjs');
 const { createOpenAiCompatibleProvider } = require('./agent/openAiCompatibleProvider.cjs');
 const { PROVIDER_LABELS, publicProviderStatus } = require('./agent/providers/descriptors.cjs');
+
 const { CredentialStore } = require('./store/credentialStore.cjs');
 const { runModelTask, inferModelKind, normalizeCustomModel, MODEL_KINDS } = require('./agent/mediaRouter.cjs');
 const { compactModelEntry, catalogResponse } = require('./agent/modelCatalog.cjs');
@@ -4030,7 +4081,7 @@ function openIndependentChatWindow() {
   const offset = (chatAgentWindows.size + 1) * 32;
   const x = Math.min(Math.max(work.x, primaryBounds.x + primaryBounds.width + offset), work.x + work.width - 620);
   const y = Math.min(Math.max(work.y, primaryBounds.y + offset), work.y + work.height - 820);
-  const window = new BrowserWindow({ x, y, width: 420, height: 820, minWidth: 320, minHeight: 520, resizable: true, title: `Browser-use Chat ${chatAgentWindows.size + 2} · `, backgroundColor: '#060b0d', parent: undefined, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: true, preload: path.join(__dirname, 'preload.cjs') } });
+  const window = new BrowserWindow({ x, y, width: 420, height: 820, minWidth: 320, minHeight: 520, resizable: true, title: `Browser-use Chat ${chatAgentWindows.size + 2}`, backgroundColor: '#060b0d', parent: undefined, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: true, preload: path.join(__dirname, 'preload.cjs') } });
   window.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { chatWindow: id } });
   const usedLabels = new Set([...chatAgentWindows.values()].map(entry => entry.label));
   const label = ['Chat 2', 'Chat 3'].find(candidate => !usedLabels.has(candidate)) || `Chat ${chatAgentWindows.size + 2}`;
@@ -4097,7 +4148,7 @@ function ensurePrimaryChatWindow() {
   const y = Math.max(work.y, Math.min(base.y, work.y + Math.max(0, work.height - 820)));
   primaryChatWindow = new BrowserWindow({
     x, y, width: 420, height: 820, minWidth: 320, minHeight: 520, resizable: true,
-    title: 'Browser-use Chat 1 · ',
+    title: 'Browser-use Chat 1',
     backgroundColor: '#060b0d',
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: true, preload: path.join(__dirname, 'preload.cjs') }
   });
