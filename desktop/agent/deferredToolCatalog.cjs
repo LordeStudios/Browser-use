@@ -146,21 +146,16 @@ function toCompactTool(tool) {
 
 // The tool catalog for a request.
 //
-// `promoted` holds the tools whose full schema the model has already asked
-// for; they are served in full. Every other non-core tool is served
-// compacted. No tool is ever absent.
-function buildToolCatalog(tools, { promoted = new Set(), core = CORE_TOOLS } = {}) {
-  const catalog = [];
-  for (const tool of tools || []) {
-    if (!tool?.name) continue;
-    const wantsFull = core.has(tool.name) || ALWAYS_FULL_TOOLS.has(tool.name) || promoted.has(tool.name);
-    if (wantsFull) {
-      catalog.push(tool);
-      continue;
-    }
-    catalog.push(toCompactTool(tool));
-  }
-  return catalog;
+// OWNER DIRECTIVE (2026-11-11): an agent must ALWAYS know its full
+// capabilities, even when a small catalog is fetched at start. Compacting
+// non-core tools hid what they DO — browser_drag reached the model as a name
+// plus argument types with no description, so it never learned it could drag
+// and reached for the DESKTOP pointer instead (the drag-relay runs). Every
+// tool is now served with its full schema and description; nothing is
+// deferred and nothing is compacted. `promoted`/`core` are accepted for
+// compatibility and ignored.
+function buildToolCatalog(tools, _options = {}) {
+  return (tools || []).filter((tool) => tool && tool.name);
 }
 
 // The full schema for a tool, served on request. Returns null when the tool
@@ -186,14 +181,10 @@ function compactSignature(tool) {
   return entries.map(([key, value]) => `${key}:${value.type || 'string'}`).join(', ');
 }
 
-// Whether a tool is currently served COMPACTED (its prose was dropped, only
-// the argument names and types reached the model). A core tool, an
-// always-full tool and a promoted tool are all served in full.
-function isDeferredTool(tools, toolName, promoted = new Set()) {
-  const name = String(toolName || '');
-  if (CORE_TOOLS.has(name) || ALWAYS_FULL_TOOLS.has(name)) return false;
-  if (promoted && typeof promoted.has === 'function' && promoted.has(name)) return false;
-  return (tools || []).some((item) => item?.name === name);
+// No tool is ever served compacted any more: every tool arrives in full, so
+// nothing is deferred. Kept for callers/tests that still ask.
+function isDeferredTool() {
+  return false;
 }
 
 module.exports = {

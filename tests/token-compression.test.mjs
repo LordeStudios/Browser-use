@@ -116,14 +116,24 @@ test('a promoted tool keeps its full schema, and promotion is monotonic', () => 
   assert.equal(after.length, before.length);
 });
 
-test('deferred loading reduces the tool tokens on the wire', () => {
+test('EVERY tool is served in full: the agent always knows its capabilities', () => {
+  // Owner directive (2026-11-11): no deferral, no compaction. The old saving
+  // hid what non-core tools DO — browser_drag arrived as name + argument types
+  // with no description, so the model used the desktop pointer to drag instead.
   for (const mode of ['browser', 'agi']) {
     const definitions = toolDefinitions('task', mode, { workspace: true });
-    const before = openAiToolSchemas(definitions);
-    const after = openAiToolSchemas(buildToolCatalog(definitions));
-    const tokens = (list) => list.reduce((sum, schema) => sum + countTokens(JSON.stringify(schema)), 0);
-    assert.ok(tokens(after) < tokens(before), `${mode}: deferred loading saved nothing`);
-    assert.ok(tokens(before) - tokens(after) > 300, `${mode}: the saving is too small to matter`);
+    const catalog = buildToolCatalog(definitions);
+    assert.equal(catalog.length, definitions.length, `${mode}: no tool may be dropped`);
+    for (const tool of catalog) {
+      assert.ok(tool.description && String(tool.description).length > 20, `${tool.name} must carry its description`);
+      const schema = openAiToolSchemas([tool])[0];
+      assert.ok(schema.function?.parameters?.properties || schema.function?.parameters, `${tool.name} must carry its full schema`);
+    }
+    // The drag verb is the regression that motivated this: it must be present
+    // AND explain itself.
+    const drag = catalog.find((tool) => tool.name === 'browser_drag');
+    assert.ok(drag, 'browser_drag must reach the model');
+    assert.match(String(drag.description), /drag/i, 'and say what it does');
   }
 });
 
@@ -144,17 +154,11 @@ test('the deferred catalog is rebuilt per decision, so its membership still trac
   }
 });
 
-test('the harness knows which tools were served compacted', () => {
-  // The invalid-input error points a weak model at tool_schema, but only when
-  // the tool was actually compacted — pointing at it for a full-schema tool
-  // would send the model on a pointless round trip.
+test('nothing is ever reported as compacted (full-capability catalog)', () => {
   const definitions = toolDefinitions('task', 'agi', { workspace: true });
-  const promoted = new Set();
-  assert.equal(isDeferredTool(definitions, 'computer_stroke', promoted), true);
-  assert.equal(isDeferredTool(definitions, 'browser_done', promoted), false, 'a core tool is served in full');
-  for (const name of ALWAYS_FULL_TOOLS) assert.equal(isDeferredTool(definitions, name, promoted), false, `${name} is served in full`);
-  assert.equal(isDeferredTool(definitions, 'computer_stroke', new Set(['computer_stroke'])), false, 'a promoted tool is served in full');
-  assert.equal(isDeferredTool(definitions, 'no_such_tool', promoted), false);
+  assert.equal(isDeferredTool(definitions, 'computer_stroke', new Set()), false);
+  assert.equal(isDeferredTool(definitions, 'browser_drag', new Set()), false);
+  assert.equal(isDeferredTool(definitions, 'browser_done', new Set()), false);
 });
 
 // ---- Technique 1: the adaptive token compressor ---------------------------
