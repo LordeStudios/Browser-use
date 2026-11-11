@@ -7,7 +7,7 @@ const { summarizeConversation } = require('./providerCompaction.cjs');
 const { openAiToolSchemas } = require('./openAiCompatibleProvider.cjs');
 const { measureProviderRequest } = require('./desktopAgentCoordinator.cjs');
 
-// PROMPT AUTHORSHIP REMOVED (DSH rewrite): the harness assembles the system
+// PROMPT AUTHORSHIP REMOVED (rewrite): the harness assembles the system
 // prompt; the provider renders request.systemPrompt verbatim.
 const { IDENTITY_LINE } = require('./harness/identity.cjs');
 
@@ -60,7 +60,7 @@ class ResponsesProvider {
       const attachmentData = attachment?.kind === 'image' ? base64Payload(attachment.data) : null;
       if (attachmentData) content.push({ type: 'input_image', image_url: `data:${attachment.mimeType};base64,${attachmentData}` });
     }
-    // DSH: the harness owns the system prompt; the provider renders it verbatim.
+    // : the harness owns the system prompt; the provider renders it verbatim.
     const instructions = String(systemPrompt || '').trim() || IDENTITY_LINE;
     const schemas = openAiToolSchemas(tools).map(({ function: tool }) => ({ type: 'function', ...tool, strict: false }));
     const headers = { 'content-type': 'application/json', authorization: `Bearer ${this.apiKey}` };

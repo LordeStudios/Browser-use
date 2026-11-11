@@ -26,11 +26,11 @@ function fakeAgentRun(controlMode = 'browser') {
 // nothing. The DSH prompt carries NAMED policy sections; each section's full
 // text is one indivisible rule.
 function contractRules(system) {
-  const names = ['PLANNING —', 'EVIDENCE —', 'BATCHING —', 'FAILURE —', 'COMPLETION —'];
+  const names = ['EVIDENCE - ', 'FAILURE - ', 'APPROVAL - ', 'TOOLS - ', 'COMPLETION - '];
   const rules = [];
   for (const name of names) {
     const start = system.indexOf(name);
-    assert.ok(start > 0, 'the prompt must carry a ' + name.slice(0, -1) + ' policy section');
+    assert.ok(start > 0, 'the prompt must carry a ' + name.trim() + ' policy section');
     const next = names.map((n) => system.indexOf(n, start + 1)).filter(i => i > start);
     const end = next.length ? Math.min(...next) : system.length;
     rules.push(system.slice(start, end).trim());
@@ -41,7 +41,7 @@ function contractRules(system) {
 test('the contract is read from the prompt, and every policy section is found', () => {
   const rules = contractRules(assembleSystemPrompt(fakeAgentRun('agi'), null));
   assert.ok(rules.length >= 5, `expected five policy sections, found ${rules.length}`);
-  for (const name of ['PLANNING', 'EVIDENCE', 'BATCHING', 'FAILURE', 'COMPLETION']) {
+  for (const name of ['EVIDENCE', 'FAILURE', 'APPROVAL', 'TOOLS', 'COMPLETION']) {
     assert.ok(rules.some((rule) => rule.includes(name)), `the contract must carry the "${name}" principle`);
   }
 });
@@ -60,13 +60,21 @@ test('the directives that decide whether a task counts as done survive', async (
   const compressor = new HarnessCompressor({});
   const system = assembleSystemPrompt(fakeAgentRun('agi'), null);
   const compressed = await compressor.compressSystem(system);
+  // The planning rule rides the update_plan SCHEMA (tool-owned guidance); the
+  // done contract rides the prompt's completion section.
+  const planningTool = (require('../desktop/agent/agentInternals.cjs').toolDefinitions('multi-part work', 'agi', { workspace: true }))
+    .find((tool) => tool.name === 'update_plan');
+  const schemaRules = [String(planningTool.description)];
   for (const directive of [
-    'Follow the stated requirements; do not invent extra ones',
     'Call browser_done only when the WHOLE requested outcome is present and supported by evidence',
-    '"verified: true" means confirming evidence for EACH requirement individually'
+    '"verified: true" means confirming evidence for each requirement individually'
   ]) {
     assert.ok(system.includes(directive), `the prompt must carry "${directive.slice(0, 50)}…"`);
     assert.ok(compressed.text.includes(directive), `compression dropped the directive "${directive.slice(0, 50)}…"`);
+  }
+  for (const directive of schemaRules) {
+    assert.ok(directive.includes('Follow the stated requirements; do not invent extra ones'), 'the planning rule rides the update_plan schema');
+    assert.match(directive, /one item per requested outcome/i, 'one plan item per requested part');
   }
 });
 
@@ -81,8 +89,7 @@ test('the harness system prompt keeps the rules that stop a task from being narr
   const compressed = await compressor.compressSystem(outer);
   for (const directive of [
     'Call browser_done only when the WHOLE requested outcome is present and supported by evidence',
-    'never narrow the goal to the part you just finished, and never end while your own summary lists remaining work',
-    'When one part finishes, continue with the next part'
+    'When one part finishes, continue with the next and never narrow the goal to the part you finished'
   ]) {
     assert.ok(outer.includes(directive), `the provider prompt must carry "${directive.slice(0, 50)}…"`);
     assert.ok(compressed.text.includes(directive), `compression dropped the directive "${directive.slice(0, 50)}…"`);

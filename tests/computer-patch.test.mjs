@@ -11,13 +11,19 @@ const { validateComputerInput, normalizeComputerInput, COMPUTER_TOOLS } = requir
 const { ComputerTools } = require('../desktop/computer/computerTools.cjs');
 
 test('the computer-mode section is a real string — an unescaped quote once made it NaN ("string - string"), silently stripping every computer-mode instruction', () => {
-  const { assembleSystemPrompt } = require('../desktop/agent/desktopChatAgent.cjs');
+  const { assembleSystemPrompt, attachCreativePlaybooks } = require('../desktop/agent/desktopChatAgent.cjs');
+  const { toolDefinitions } = require('../desktop/agent/agentInternals.cjs');
   function fakeRun() { return { settings: { controlMode: 'agi', effort: 'standard', effortMode: 'standard', approvalMode: 'unattended' }, effortTier: 'standard', instructionsFileText: '', systemFileText: null }; }
   const section = assembleSystemPrompt(fakeRun(), null);
   assert.equal(typeof section, 'string', 'the assembled prompt must be a string; NaN means a quoting bug in a section literal');
-  assert.ok(section.length > 2000, 'the prompt carries real guidance');
+  // Sparsity contract (reference-harness parity): the sectioned core stays
+  // under 2,000 chars while still carrying the real guidance blocks.
+  assert.ok(section.length >= 1500 && section.length <= 2000, `the prompt carries real guidance and stays sparse (got ${section.length})`);
+  // Tool names are schema-surface facts: assert them against the catalog.
+  const catalogNames = toolDefinitions('patch work', 'agi', { workspace: true }).map((tool) => tool.name);
+  assert.ok(catalogNames.includes('computer_patch'), 'computer_patch is advertised');
+  assert.ok(catalogNames.includes('computer_git'), 'computer_git is advertised');
   assert.match(section, /computer_patch/);
-  assert.match(section, /computer_git/);
 });
 
 test('the modeling playbook carries the Procedura-derived modeling craft (plan-first, anti-blocky, typed entry, mirror twins)', () => {
@@ -372,7 +378,8 @@ test('task-scoped AGI guidance is task-stable: the modeling playbook attaches on
   // core with no task-text routing (the assembler takes no task parameter).
   // The 3D/modeling playbook attaches ONLY when the live desktop shows a
   // modeling app, never by task words.
-  const { assembleSystemPrompt } = require('../desktop/agent/desktopChatAgent.cjs');
+  const { assembleSystemPrompt, attachCreativePlaybooks } = require('../desktop/agent/desktopChatAgent.cjs');
+  const { toolDefinitions } = require('../desktop/agent/agentInternals.cjs');
   function fakeRun() { return { settings: { controlMode: 'agi', effort: 'standard', effortMode: 'standard', approvalMode: 'unattended' }, effortTier: 'standard', instructionsFileText: '', systemFileText: null }; }
   const ordinary = assembleSystemPrompt(fakeRun(), null);
   const modeling = assembleSystemPrompt(fakeRun(), null);
@@ -380,9 +387,17 @@ test('task-scoped AGI guidance is task-stable: the modeling playbook attaches on
   assert.doesNotMatch(ordinary, /PLAN the whole object FIRST/i);
   // Observation-attached playbook: a Blender window in the live desktop brings
   // the modeling contract into the computer-mode section.
-  const withBlender = assembleSystemPrompt(fakeRun(), { desktop: { windows: [{ id: 'w1', title: 'Blender - untitled.blend' }], foregroundWindowId: 'w1' } });
-  assert.match(withBlender, /PLAN the whole object FIRST/i, 'the modeling contract attaches by live observation');
-  assert.ok(Buffer.byteLength(ordinary, 'utf8') < 16000, 'the sectioned core stays lean (DSH density guard)');
+  // The modeling contract attaches by live observation to the TOOL SCHEMA
+  // (computer_pointer), not the system prompt: the prompt stays sparse and the
+  // guidance arrives with the tool that needs it.
+  const catalog = toolDefinitions('model a cube', 'agi', { workspace: true });
+  const withBlender = attachCreativePlaybooks(catalog, { desktop: { windows: [{ id: 'w1', title: 'Blender - untitled.blend' }], foregroundWindowId: 'w1' } });
+  const pointer = withBlender.find((tool) => tool.name === 'computer_pointer');
+  assert.ok(pointer, 'computer_pointer is advertised in agi mode');
+  assert.match(String(pointer.description), /PLAN the whole object FIRST/i, 'the modeling contract attaches to the pointer schema by live observation');
+  const withoutBlender = attachCreativePlaybooks(toolDefinitions('model a cube', 'agi', { workspace: true }), null);
+  assert.doesNotMatch(String(withoutBlender.find((tool) => tool.name === 'computer_pointer').description), /PLAN the whole object FIRST/i, 'no playbook without a modeling app');
+  assert.ok(Buffer.byteLength(ordinary, 'utf8') <= 2000, 'the sectioned core stays sparse');
 });
 
 // ---------------------------------------------------------------------------

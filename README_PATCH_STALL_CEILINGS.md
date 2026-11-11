@@ -1,6 +1,6 @@
 # Patch: Guard read-baseline refresh (+ reverted recovery ceilings)
 
-From the DeepSeek Harness (dsh) comparison audit. Two of the four original
+From the the harness (dsh) comparison audit. Two of the four original
 patches were REVERTED by owner directive — see "Reverted" below.
 
 ## Fixed

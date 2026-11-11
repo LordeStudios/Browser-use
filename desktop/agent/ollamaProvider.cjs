@@ -964,7 +964,7 @@ function createOllamaProvider({ baseUrl = DEFAULT_BASE_URL, model, fetchImpl = g
       const planToolEntry = agiTools
         ? { name: 'update_plan', input: { goals: 'optional model-authored array of {id,text,status}; omit to keep unchanged, [] clears', goalOperations: 'optional goal add/update/remove/clear operations; no goal is required', steps: 'optional full replacement array of strings or {id, text, status, verification}', operations: 'optional edits: add, update, remove, or clear; target existing tasks by id; choose the task count yourself' } }
         : { name: 'update_plan', input: { steps: 'optional full replacement array of strings or {id, text, status, verification}', operations: 'optional edits: add, update, remove, or clear; target existing tasks by id; choose the task count yourself' } };
-      // DSH: the harness owns the system prompt (identity, persona,
+      // : the harness owns the system prompt (identity, persona,
       // policies, tool guidance) and the provider renders it verbatim. The
       // per-request EFFORT PROTOCOL is the one provider-owned block: it
       // states the tier this request runs at and the escalation channel the
@@ -986,7 +986,7 @@ function createOllamaProvider({ baseUrl = DEFAULT_BASE_URL, model, fetchImpl = g
           messages: [
             {
               role: 'system',
-              // DSH: the harness owns the system prompt (identity, persona,
+              // : the harness owns the system prompt (identity, persona,
               // policies, tool guidance). The provider appends only the tool
               // catalog JSON — ollama JSON-mode advertises tools in-prompt.
               content: `${harnessSystem}\n\nAvailable tools:\n${JSON.stringify(Array.isArray(tools) ? tools : [])}`            },

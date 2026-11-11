@@ -407,9 +407,9 @@ async function main() {
   bootLaunch = launchHeadlessChrome({ startPort: 9333, profileDir: args['profile-dir'] ? path.resolve(String(args['profile-dir'])) : null, headed });
   bootLaunch.catch(() => {}); // never unhandled if a require below throws first
 
-  // DSH PROMPT OVERRIDE: --system-file no longer monkey-patches a prompt
+  // PROMPT OVERRIDE: --system-file no longer monkey-patches a prompt
   // function — the text rides on the run request and the harness registers
-  // it as a complete:true section (the DSH whole-prompt replacement mode).
+  // it as a complete:true section (the whole-prompt replacement mode).
   require('../desktop/computer/computerCatalog.cjs');
   let promptOverride = null;
   if (systemText !== null) {
@@ -774,7 +774,7 @@ const { createCliAndroidApi } = require('./cliAndroidApi.cjs');
           : {})),
       provider: providerConfig,
       settings: { controlMode, approvalMode: 'unattended' },
-      // DSH prompt override (--system-file): replaces the assembled prompt.
+      // prompt override (--system-file): replaces the assembled prompt.
       ...(promptOverride ? { systemFile: systemText } : {}),
       // The workspace contract ONLY when the caller declared one (--cwd /
       // --workspace): the run's file tools and terminals root there.

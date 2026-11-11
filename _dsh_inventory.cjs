@@ -1,13 +1,13 @@
 'use strict';
-// DSH instruction-surface inventory.
-// Walks the deepseek-harness repo and measures every instruction string that
+// instruction-surface inventory.
+// Walks the the reference harness repo and measures every instruction string that
 // reaches the model: system-prompt section texts, tool descriptions, and the
 // big standalone guidance literals. Usage: node _dsh_inventory.cjs <dshRoot>
 
 const fs = require('node:fs');
 const path = require('node:path');
 
-const root = process.argv[2] || 'C:/Users/london/Desktop/deepseek/deepseek-harness';
+const root = process.argv[2] || 'C:/Users/london/Desktop/deepseek/the reference harness';
 const files = [];
 const walk = (dir) => {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -71,7 +71,7 @@ const byPkg = (list) => {
   return [...map.entries()].sort((a, b) => b[1] - a[1]);
 };
 
-console.log('=== DSH INSTRUCTION SURFACE ===');
+console.log('=== INSTRUCTION SURFACE ===');
 console.log(`section texts      : ${sections.length.toString().padStart(4)} strings  ${sum(sections).toLocaleString('en-US').padStart(9)} chars`);
 console.log(`tool descriptions  : ${toolDescs.length.toString().padStart(4)} strings  ${sum(toolDescs).toLocaleString('en-US').padStart(9)} chars`);
 console.log(`guidance constants : ${guidance.length.toString().padStart(4)} strings  ${sum(guidance).toLocaleString('en-US').padStart(9)} chars`);

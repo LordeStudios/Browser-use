@@ -1,6 +1,6 @@
 'use strict';
 
-// PROMPT REGISTRY (DSH pattern, adapted from deepseek-harness
+// PROMPT REGISTRY (harness pattern, adapted from the reference harness
 // packages/core/system-prompt): the system prompt is a registry of NAMED,
 // ORDERED sections. There is no monolithic template. Sections may be static
 // text or a provider function evaluated per assembly. Rendering rules:

@@ -1,6 +1,6 @@
 'use strict';
 
-// LOOP POLICY (DSH pattern): ONE owner for recovery, retry, backoff, effort
+// LOOP POLICY (harness pattern): ONE owner for recovery, retry, backoff, effort
 // and undecidable-output handling. This module replaces five overlapping
 // mechanisms of the old harness (stall heartbeat, decision watchdog,
 // park/escalate, scheduleRecovery fingerprints, flow-control scoring) with a

@@ -4030,7 +4030,7 @@ function openIndependentChatWindow() {
   const offset = (chatAgentWindows.size + 1) * 32;
   const x = Math.min(Math.max(work.x, primaryBounds.x + primaryBounds.width + offset), work.x + work.width - 620);
   const y = Math.min(Math.max(work.y, primaryBounds.y + offset), work.y + work.height - 820);
-  const window = new BrowserWindow({ x, y, width: 420, height: 820, minWidth: 320, minHeight: 520, resizable: true, title: `Browser-use Chat ${chatAgentWindows.size + 2} · DSH`, backgroundColor: '#060b0d', parent: undefined, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: true, preload: path.join(__dirname, 'preload.cjs') } });
+  const window = new BrowserWindow({ x, y, width: 420, height: 820, minWidth: 320, minHeight: 520, resizable: true, title: `Browser-use Chat ${chatAgentWindows.size + 2} · `, backgroundColor: '#060b0d', parent: undefined, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: true, preload: path.join(__dirname, 'preload.cjs') } });
   window.loadFile(path.join(__dirname, 'renderer', 'index.html'), { query: { chatWindow: id } });
   const usedLabels = new Set([...chatAgentWindows.values()].map(entry => entry.label));
   const label = ['Chat 2', 'Chat 3'].find(candidate => !usedLabels.has(candidate)) || `Chat ${chatAgentWindows.size + 2}`;
@@ -4097,7 +4097,7 @@ function ensurePrimaryChatWindow() {
   const y = Math.max(work.y, Math.min(base.y, work.y + Math.max(0, work.height - 820)));
   primaryChatWindow = new BrowserWindow({
     x, y, width: 420, height: 820, minWidth: 320, minHeight: 520, resizable: true,
-    title: 'Browser-use Chat 1 · DSH',
+    title: 'Browser-use Chat 1 · ',
     backgroundColor: '#060b0d',
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: true, preload: path.join(__dirname, 'preload.cjs') }
   });

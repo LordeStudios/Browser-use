@@ -1,13 +1,13 @@
 'use strict';
 
-// DESKTOP CHAT AGENT — harness edition (DSH rewrite).
+// DESKTOP CHAT AGENT — harness edition (rewrite).
 //
 // This file is the RUN LOOP + PUBLIC CONTRACT of the Browser-use chat agent.
 // All module-level functionality (tool catalogs, serializers, validators,
 // redactors, observation and action execution) lives verbatim in
 // ./agentInternals.cjs and is consumed through `I` below.
 //
-// Loop design follows the DeepSeek Harness pattern (see HARNESS_REWRITE.md):
+// Loop design follows the the harness pattern (see HARNESS_REWRITE.md):
 //   • TURN  = one user task/steering boundary; STEP = one provider decision
 //     plus its tool batch. The loop continues while steering input remains.
 //   • The prompt is a registry of named ordered sections
@@ -33,12 +33,12 @@ const { performance } = require('node:perf_hooks');
 // Functionality library (verbatim from the original implementation).
 const I = require('./agentInternals.cjs');
 
-// Harness core (DSH pattern).
+// Harness core (harness pattern).
 const { createPromptRegistry, SECTION_ORDERS } = require('./harness/promptRegistry.cjs');
 const { registerPromptSections, modelingPlaybookFor, drawingPlaybookFor } = require('./prompt/sections.cjs');
 const { createInbox } = require('./harness/inbox.cjs');
 const { RepeatCallGuard } = require('./harness/guards.cjs');
-// Flow + evidence enforcement stages (DSH). One owner for the evidence
+// Flow + evidence enforcement stages (). One owner for the evidence
 // epoch, the evidence-only streak, the read-only cap and the actionless
 // stall. The pure state machine stays in ../flowControlState.cjs.
 const {
@@ -129,11 +129,11 @@ function hcuReadOnly(name, input = {}) {
 function hcuMutation(name, input = {}) { return Boolean(parseHcuToolName(name)) && !hcuReadOnly(name, input); }
 function actionMutates(name, input = {}) { return isMutation(name, input) || hcuMutation(name, input); }
 
-// Decision-turn system prompt assembly (DSH: assemble per step).
+// Decision-turn system prompt assembly (: assemble per step).
 // One registry render per decision; the instruction-file text (lorde.md /
 // AGENTS.md / CLAUDE.md) is a section, not a free-floating block; a
 // --system-file override replaces the WHOLE prompt via a complete:true
-// section (the DSH `complete` mode).
+// section (the `complete` mode).
 function assembleSystemPrompt(run, observation) {
   const registry = createPromptRegistry();
   registerPromptSections(registry, {
@@ -157,7 +157,7 @@ function assembleSystemPrompt(run, observation) {
   return registry.render();
 }
 
-// Runtime-context snapshot (DSH: volatile facts as a superseding user message).
+// Runtime-context snapshot (: volatile facts as a superseding user message).
 function runtimeContextText(run, observation) {
   const parts = [];
   if (run.tabId) parts.push(`Current tab: ${run.tabId}${observation?.navigation?.url ? ` — ${String(observation.navigation.url).slice(0, 200)}` : ''}.`);
@@ -169,7 +169,25 @@ function runtimeContextText(run, observation) {
   return parts.join('\n');
 }
 
-// ── THOUGHT CARD (DSH: one accumulator, one stall detector) ───────────────
+// Creative playbooks ride the TOOL SCHEMAS, not the system prompt: when a
+// modeling or drawing app is actually open, the playbook attaches to the
+// pointer/stroke tool's description and reaches the model when that tool's
+// schema is loaded (core tools carry it immediately; deferred ones via
+// tool_schema). App-conditional, so the prompt stays sparse on every other
+// surface.
+function attachCreativePlaybooks(catalog, observation) {
+  if (!Array.isArray(catalog) || !catalog.length) return catalog;
+  const modeling = modelingPlaybookFor(observation?.desktop);
+  const drawing = drawingPlaybookFor(observation?.desktop);
+  if (!modeling && !drawing) return catalog;
+  for (const tool of catalog) {
+    if (modeling && tool.name === 'computer_pointer') tool.description += modeling;
+    if (drawing && tool.name === 'computer_stroke') tool.description += drawing;
+  }
+  return catalog;
+}
+
+// ── THOUGHT CARD (: one accumulator, one stall detector) ───────────────
 // The thought card belongs to the decision, not to the provider call: the
 // reasoning stream accumulates on purpose, and the CARD is what the user
 // sees. The stall detector below is the near-duplicate guard: the field run
@@ -268,7 +286,7 @@ class DesktopChatAgent {
     this.layaVerifierFactory = layaVerifierFactory || ((opts) => require('./layaDecision.cjs').createLayaVerifier(opts));
     this.jevVerifierFactory = jevVerifierFactory || ((opts) => require('./jevProvider.cjs').createJevVerifier(opts));
     this.transportRetryDelays = RETRY_DELAYS_MS;
-    // Flow guard (DSH): the decision-level enforcement stage. It owns the
+    // Flow guard (): the decision-level enforcement stage. It owns the
     // evidence epoch, the plan prompts, the evidence-claim notice and the
     // bounded low-yield bounce.
     this.flowGuard = new FlowGuard();
@@ -490,10 +508,10 @@ class DesktopChatAgent {
       recovery: { attempts: 0, lastError: '', source: '', action: null },
       recoveryEpisodes: Number(previous?.recoveryEpisodes || 0),
       recoveryContinuation: null,
-      // DSH advisory guard state: canonical repeat-call detection (replaces
+      // advisory guard state: canonical repeat-call detection (replaces
       // the old actionless-stall / streaming-stall / flow-control scoring).
       repeatGuard: new RepeatCallGuard(),
-      // Flow + evidence enforcement state (DSH). The evidence epoch, the
+      // Flow + evidence enforcement state (). The evidence epoch, the
       // evidence-only streak and the actionless stall all live on the run so
       // they survive checkpointing and a resumed run keeps its accounting.
       flowControl: continuation && turnContinuation
@@ -523,7 +541,7 @@ class DesktopChatAgent {
       workingMemory: I.normalizeWorkingMemory(continuation ? previous.workingMemory : null),
       completionCandidate: null,
       completionReviewForced: false,
-      // DSH completion review: ONE bounded review per turn (replaces the
+      // completion review: ONE bounded review per turn (replaces the
       // twelve-gate maze). Counters kept for observability.
       completionReviewBounces: 0,
       incompleteWorkBounces: 0,
@@ -532,7 +550,7 @@ class DesktopChatAgent {
       rebuildNoticeFired: false,
       settledReexecutionCount: 0,
       decisionWatchdogFires: 0,
-      // Shared stall-ladder counter (DSH): the over-thought ladder and the
+      // Shared stall-ladder counter (): the over-thought ladder and the
       // no-observable-change ladder feed the SAME counter; the park
       // threshold is measured against it.
       watchdogFires: 0,
@@ -546,7 +564,7 @@ class DesktopChatAgent {
       messages: continuation ? normalizeConversationMessages(previous.messages) : [],
       interactionMemory: createInteractionMemory(continuation ? previous.interactionMemory : null),
       thinkingArchive: continuation ? I.normalizeThinkingArchive(previous.thinkingArchive) : [],
-      // Prompt-layer state (DSH): instruction-file text + optional complete
+      // Prompt-layer state (): instruction-file text + optional complete
       // system-prompt override (--system-file). Volatile facts never enter
       // these; they ride the runtime-context snapshot per decision.
       instructionsFileText: String(request?.instructionsFile || '').trim(),
@@ -660,7 +678,7 @@ class DesktopChatAgent {
     }
     this.publish('run.started', run, { task, continuation, workspacePromoted, hcu: run.hcuTools.length ? 'ready' : 'off' });
 
-    // ── THE LOOP (DSH turn/step shape) ───────────────────────────────────────
+    // ── THE LOOP (turn/step shape) ───────────────────────────────────────
     recoveryLoop: while (run.status === 'running') {
       try {
         let latestObservation = null;
@@ -786,7 +804,7 @@ class DesktopChatAgent {
               let firstStreamAt = 0;
               const wrapped = () => { if (!firstStreamAt) firstStreamAt = performance.now(); return streamProgress(); };
               run.thoughtBaseChars = String(run.activeThoughtAccumulator?.() || '').length;
-              // THE DECISION CALL (DSH): one attempt; transport retry is the
+              // THE DECISION CALL (): one attempt; transport retry is the
               // loop's request-error policy; the reasoning budget rides as
               // provider config, not a parallel watchdog.
               const completed = await Promise.resolve((async () => {
@@ -801,7 +819,7 @@ class DesktopChatAgent {
                 return this.withDecisionWatchdog(run, (onActivity) => provider.complete({
                   task: run.task,
                   agentIdentity: run.agentIdentity,
-                  // DSH: the harness owns the system prompt (identity,
+                  // : the harness owns the system prompt (identity,
                   // persona, policies, tool guidance). Providers render it
                   // verbatim as the system message and add nothing of their own.
                   systemPrompt: assembleSystemPrompt(run, latestObservation),
@@ -822,7 +840,7 @@ class DesktopChatAgent {
                   plan: run.plan,
                   goals: run.goals,
                   recovery: run.recovery,
-                  tools: buildToolCatalog(run.activeToolCatalog = toolDefinitions(run.task, run.settings.controlMode, {
+                  tools: buildToolCatalog(run.activeToolCatalog = attachCreativePlaybooks(toolDefinitions(run.task, run.settings.controlMode, {
                     usedSkills: run.usedSkills,
                     observationDomain: run.observationDomain,
                     agentMessagingAvailable: Boolean(run.messageApi?.hasLiveRecipient?.(run.id)),
@@ -831,7 +849,7 @@ class DesktopChatAgent {
                     patchFallbackLevel: Number(run.patchFallbackLevel) || 0,
                     hcuTools: run.hcuTools || [],
                     ...(run.computerToolsHeadless ? { headlessComputer: true } : {})
-                  }), { promoted: run.promotedTools || new Set() }),
+                  }), run.latestObservation), { promoted: run.promotedTools || new Set() }),
                   effort: run.effortTier,
                   effortMode: run.settings.effort,
                   thinkingBudgetMs: effectiveBudget,
@@ -871,7 +889,7 @@ class DesktopChatAgent {
               observeMs: Number(run.lastObserveMs) || 0,
               ...(run.lastDecisionBreakdown || {})
             });
-            // Effort as model-selection config (DSH): the decision may steer
+            // Effort as model-selection config (): the decision may steer
             // one rung with a reason; the budget is honored exactly.
             const effortOutcome = applyEffortEscalation(
               { mode: run.settings.effort, tier: run.effortTier, needSignals: run.effortNeedSignals },
@@ -944,7 +962,7 @@ class DesktopChatAgent {
               latestObservation = null;
               continue;
             }
-            // DSH REQUEST-ERROR POLICY: transport failures retry INSIDE the
+            // REQUEST-ERROR POLICY: transport failures retry INSIDE the
             // open step on the rising ladder (user input never re-admitted).
             if (isTransportError(error)) {
               const attempt = (run.transportRetryAttempts || 0) + 1;
@@ -962,7 +980,7 @@ class DesktopChatAgent {
               if (run.status !== 'running' || run.abortController.signal.aborted) break;
               continue;
             }
-            // DSH RECOVERY: non-transport provider failures retry INSIDE
+            // RECOVERY: non-transport provider failures retry INSIDE
             // the open step via classified recovery (the failed turn emitted
             // no decision and executed nothing, so replaying it is safe);
             // after three consecutive decision failures the run parks once.
@@ -1149,7 +1167,7 @@ class DesktopChatAgent {
             if (noActionFlow.notice) pushHarnessNotice(run, noActionFlow.notice.text);
           }
           if (calls.length === 0) {
-            // DSH UNDECIDABLE OUTPUT + ACTIONLESS-STALL GUARD.
+            // UNDECIDABLE OUTPUT + ACTIONLESS-STALL GUARD.
             // Two independent detectors, because they catch different loops:
             //   1. The KEYED stall counts only an IDENTICAL restatement (same
             //      narration, same observation, same plan). A fresh decision
@@ -1242,7 +1260,7 @@ class DesktopChatAgent {
                 continue;
               }
             }
-            // ── DSH GUARD LAYER (pre-execute: deny-only mechanical guards,
+            // ── GUARD LAYER (pre-execute: deny-only mechanical guards,
             //    everything else advisory) ──
             const fillProof = fillGate(run.coordinator, hash, call);
             if (fillProof) {
@@ -1309,7 +1327,7 @@ class DesktopChatAgent {
               latestObservation = null;
               continue;
             }
-            // DSH repeat-call guard (advisory, canonical-argument based —
+            // repeat-call guard (advisory, canonical-argument based —
             // replaces the identical-action stall trackers).
             const repeatNotice = run.repeatGuard.observe(call.name, call.input);
             if (repeatNotice) pushHarnessNotice(run, repeatNotice.text);
@@ -1480,7 +1498,7 @@ class DesktopChatAgent {
           }
           // A different executed call resets the repeat-call streak.
           if (calls.some((call) => call.name !== 'browser_done')) run.repeatGuard.reset();
-          // ── FLOW + EVIDENCE ENFORCEMENT STAGES (DSH) ──────────────────
+          // ── FLOW + EVIDENCE ENFORCEMENT STAGES () ──────────────────
           // Two stages run once per decision, in this order:
           //   1. The FLOW stage scores the evidence this decision gathered:
           //      is it NEW, is it RELEVANT, did an edit open a new epoch? It
@@ -1543,7 +1561,7 @@ class DesktopChatAgent {
               appendConversationMessage(run, 'user', phaseOutcome.nudge.text, { source: 'runtime' });
             }
           }
-          // DSH PROGRESS ADVISORY (kept: madeProgress, one single source).
+          // PROGRESS ADVISORY (kept: madeProgress, one single source).
           const progressAssessment = madeProgress(run.coordinator, {
             observationChanged: run.coordinator.fingerprint !== null && run.coordinator.fingerprint !== run.lastProgressFingerprint,
             planStatusChanged: JSON.stringify(run.plan || []) !== planBeforeDecision,
@@ -1625,7 +1643,7 @@ class DesktopChatAgent {
     return serializeRun(run);
   }
 
-  // ── UNIFORM RECOVERY (DSH loopPolicy) ────────────────────────────────────
+  // ── UNIFORM RECOVERY (loopPolicy) ────────────────────────────────────
   // parkRun: the ONE park mechanism. Status 'awaiting_recovery' +
   // run.escalated + auto-resume timer with bounded backoff. NEVER terminates
   // (owner directive preserved). The external-deadline park (parkOnDeadline)
@@ -1643,7 +1661,7 @@ class DesktopChatAgent {
     try { run.activeStepRetire?.(new Error('The run was parked while this step was in flight; the step is retired.')); } catch { /* retirement is best effort */ }
     const resumeMs = loopPolicy.escalationBackoffMs(Number(run.recoveryEpisodes) || 0);
     if (run.escalationTimer) clearTimeout(run.escalationTimer);
-    // ONE-SHOT resume timer (DSH hygiene): a single re-armed timeout instead
+    // ONE-SHOT resume timer (hygiene): a single re-armed timeout instead
     // of an interval — resumption is always scheduled (indefinite recovery),
     // and a stale timer can never pile up.
     run.escalationTimer = setTimeout(() => {
@@ -1657,7 +1675,7 @@ class DesktopChatAgent {
     return true;
   }
 
-  // DECISION WATCHDOG (kept from the legacy loop, DSH-shaped): a model call
+  // DECISION WATCHDOG (kept from the legacy loop, -shaped): a model call
   // that never resolves and never streams must not wedge the loop until the
   // step ceiling. The dead-air window (settings.decisionWatchdogMs, default
   // 120s, clamped 50s..10m) fires at most twice per decision: the first fire
@@ -1725,7 +1743,7 @@ class DesktopChatAgent {
     return true;
   }
 
-  // scheduleRecovery (slim, DSH-shaped): classify → structured record → ONE
+  // scheduleRecovery (slim, -shaped): classify → structured record → ONE
   // sourced one-shot notice → bounded recovery log. No fingerprint demands,
   // no parallel watchdog accounting.
   scheduleRecovery(run, { source, error, call = null, recordSyntheticHistory = false }) {
@@ -1935,7 +1953,7 @@ class DesktopChatAgent {
     run.recovery = { attempts: 0, lastError: '', source: '', action: null };
     run.turnStartedAt = Date.now();
     run.turnLedger?.beginTurn();
-    // User steering resets the advisory guard state (DSH: steering is fresh
+    // User steering resets the advisory guard state (: steering is fresh
     // evidence of intent — streaks and repair notices belong to the old turn).
     run.progressStreak = 0;
     run.progressStreakNudged = false;
@@ -2312,7 +2330,7 @@ class DesktopChatAgent {
   // ── TOOL EXECUTION + DONE HANDLING ───────────────────────────────────────
   // Execution plumbing (approval, plan tools, tool.started/result events,
   // record, archival, speculative pre-read) is kept. The old twelve-gate
-  // done maze is replaced by ONE bounded completion review (DSH): compute
+  // done maze is replaced by ONE bounded completion review (): compute
   // the named evidence gaps, bounce ONCE with them, then accept with a
   // verification note — verification never blocks a genuine run.
   async executeOrRequestApproval(run, call, { hash = null } = {}) {
@@ -2422,7 +2440,7 @@ class DesktopChatAgent {
         error: 'An action or native evidence refresh occurred after the latest observation. Inspect the fresh state before declaring the task complete.'
       };
     }
-    // ── THE COMPLETION REVIEW (DSH: one bounded review, named gaps) ──
+    // ── THE COMPLETION REVIEW (: one bounded review, named gaps) ──
     if (call.name === 'browser_done' && output.ok && !isCritiqueOnlyRun(run)) {
       output = this.reviewCompletion(run, call, output);
     }
@@ -2834,7 +2852,7 @@ class DesktopChatAgent {
         };
       }
     }
-    // ONE audit round (kept policy, DSH evidence-before-completion): a done
+    // ONE audit round (kept policy, evidence-before-completion): a done
     // that claims success without observed-effect evidence behind it — after
     // a mutating turn, or on a NEW turn of a conversation whose previous turn
     // did work (the wrong-task-done class) — is a proposal until reconciled
@@ -2958,7 +2976,7 @@ class DesktopChatAgent {
     run.turnLedger?.record(run.history.at(-1));
   }
 
-  // Progress assertion (DSH: advisory only — no watchdog accounting).
+  // Progress assertion (: advisory only — no watchdog accounting).
   assertProgress(run, call, output) {
     if (!I.PROGRESS_GUARDED_READ_ACTIONS.has(call.name) && call.name !== 'browser_scroll') return null;
     if (call.name === 'browser_screenshot') return null;
@@ -3007,8 +3025,8 @@ class DesktopChatAgent {
 }
 
 module.exports = {
-  // Additive (DSH): prompt assembly exported for tests and tooling.
-  assembleSystemPrompt, runtimeContextText,
+  // Additive (): prompt assembly exported for tests and tooling.
+  assembleSystemPrompt, runtimeContextText, attachCreativePlaybooks,
   DesktopChatAgent, isMultipartTask, isMultiAskTask, multiAskChecklist, ACTIONS,
   externalProviderBlock, MAX_BROWSER_WAIT_MS, EFFORT_TIERS, normalizeEffortSetting,
   normalizeEffortTier, nextEffortTier, applyEffortEscalation, defaultResearchAgent,

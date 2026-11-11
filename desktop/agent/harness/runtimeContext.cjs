@@ -1,6 +1,6 @@
 'use strict';
 
-// RUNTIME CONTEXT (DSH pattern): volatile facts (current tab, URL, control
+// RUNTIME CONTEXT (harness pattern): volatile facts (current tab, URL, control
 // mode, effort, deadlines) NEVER enter the cached system prompt. They ride a
 // separate ordered snapshot delivered as a user-role message whose header
 // states it supersedes earlier snapshots. The snapshot is only emitted when

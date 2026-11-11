@@ -1,6 +1,6 @@
 'use strict';
 
-// FLOW + EVIDENCE GUARDS (DSH pattern, adapted from deepseek-harness
+// FLOW + EVIDENCE GUARDS (harness pattern, adapted from the reference harness
 // packages/guard): DECISION-LEVEL enforcement stages.
 //
 // The pure state machine (evidence epochs, novelty scoring, phases, notice

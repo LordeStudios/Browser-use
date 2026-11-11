@@ -10,7 +10,7 @@ const DEFAULT_CONTEXT_TOKENS = 131_072;
 // earlier read" notices). The evidence array is the fix: the ledger tracks
 // every read/search itself, hands that list to the summarizer, and copies it
 // back VERBATIM. The summarizer must never paraphrase it away.
-// Compaction directive (DSH structured-summary pattern): fixed sections,
+// Compaction directive (structured-summary pattern): fixed sections,
 // preserve exact identifiers verbatim, evidence array copied verbatim, and
 // the summary never mentions the compaction itself. The output SCHEMA is a
 // machine contract (the ledger validates and renders it) and stays unchanged.
@@ -451,7 +451,7 @@ class ProviderTurnLedger {
     const evidence = this.evidence || [];
     const evidenceBlock = evidence.length ? { evidence, evidencePolicy: EVIDENCE_RULE } : {};
     prior.push(this.summary
-      // DSH CHECKPOINT PREAMBLE: the landed summary is established background
+      // CHECKPOINT PREAMBLE: the landed summary is established background
       // — build on it directly, never acknowledge the checkpoint.
       ? { role: 'user', content: 'This is an automatically generated checkpoint condensing an earlier span of the conversation to free up context. Treat the captured context as established background and build on it without restating it. Continue the task directly from the messages that follow, without acknowledging this checkpoint.\n\n' + json({ contextType: 'state_snapshot', originalTask: this.originalTask, ...(taskLadder ? { taskLadder } : {}), ...gen9, ...this.summary, ...evidenceBlock, evidenceRule: 'Snapshot facts describe PAST states at the turns they were recorded. Never cite them as current verification; only the newest observation/screenshot/test output counts as evidence for a claim about NOW.' }) }
       : { role: 'user', content: json({ contextType: 'original_objective', task: this.originalTask, ...(taskLadder ? { taskLadder } : {}), ...gen9, ...evidenceBlock }) });

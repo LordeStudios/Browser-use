@@ -22,7 +22,7 @@ test('OpenAI-compatible provider keeps keys private and returns a structured age
   assert.doesNotMatch(body.messages[0].content, /Begin every response immediately with <think>/);
   assert.match(body.messages[0].content, /After a mutation continue with the next grounded mutation/);
   assert.match(body.messages[0].content, /agent_message only for a concrete handoff/);
-  assert.match(body.messages[0].content, /observe again only to discover new state or confirm the final effect/);
+  assert.match(body.messages[0].content, /observe again only for new state or final confirmation/);
   assert.doesNotMatch(body.messages[0].content, /Begin every response immediately with <think>/);
 });
 

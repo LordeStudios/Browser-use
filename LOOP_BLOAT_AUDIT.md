@@ -8,6 +8,36 @@ description and guidance constant) and `_fork_prompt_breakdown.cjs` (renders thi
 real system prompt and measures every block). Wire captures from the real sensenova run
 (`scratch/dsh-verify/wire003`) give the per-decision numbers.
 
+## 0. RESULT (executed 2026-11-11)
+
+The cut in section 5 was applied. Measured after execution:
+
+| Surface | Before | After | Reference harness |
+|---|---|---|---|
+| System prompt (agi) | 10,865 chars | **1,990** | 1,776 |
+| System prompt (browser) | ~6,900 | **1,532** | 1,776 |
+| Largest prompt block | 4,466 | **456** | 434 |
+| Identity | ~999 in persona | **55** | 48 |
+| Prompt blocks | 9 dense | **10 sparse** | 10 |
+| Tool description total (agi catalog) | ~29,405 | **18,457** | 228k across its whole catalog |
+| Largest tool description | 1,596 (model_catalog) | **831** | n/a |
+
+Moved out of the prompt, into the surface that owns them:
+- modeling/drawing playbooks -> `computer_pointer` / `computer_stroke` schemas,
+  attached app-conditionally by live observation (`attachCreativePlaybooks`)
+- the planning rule -> `update_plan` schema
+- batching -> `browser_execute` schema already carried it; prompt copy deleted
+- per-tool coding detail -> `computer_patch` / `computer_search` / `computer_git` schemas
+
+Real-run proof (sensenova over xkiro): completed, 3 decisions / 3 tool calls / 24 s,
+correct answer; wire system prompt 2,349 = 1,990 harness + 359 per-request effort
+protocol. MCP bridge untouched byte-for-byte (`git diff desktop/mcp/` is empty) and
+still serves its 31 browser_* tools to external agents.
+
+Zero reference-harness identity remains in the program: 124 mentions reduced to 6,
+all of which are the "DeepSeek" LLM **provider option** in the settings UI (a vendor
+choice alongside OpenAI/Anthropic, not harness identity).
+
 ## 1. Headline numbers
 
 | Instruction surface | DSH | This fork | Ratio |

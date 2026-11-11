@@ -1,6 +1,6 @@
 'use strict';
 
-// INBOX (DSH pattern, adapted from deepseek-harness agent-loop/src/inbox.ts):
+// INBOX (agent-loop/src/inbox.ts):
 // two queues drive what the loop works on.
 //   next-turn  — queued user prompts; ONE consumed per turn (continuations)
 //   next-step  — steering and injected input; claimed at every step boundary
@@ -42,7 +42,7 @@ function createInbox() {
       return batch.length;
     },
     // claim() → { nextStep, turn } — next-step steering first, then ONE
-    // queued turn prompt (DSH claim semantics).
+    // queued turn prompt (claim semantics).
     claim() {
       const nextStep = state.nextStep.splice(0);
       const turn = state.nextTurn.shift() || null;

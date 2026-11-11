@@ -1,13 +1,13 @@
 'use strict';
 
-// GUARDS (DSH pattern, adapted from deepseek-harness packages/guard):
+// GUARDS (packages/guard):
 // ADVISORY FIRST. Guards observe tool activity and inject SOURCED context
 // messages that nudge the model; they never veto or rewrite calls. The only
 // hard deny in this harness is the approval gate (unchanged policy).
 
 const crypto = require('node:crypto');
 
-// Canonicalize arguments: deep key-sort + stringify (DSH repeat-tool-reminder).
+// Canonicalize arguments: deep key-sort + stringify (repeat-tool-reminder).
 function canonicalArgs(args) {
   if (args === null || typeof args !== 'object') return JSON.stringify(args ?? null);
   const sorted = (value) => {

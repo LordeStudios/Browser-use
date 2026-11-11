@@ -1,6 +1,6 @@
 'use strict';
 
-// HARNESS IDENTITY (DSH pattern): the identity line is a fixed one-liner
+// HARNESS IDENTITY (harness pattern): the identity line is a fixed one-liner
 // registered by the harness itself, always the first section of the prompt.
 // The deployment persona is a prefix/suffix PAIR under reserved section names —
 // scoped registrations shadow these by name instead of adding duplicate text.

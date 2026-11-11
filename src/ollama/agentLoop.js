@@ -1,4 +1,4 @@
-// AGENT LOOP (DSH pattern, minimal edition): turn/step over a tool registry.
+// AGENT LOOP (harness pattern, minimal edition): turn/step over a tool registry.
 //   • STEP = one provider call + one parsed command; the loop continues while
 //     the run is active.
 //   • Requests are derived from durable state (event bus + last result); no
@@ -51,7 +51,7 @@ export class AgentLoop {
     if (this.steps > maxSteps) { this.ctx.eventBus.emitEvent('agent.limit', { reason: 'maxSteps', steps: this.steps }); this.stop(); return { ok: false, error: `Stopped after ${maxSteps} steps` }; }
     if (this.startTime && (Date.now() - this.startTime) > maxMinutes * 60000) { this.ctx.eventBus.emitEvent('agent.limit', { reason: 'timeout', minutes: maxMinutes }); this.stop(); return { ok: false, error: `Stopped after ${maxMinutes} minutes` }; }
     const messages = await buildMessages(this.ctx, this.registry, goal, this.lastResult);
-    // DSH REQUEST-ERROR POLICY: transport failures retry inside the open
+    // REQUEST-ERROR POLICY: transport failures retry inside the open
     // step on the rising ladder; anything else is a structured step error.
     let modelText = '';
     for (;;) {
@@ -80,7 +80,7 @@ export class AgentLoop {
       return parsed;
     }
     this._schemaRepairArmed = false;
-    // DSH repeat-call guard (advisory): identical command + identical args.
+    // repeat-call guard (advisory): identical command + identical args.
     const fingerprint = `${parsed.command}|${canonicalArgs(parsed.args)}`;
     if (this._repeatStreak && this._repeatStreak.fp === fingerprint) this._repeatStreak.count += 1;
     else this._repeatStreak = { fp: fingerprint, count: 1 };

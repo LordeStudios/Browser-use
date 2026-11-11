@@ -1,6 +1,6 @@
 'use strict';
 
-// TOOL EXECUTION PIPELINE (DSH pattern, adapted from deepseek-harness
+// TOOL EXECUTION PIPELINE (harness pattern, adapted from the reference harness
 // docs/tool-execution-pipeline.md). Fixed order, one owner:
 //
 //   tool/call logged  →  pre-execute (approval ask)  →  guards (ADVISORY ONLY,
@@ -66,7 +66,7 @@ async function executeCallPipeline({ call, hooks = {} }) {
   try {
     result = await withToolTimeout(() => body(call), { timeoutMs, label: call.name });
   } catch (error) {
-    // Normalize: snapshot throws become isError results (DSH pipeline rule).
+    // Normalize: snapshot throws become isError results (pipeline rule).
     result = toolFailure(error);
   }
 

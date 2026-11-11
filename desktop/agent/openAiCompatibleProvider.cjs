@@ -41,7 +41,7 @@ const { ProviderTurnLedger } = require('./providerTurnLedger.cjs');
 const { summarizeConversation } = require('./providerCompaction.cjs');
 const { activeModelVisionSupport } = require('./visionDelegate.cjs');
 
-// PROMPT AUTHORSHIP REMOVED (DSH rewrite): the harness assembles the system
+// PROMPT AUTHORSHIP REMOVED (rewrite): the harness assembles the system
 // prompt (identity, persona, policies, tool guidance) and passes it as
 // request.systemPrompt. The provider renders it verbatim and adds nothing.
 const { IDENTITY_LINE } = require('./harness/identity.cjs');
@@ -129,7 +129,7 @@ class OpenAiCompatibleProvider {
   }
 
   async complete({ task, agentIdentity, systemPrompt, attachments, observation, observationUnchanged, history, messages, coordinator, plan, goals, recovery, workspace, tools, workingMemory, interactionMemory, layaVerification, harnessNotices, agentMessages, researchHint, turnLedger, effort, effortMode, signal, onThought, onStream, onActionReady }) {
-    // DSH: the harness system prompt arrives on the request; the provider
+    // : the harness system prompt arrives on the request; the provider
     // renders it verbatim and authors no persona.
     const effortTier = ['minimal', 'standard', 'advanced'].includes(effort) ? effort : 'advanced';
     const harnessSystemRaw = String(systemPrompt || '').trim()
@@ -242,7 +242,7 @@ class OpenAiCompatibleProvider {
 // advertised in plain browser mode too, and matching on "computer_" attached the
 // whole ~4,500-character AGI/Coding-mode playbook to every request — a one-word
 // "hello" arrived with desktop-control and repo-editing rules.
-// DSH: the system prompt comes from the harness registry verbatim — the
+// : the system prompt comes from the harness registry verbatim — the
 // provider authors no PERSONA. The per-request EFFORT PROTOCOL is the one
 // provider-owned block: it states the tier this request runs at and the
 // escalation channel the model may use, which is wire config (the tier maps

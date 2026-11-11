@@ -1,6 +1,6 @@
 'use strict';
 
-// HARNESS ERRORS (DSH pattern): every failure crossing a public boundary is a
+// HARNESS ERRORS (harness pattern): every failure crossing a public boundary is a
 // structured value with a stable code. Raw exceptions never reach the model —
 // the pipeline normalizes them into { isError, error: { message, info } }.
 
@@ -47,7 +47,7 @@ function errorChain(error) {
 }
 
 // Normalize a thrown tool failure into the canonical model-facing result.
-// Snapshot/throw boundary: "throws become isError" (DSH tool pipeline).
+// Snapshot/throw boundary: "throws become isError" (tool pipeline).
 function toolFailure(error, code = undefined) {
   const chain = errorChain(error);
   return {

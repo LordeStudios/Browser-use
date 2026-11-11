@@ -41,11 +41,15 @@ test('assembleSystemPrompt serves one lean sectioned core (coding workflow inclu
   const coding = assembleSystemPrompt(fakeAgentRun('agi', 'C:/fixture'), null);
   const general = assembleSystemPrompt(fakeAgentRun('agi', null), null);
   for (const prompt of [coding, general]) {
-    assert.match(prompt, /COMPUTER MODE —/);
     assert.match(prompt, /CODING WORKFLOW/);
     assert.match(prompt, /browser_done/);
+    assert.match(prompt, /subagent slices \(task_spawn\)/);
     assert.doesNotMatch(prompt, /AGI computer mode is enabled|Native coding mode/);
-    assert.ok(Buffer.byteLength(prompt, 'utf8') < 16000, 'the sectioned core stays lean (DSH density guard)');
+    // Sparsity contract: the whole sectioned core stays under 2,000 chars and
+    // no single block exceeds the reference harness's largest section (~440).
+    const blocks = prompt.split(/\n\n+/).filter(Boolean);
+    assert.ok(Buffer.byteLength(prompt, 'utf8') <= 2000, `the core stays sparse (got ${Buffer.byteLength(prompt, 'utf8')})`);
+    assert.ok(Math.max(...blocks.map((b) => b.length)) <= 500, 'no prompt block becomes a wall');
   }
   assert.equal(coding, general, 'the core is task-stable (situational playbooks excepted)');
 });

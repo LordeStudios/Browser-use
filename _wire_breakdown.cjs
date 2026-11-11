@@ -76,7 +76,7 @@ for (const t of biggest.sort((a, b) => b.desc - a.desc).slice(0, 12)) {
 // --- totals ---
 const msgChars = req.messages.reduce((a, m) => a + (typeof m.content === 'string' ? m.content.length : JSON.stringify(m.content).length), 0);
 console.log(`\n=== TOTALS ===`);
-console.log(`  system prompt prose     : ${sysText.length.toLocaleString('en-US')}  (DSH equivalent: 1,776)`);
+console.log(`  system prompt prose     : ${sysText.length.toLocaleString('en-US')}  (equivalent: 1,776)`);
 console.log(`  conversation messages   : ${msgChars.toLocaleString('en-US')}`);
 console.log(`  tool schema JSON        : ${JSON.stringify(tools).length.toLocaleString('en-US')}  (schema-related by definition)`);
 console.log(`  whole request           : ${(sysText.length + msgChars + JSON.stringify(tools).length).toLocaleString('en-US')} chars`);

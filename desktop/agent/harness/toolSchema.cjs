@@ -1,6 +1,6 @@
 'use strict';
 
-// TOOL SCHEMA (DSH pattern, adapted from deepseek-harness packages/core/tools):
+// TOOL SCHEMA (packages/core/tools):
 // one DSL for tool definitions; the MODEL-VISIBLE projection is exactly
 // { name, description, parameters } — runtime metadata (timeouts, executors,
 // presenters) never leaks to the model. Output projection is structured:
@@ -80,7 +80,7 @@ function toLegacyTool(definition) {
 }
 
 // Canonical tool order: explicit list wins; unknown names follow in
-// lexicographic order after the listed ones (DSH `<unlisted-tools>` rest
+// lexicographic order after the listed ones (`<unlisted-tools>` rest
 // marker concept).
 function canonicalToolOrder(definitions, orderList = []) {
   const listed = orderList.filter(name => definitions.some(d => d.name === name));

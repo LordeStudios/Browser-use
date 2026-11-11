@@ -1,7 +1,7 @@
 'use strict';
 // Fork instruction-surface inventory.
 // Measures everything this fork sends to the model, bucketed the same way the
-// DSH inventory does: system-prompt prose, tool-schema descriptions, and the
+// inventory does: system-prompt prose, tool-schema descriptions, and the
 // standalone instruction constants (notices, recovery demands, wire text).
 // Usage: node _fork_prompt_breakdown.cjs
 

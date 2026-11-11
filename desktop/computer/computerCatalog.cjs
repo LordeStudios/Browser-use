@@ -62,7 +62,7 @@ const COMPUTER_TOOLS = Object.freeze([
     createParents: bool('create missing parent directories'),
     acknowledgeExistingChanges: bool('acknowledge a protected pre-existing dirty path'), expectedHash: str('current sha256 from the ownership guard')
   }, ['path', 'content']),
-  define('computer_search', 'Fast regex search across a file or tree (ripgrep-backed). ONE call replaces terminal findstr/grep sessions and file-by-file reads. output=content returns file:line:text with optional context lines around each match; output=files returns matching paths RANKED BY MATCH COUNT. Skips node_modules/dist/build/.git and binaries. Query discipline: search the single most DISTINCTIVE identifier (a class name, data attribute, function name, exact UI string) — never broad OR-lists of generic words, which match half the app and waste a turn. mode=definition expands the symbol name into a function/method DEFINITION regex (finds `function foo(`, `foo(`, `foo: function`, `async foo(`, etc.) — use it when you need to find where a function is DEFINED and who calls it. If the result is truncated or has resultId/nextOffset, retrieve the held result before searching again; a repeat-search notice is evidence, not a reason to rerun.', {
+  define('computer_search', 'Fast regex search across a file or tree (ripgrep-backed); ONE call replaces terminal findstr/grep sessions and file-by-file reads. output=content returns file:line:text with optional context lines; output=files returns matching paths RANKED BY MATCH COUNT. Skips node_modules/dist/build/.git and binaries. Search the single most DISTINCTIVE identifier (class name, data attribute, function name, exact UI string) — never broad OR-lists of generic words. mode=definition expands a symbol into a function/method DEFINITION regex. If the result is truncated or carries resultId/nextOffset, retrieve the held result before searching again — a repeat-search notice is evidence, not a reason to rerun.', {
     pattern: str('regular expression; prefer the most distinctive symbol, e.g. "transform-target-id" or "selectionOverlay". For mode=definition: just the bare function name, e.g. "verifySelectedModel"'),
     path: str('absolute file or directory to search'),
     output: str('default content', ['content', 'files']),
@@ -160,7 +160,7 @@ function isCodingTask(task, workspace = null) {
 // stacked prompt prose.
 // Source: generations/gen5/gen5-active.txt (embedded verbatim, byte-identical)
 // + the 3D modeling passage restored below as a situational playbook.
-// PROMPT TEXT MOVED (DSH rewrite): V4_AGENT_PROMPT, AGI_PROMPT,
+// PROMPT TEXT MOVED (rewrite): V4_AGENT_PROMPT, AGI_PROMPT,
 // MODELING_PLAYBOOK, DRAWING_PLAYBOOK and agiPromptForTask no longer live in
 // this file. Every harness prompt word is owned by
 // desktop/agent/prompt/sections.cjs; this file owns tool schemas, validation
@@ -202,7 +202,7 @@ const COMPAT_COMPUTER_FILE = define('computer_file', 'Deprecated everything-tool
 }, ['action', 'path']);
 
 const BY_NAME = new Map(COMPUTER_TOOLS.map(tool => [tool.name, tool]));
-// AGI_PROMPT moved (DSH rewrite): AGI-mode guidance now lives as the
+// AGI_PROMPT moved (rewrite): AGI-mode guidance now lives as the
 // tools:computer section in desktop/agent/prompt/sections.cjs.
 
 const isComputerTool = name => BY_NAME.has(name);

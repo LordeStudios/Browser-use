@@ -1,4 +1,4 @@
-// PROMPT BUILDER (DSH pattern, minimal edition): the system prompt is a
+// PROMPT BUILDER (harness pattern, minimal edition): the system prompt is a
 // registry of NAMED, ORDERED sections — no monolithic template. Identity is a
 // fixed one-liner registered by the harness itself; volatile facts (URL,
 // title, console errors, last events) NEVER enter the system prompt — they
@@ -64,7 +64,7 @@ export async function buildMessages(ctx, registry, goal, lastResult = null) {
   const info = await ctx.browser.getCurrentInfo().catch(() => ({}));
   const events = ctx.eventBus.recent(10);
   const system = renderSystemPrompt();
-  // DSH: identity/persona/policies in the system prompt; volatile facts in
+  // : identity/persona/policies in the system prompt; volatile facts in
   // the superseding runtime-context user message; the decision payload last.
   return [
     { role: 'system', content: system },
