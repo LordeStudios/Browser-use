@@ -71,6 +71,11 @@ class AgentPointerOverlay {
     this.window = pointerWindow;
     pointerWindow.setMenuBarVisibility(false);
     pointerWindow.setIgnoreMouseEvents(true, { forward: true });
+    // Float above the BrowserView's native surface and above the parent's
+    // content. Occlusion is fatal for the animation (rAF stalls), so the
+    // overlay must own the topmost layer of the app window.
+    try { pointerWindow.setAlwaysOnTop(true, 'screen-saver'); } catch { /* platform level */ }
+    try { pointerWindow.moveTop(); } catch { /* best effort */ }
 
     pointerWindow.webContents.on('did-finish-load', () => {
       if (this.window !== pointerWindow || pointerWindow.isDestroyed()) return;
@@ -255,6 +260,9 @@ class AgentPointerOverlay {
     }
     pointerWindow.setIgnoreMouseEvents(true, { forward: true });
     if (this.ready && !pointerWindow.isVisible()) pointerWindow.showInactive();
+    // Re-assert the topmost layer on every geometry sync: a view re-layout can
+    // put the native surface above the overlay and freeze the cursor.
+    try { if (pointerWindow.isVisible()) pointerWindow.moveTop(); } catch { /* best effort */ }
     this.surfaceAvailable = true;
     return true;
   }

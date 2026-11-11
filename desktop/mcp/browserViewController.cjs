@@ -1392,16 +1392,22 @@ class BrowserViewController {
     if (!webContents) return false;
     const selectedSurfaceUnavailable = this.getSelectedTabId() === tabId
       && this.isTabPaintable?.(tabId) === false;
+    // Release where the pointer actually is. A hardcoded (0,0) release after a
+    // press on a control makes the page fire its click on <body> instead of the
+    // control — the live log shows lastDown: button(67,298) / lastUp: body(0,0)
+    // and the button never activates. The release is an edge event: its
+    // POSITION is what decides which element receives the click.
+    const releasePoint = this.lastPointer.get(tabId) || { x: 0, y: 0 };
     const useCdp = forceCdp
       || originalRoute === 'cdp'
       || this.getSelectedTabId() !== tabId
       || selectedSurfaceUnavailable;
     if (useCdp) {
       return this.dispatchCdp(tabId, 'cleanup mouse release', 'Input.dispatchMouseEvent', {
-        type: 'mouseReleased', x: 0, y: 0, button, buttons: 0, clickCount: 1
+        type: 'mouseReleased', x: releasePoint.x, y: releasePoint.y, button, buttons: 0, clickCount: 1
       });
     }
-    return trySendInputEvent(webContents, { type: 'mouseUp', x: 0, y: 0, button, clickCount: 1 });
+    return trySendInputEvent(webContents, { type: 'mouseUp', x: releasePoint.x, y: releasePoint.y, button, clickCount: 1 });
   }
 
   clearReleasedButtonTombstone(owner, tabId, button) {

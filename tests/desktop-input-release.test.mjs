@@ -51,7 +51,7 @@ test('held mouse buttons and keys are released for the ending session only', asy
   assert.deepEqual(released.buttons, ['left']);
   assert.deepEqual(released.keys, ['Shift']);
   assert.deepEqual(events, [
-    { type: 'mouseReleased', x: 0, y: 0, button: 'left', buttons: 0, clickCount: 1 },
+    { type: 'mouseReleased', x: 40, y: 50, button: 'left', buttons: 0, clickCount: 1 },
     { type: 'keyUp', keyCode: 'Shift' }
   ]);
   assert.equal(controller.heldInputState('session-a'), null);

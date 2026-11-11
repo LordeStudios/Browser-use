@@ -347,7 +347,7 @@ test('ending a session after standalone mouseDown clears both native and visual 
 
   assert.deepEqual(nativeEvents, [
     { type: 'mousePressed', x: 190, y: 230, button: 'left', buttons: 1, clickCount: 1 },
-    { type: 'mouseReleased', x: 0, y: 0, button: 'left', buttons: 0, clickCount: 1 }
+    { type: 'mouseReleased', x: 190, y: 230, button: 'left', buttons: 0, clickCount: 1 }
   ]);
   assert.deepEqual(visualReleases, [['tab-selected', { x: 190, y: 230 }, 'left']]);
   assert.equal(controller.heldInputState('session-a'), null);
@@ -717,7 +717,10 @@ test('cancelling during a drag delay prevents the next stale visual step and dup
   assert.ok(Date.now() - cancelledAt < 150, 'drag delay must wake promptly when its operation is cancelled');
   assert.equal(pointerMoves.some((point) => point.x === 300 && point.y === 300), false, 'cancelled drag must not issue its next stale visual target');
   assert.equal(nativeEvents.filter((event) => event.type === 'mouseReleased').length, 1, 'session cleanup owns the only release edge');
-  assert.deepEqual(nativeEvents.find((event) => event.type === 'mouseReleased'), { type: 'mouseReleased', x: 0, y: 0, button: 'left', buttons: 0, clickCount: 1 });
+  // The cleanup release lands where the pointer last moved (never a hardcoded
+  // (0,0), which would turn the click into a <body> click).
+  const lastMove = [...nativeEvents].reverse().find((event) => event.type === 'mouseMoved');
+  assert.deepEqual(nativeEvents.find((event) => event.type === 'mouseReleased'), { type: 'mouseReleased', x: lastMove.x, y: lastMove.y, button: 'left', buttons: 0, clickCount: 1 });
 });
 
 test('a newer pointer action during a drag delay remains the last visual target', async () => {
@@ -1007,6 +1010,17 @@ test('the overlay never hangs on paint frames and never hides on a single ack ti
   assert.match(page, /setTimeout\(finish, 60\)/, 'the ack has a bounded rAF fallback');
   const overlay = fs.readFileSync(path.join(process.cwd(), 'desktop/pointer/agentPointerOverlay.cjs'), 'utf8');
   assert.match(overlay, /POINTER_ACK_TIMEOUT_MS = 250/, 'the ack window is short');
+  // Occlusion freezes the cursor: an occluded window produces no frames, so the
+  // overlay must own the topmost layer (the live "remains on the first click").
+  assert.match(overlay, /setAlwaysOnTop\(true, 'screen-saver'\)/, 'the overlay floats above the view');
+  assert.match(overlay, /pointerWindow\.moveTop\(\)/, 're-raised on every geometry sync');
+  // A cleanup release must land where the pointer is, never at (0,0): a (0,0)
+  // release turns the click into a <body> click and the control never fires.
+  const controller = fs.readFileSync(path.join(process.cwd(), 'desktop/mcp/browserViewController.cjs'), 'utf8');
+  const cleanupStart = controller.indexOf('  dispatchCleanupMouseUp(tabId, button, webContents, originalRoute, forceCdp = false) {');
+  const cleanup = controller.slice(cleanupStart, cleanupStart + 1_400);
+  assert.match(cleanup, /this\.lastPointer\.get\(tabId\)/, 'the cleanup release uses the last pointer position');
+  assert.ok(!/x: 0, y: 0, button/.test(cleanup), 'no hardcoded (0,0) release');
   assert.match(overlay, /this\.ackTimeouts < 3/, 'one timeout is a strike, not a hide');
   assert.match(overlay, /this\.ackTimeouts = 0;\r?\n    clearTimeout\(pending\.timer\)/, 'a good ack resets the strikes');
 });
