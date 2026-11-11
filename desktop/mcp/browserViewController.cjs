@@ -407,7 +407,12 @@ class BrowserViewController {
         return { tabId, index, input: 'touch', gesture: 'tap', element };
       }
       const click = await this.clickAt(tabId, { ...center, button }, sessionId, operation);
-      return { tabId, index, input: click.input, button: normalizeButton(button), element, ...(click.pointer ? { pointer: safePointerProjection(click.pointer) } : {}) };
+      // clickAt already ran the post-input hit test at the element center;
+      // dropping it left indexed clicks as the ONE delivery without landing
+      // evidence (the live chess run repeated a dead button click six times
+      // blind). Carry the hit so the model sees where the click actually
+      // landed — for an element click the tag should match the target.
+      return { tabId, index, input: click.input, button: normalizeButton(button), element, ...(click.pointer ? { pointer: safePointerProjection(click.pointer) } : {}), ...(click.hit ? { hit: click.hit } : {}) };
     } finally {
       this.finishInputOperation(operation);
     }
@@ -678,9 +683,7 @@ class BrowserViewController {
             return addPointerOutcome(outcome, { ...safePointerProjection(pressResult || visualResult), deliveryFallback: true });
           }
           this.clearReleasedButtonTombstone(owner, tabId, normalizedButton);
-          this.trackHeld(sessionId, tabId, 'buttons', normalizedButton, {
-            route: this.getSelectedTabId() === tabId && !prepared.forceBackground ? 'electron' : 'cdp'
-          });
+          this.trackHeld(sessionId, tabId, 'buttons', normalizedButton, { route: 'cdp' });
           const outcome = this.dispatchInput(tabId, prepared.tab.webContents, { type: 'mousePressed', x, y, button: normalizedButton, buttons: mouseButtonMask(normalizedButton), clickCount: 1 }, 'mouse', prepared.forceBackground);
           return addPointerOutcome(outcome, visualResult);
         });
@@ -778,12 +781,29 @@ class BrowserViewController {
   }
 
   dispatchInput(tabId, webContents, event, kind, forceBackground = false) {
+    // ALL mouse delivery rides the CDP Input pipeline, foreground included.
+    // CDP coordinates are PAGE CSS pixels — the same space the DOM rects,
+    // the screenshot mapping and the post-input hit test speak — so page
+    // zoom, view offsets and display scaling can never desync where the
+    // model aims from where the event lands. sendInputEvent's coordinate
+    // handling had exactly that failure class: the live chess run committed
+    // six foreground clicks on a visible button with zero page effect, then
+    // a JavaScript element.click() worked instantly. The wheel path already
+    // rides CDP for the same reason. The per-tab lease also SERIALIZES the
+    // release ahead of the post-input hit test, so the hit test now reads
+    // deterministic post-release state instead of racing injected events.
+    // A failed delivery (for example DevTools holding the debugger) fails
+    // loudly with its real error instead of landing silently nowhere.
+    if (kind === 'mouse') {
+      return this.dispatchCdp(tabId, 'native mouse input', 'Input.dispatchMouseEvent', event)
+        .then(() => ({ tabId, input: 'cdp' }));
+    }
     if (this.getSelectedTabId() === tabId && !forceBackground) {
       if (kind === 'text') {
         webContents.insertText(event.text);
         return { tabId, input: 'electron-native' };
       }
-      const nativeEvent = kind === 'mouse' ? cdpMouseToElectronEvent(event) : kind === 'key' ? cdpKeyToElectronEvent(event) : null;
+      const nativeEvent = kind === 'key' ? cdpKeyToElectronEvent(event) : null;
       if (nativeEvent) {
         webContents.sendInputEvent(nativeEvent);
         return { tabId, input: 'electron-native' };
@@ -792,9 +812,8 @@ class BrowserViewController {
     // CDP dispatch addresses this particular WebContents even while another
     // BrowserView remains focused. This keeps explicit background-tab control
     // from stealing focus or failing because the target is not selected.
-    const dispatch = kind === 'mouse' ? this.dispatchCdp(tabId, 'background mouse input', 'Input.dispatchMouseEvent', event)
-      : kind === 'key' ? this.dispatchCdp(tabId, 'background key input', 'Input.dispatchKeyEvent', event)
-        : this.dispatchCdp(tabId, 'background text input', 'Input.insertText', { text: event.text });
+    const dispatch = kind === 'key' ? this.dispatchCdp(tabId, 'background key input', 'Input.dispatchKeyEvent', event)
+      : this.dispatchCdp(tabId, 'background text input', 'Input.insertText', { text: event.text });
     return dispatch.then(() => ({ tabId, input: 'cdp-background' }));
   }
 

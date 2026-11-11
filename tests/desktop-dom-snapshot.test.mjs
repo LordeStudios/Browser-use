@@ -31,6 +31,14 @@ function createHarness() {
       capturePage: async () => ({ toPNG: () => Buffer.from('png') }),
       sendInputEvent: (event) => inputEvents.push(event),
       insertText: (text) => inputEvents.push({ type: 'text', text }),
+      // Mouse delivery rides the CDP Input pipeline; the stub records the
+      // dispatched CDP events into the same stream the assertions read.
+      debugger: {
+        isAttached: () => false,
+        attach: () => {},
+        detach: () => {},
+        sendCommand: async (_method, event) => inputEvents.push(event)
+      },
       isDestroyed: () => false,
       isLoading: () => false,
       getURL: () => 'https://example.test/',
@@ -122,9 +130,9 @@ test('clickElement resolves the latest snapshot index and sends real mouse event
 
   assert.equal(clicked.element.id, 'ellipse');
   assert.deepEqual(inputEvents, [
-    { type: 'mouseMove', x: 90, y: 50 },
-    { type: 'mouseDown', x: 90, y: 50, button: 'left', clickCount: 1 },
-    { type: 'mouseUp', x: 90, y: 50, button: 'left', clickCount: 1 }
+    { type: 'mouseMoved', x: 90, y: 50 },
+    { type: 'mousePressed', x: 90, y: 50, button: 'left', buttons: 1, clickCount: 1 },
+    { type: 'mouseReleased', x: 90, y: 50, button: 'left', buttons: 0, clickCount: 1 }
   ]);
 });
 
@@ -362,7 +370,7 @@ test('stale selectors rematch a unique element identity after a dynamic rerender
   };
   const clicked = await controller.clickElement('tab-1', { index: 0 }, 'session-a');
   assert.equal(clicked.element.selector, '.new-ellipse');
-  assert.deepEqual(inputEvents.at(-3), { type: 'mouseMove', x: 100, y: 60 });
+  assert.deepEqual(inputEvents.at(-3), { type: 'mouseMoved', x: 100, y: 60 });
 });
 
 test('stale or missing indices fail closed instead of clicking a wrong element', async () => {

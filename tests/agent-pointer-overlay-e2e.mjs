@@ -113,7 +113,7 @@ try {
     samples.push(await pointerSnapshot(pointer));
   }
   const longMoveResult = parseToolResult(await longMove);
-  assert.equal(longMoveResult.input, 'electron-native', `long movement was interrupted: ${JSON.stringify(longMoveResult)}`);
+  assert.equal(longMoveResult.input, 'cdp', `long movement was interrupted: ${JSON.stringify(longMoveResult)}`);
   assert.equal(longMoveResult.pointer?.completed, true, `long movement did not receive a settled visual ACK: ${JSON.stringify(longMoveResult)}`);
   await waitFor(async () => {
     const sample = await pointerSnapshot(pointer);
@@ -235,7 +235,7 @@ try {
     `mid-motion viewport shrink must keep the pointer visibly inside the new surface: ${JSON.stringify({ clampedAfterDrawer, drawerGeometry })}`);
   assert.equal(clampedAfterDrawer.opacity, 1, 'viewport shrink must not lose an active pointer');
   const shrinkingMoveResult = parseToolResult(await shrinkingMove);
-  assert.equal(shrinkingMoveResult.input, 'electron-native', `a destination that fits the resized viewport must complete: ${JSON.stringify(shrinkingMoveResult)}`);
+  assert.equal(shrinkingMoveResult.input, 'cdp', `a destination that fits the resized viewport must complete: ${JSON.stringify(shrinkingMoveResult)}`);
   assertPoint(await pointerSnapshot(pointer), shrinkDestination, 'resized-viewport movement destination');
   await callTool(configuration.endpoint, capability, 'browser_mousemove', { x: 220, y: 190 });
   assertPoint(await pointerSnapshot(pointer), { x: 220, y: 190 }, 'movement in AI drawer viewport');

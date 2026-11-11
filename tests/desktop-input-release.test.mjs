@@ -51,7 +51,7 @@ test('held mouse buttons and keys are released for the ending session only', asy
   assert.deepEqual(released.buttons, ['left']);
   assert.deepEqual(released.keys, ['Shift']);
   assert.deepEqual(events, [
-    { type: 'mouseUp', x: 0, y: 0, button: 'left', clickCount: 1 },
+    { type: 'mouseReleased', x: 0, y: 0, button: 'left', buttons: 0, clickCount: 1 },
     { type: 'keyUp', keyCode: 'Shift' }
   ]);
   assert.equal(controller.heldInputState('session-a'), null);
@@ -93,7 +93,7 @@ test('closing a tab or shutting down releases every holder of that tab', () => {
   events.length = 0;
   const releasedByTab = controller.releaseTabInput('tab-1');
   assert.equal(releasedByTab.length, 2);
-  assert.equal(events.filter((event) => event.type === 'mouseUp').length, 1);
+  assert.equal(events.filter((event) => event.type === 'mouseReleased').length, 1);
   assert.equal(events.filter((event) => event.type === 'keyUp').length, 1);
   assert.deepEqual(controller.releaseAllInput(), []);
 
@@ -172,9 +172,9 @@ test('pointer actions use native input without executing page JavaScript', async
 
   assert.equal(scripts.length, 0, 'input must not inject or execute code in the page');
   assert.deepEqual(events, [
-    { type: 'mouseMove', x: 12, y: 24 },
-    { type: 'mouseDown', x: 30, y: 40, button: 'left', clickCount: 1 },
-    { type: 'mouseUp', x: 50, y: 60, button: 'left', clickCount: 1 }
+    { type: 'mouseMoved', x: 12, y: 24 },
+    { type: 'mousePressed', x: 30, y: 40, button: 'left', buttons: 1, clickCount: 1 },
+    { type: 'mouseReleased', x: 50, y: 60, button: 'left', buttons: 0, clickCount: 1 }
   ]);
 });
 
@@ -199,7 +199,7 @@ test('selected native input reattaches one transiently detached BrowserView befo
   controller.mouseMove(tab.id, { x: 18, y: 26 });
 
   assert.equal(recoveryCalls, 1);
-  assert.deepEqual(events, [{ type: 'mouseMove', x: 18, y: 26 }]);
+  assert.deepEqual(events, [{ type: 'mouseMoved', x: 18, y: 26 }]);
 });
 
 test('selected input uses same-tab CDP when shell reattachment cannot restore the native view', async () => {
@@ -217,7 +217,7 @@ test('selected input uses same-tab CDP when shell reattachment cannot restore th
   const outcome = await controller.mouseMove(tab.id, { x: 18, y: 26 });
 
   assert.equal(recoveryCalls, 1);
-  assert.deepEqual(outcome, { tabId: tab.id, input: 'cdp-background' });
+  assert.deepEqual(outcome, { tabId: tab.id, input: 'cdp' });
   assert.deepEqual(events, [{ type: 'mouseMoved', x: 18, y: 26 }]);
 });
 
@@ -293,12 +293,12 @@ test('drag interpolates native input without executing page JavaScript', async (
   // move(start) + down(start) + move(interpolated 1) + move(interpolated 2) + move(end) + up(end)
   assert.equal(mouseEvents.length, 6);
 
-  assert.deepEqual(mouseEvents[0], { type: 'mouseMove', x: 10, y: 20 });
-  assert.deepEqual(mouseEvents[1], { type: 'mouseDown', x: 10, y: 20, button: 'left', clickCount: 1 });
-  assert.deepEqual(mouseEvents[2], { type: 'mouseMove', x: 17, y: 27 });
-  assert.deepEqual(mouseEvents[3], { type: 'mouseMove', x: 23, y: 33 });
-  assert.deepEqual(mouseEvents[4], { type: 'mouseMove', x: 30, y: 40 });
-  assert.deepEqual(mouseEvents[5], { type: 'mouseUp', x: 30, y: 40, button: 'left', clickCount: 1 });
+  assert.deepEqual(mouseEvents[0], { type: 'mouseMoved', x: 10, y: 20 });
+  assert.deepEqual(mouseEvents[1], { type: 'mousePressed', x: 10, y: 20, button: 'left', buttons: 1, clickCount: 1 });
+  assert.deepEqual(mouseEvents[2], { type: 'mouseMoved', x: 17, y: 27 });
+  assert.deepEqual(mouseEvents[3], { type: 'mouseMoved', x: 23, y: 33 });
+  assert.deepEqual(mouseEvents[4], { type: 'mouseMoved', x: 30, y: 40 });
+  assert.deepEqual(mouseEvents[5], { type: 'mouseReleased', x: 30, y: 40, button: 'left', buttons: 0, clickCount: 1 });
   assert.equal(scripts.length, 0, 'drag must not inject a page overlay');
 });
 

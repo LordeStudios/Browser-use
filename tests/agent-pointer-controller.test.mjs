@@ -16,7 +16,16 @@ function harness(pointerVisualizer) {
       isDestroyed: () => false,
       getURL: () => 'https://example.com/',
       isLoading: () => false,
-      navigationHistory: { canGoBack: () => false, canGoForward: () => false }
+      navigationHistory: { canGoBack: () => false, canGoForward: () => false },
+      // Mouse delivery rides the CDP Input pipeline (page-CSS coordinates);
+      // the stub records the dispatched CDP events into the same stream the
+      // assertions read.
+      debugger: {
+        isAttached: () => false,
+        attach: () => {},
+        detach: () => {},
+        sendCommand: async (_method, event) => nativeEvents.push(event)
+      }
     }
   };
   const controller = new BrowserViewController({
@@ -94,7 +103,7 @@ test('native press waits for visual arrival and starts click feedback at that co
   resolvePaint({ sequence: 8, completed: true, status: 'painted' });
   const outcome = await pending;
 
-  assert.deepEqual(nativeEvents, [{ type: 'mouseDown', x: 140, y: 180, button: 'left', clickCount: 1 }]);
+  assert.deepEqual(nativeEvents, [{ type: 'mousePressed', x: 140, y: 180, button: 'left', buttons: 1, clickCount: 1 }]);
   assert.deepEqual(outcome.pointer, { sequence: 7, completed: true });
 });
 
@@ -117,12 +126,12 @@ test('a superseded click cannot reclaim the pointer or press after a newer move'
 
   const [clickResult, moveResult] = await Promise.all([staleClick, winningMove]);
   assert.equal(clickResult.input, 'interrupted');
-  assert.equal(moveResult.input, 'electron-native');
+  assert.equal(moveResult.input, 'cdp');
   assert.deepEqual(pointerCalls, [
     ['move', 'tab-selected', { x: 80, y: 420 }],
     ['move', 'tab-selected', { x: 500, y: 120 }]
   ]);
-  assert.deepEqual(nativeEvents, [{ type: 'mouseMove', x: 500, y: 120 }]);
+  assert.deepEqual(nativeEvents, [{ type: 'mouseMoved', x: 500, y: 120 }]);
 });
 
 test('a timed-out visual arrival still delivers the press through the direct route', async () => {
@@ -141,7 +150,7 @@ test('a timed-out visual arrival still delivers the press through the direct rou
   const result = await controller.mouseDown('tab-selected', { x: 200, y: 220 }, 'session-a');
 
   assert.equal(result.pointer?.deliveryFallback, true, 'the reply names the delivery fallback');
-  assert.deepEqual(nativeEvents, [{ type: 'mouseDown', x: 200, y: 220, button: 'left', clickCount: 1 }], 'the press is delivered directly');
+  assert.deepEqual(nativeEvents, [{ type: 'mousePressed', x: 200, y: 220, button: 'left', buttons: 1, clickCount: 1 }], 'the press is delivered directly');
   assert.deepEqual(pointerCalls, [], 'the visual press is skipped — only the direct route ran');
   assert.notEqual(controller.heldInputState('session-a'), null, 'the hold is tracked so the release pairs');
 });
@@ -164,9 +173,9 @@ test('a click whose every visual stage times out still commits and reports the t
   assert.equal(result.pointer.visualInterrupted, true);
   assert.equal(result.pointer.interrupted, undefined);
   assert.deepEqual(nativeEvents, [
-    { type: 'mouseMove', x: 200, y: 220 },
-    { type: 'mouseDown', x: 200, y: 220, button: 'left', clickCount: 1 },
-    { type: 'mouseUp', x: 200, y: 220, button: 'left', clickCount: 1 }
+    { type: 'mouseMoved', x: 200, y: 220 },
+    { type: 'mousePressed', x: 200, y: 220, button: 'left', buttons: 1, clickCount: 1 },
+    { type: 'mouseReleased', x: 200, y: 220, button: 'left', buttons: 0, clickCount: 1 }
   ], 'press and release must pair even when the cursor visual never arrived');
 });
 
@@ -198,9 +207,9 @@ test('our own paintability preparation cannot cancel the operation it prepares',
   assert.equal(result.input, 'mouse', 'the click must complete even though the layout pass fired during preparation');
   assert.equal(result.pointer.committed, true);
   assert.deepEqual(nativeEvents, [
-    { type: 'mouseMove', x: 90, y: 80 },
-    { type: 'mouseDown', x: 90, y: 80, button: 'left', clickCount: 1 },
-    { type: 'mouseUp', x: 90, y: 80, button: 'left', clickCount: 1 }
+    { type: 'mouseMoved', x: 90, y: 80 },
+    { type: 'mousePressed', x: 90, y: 80, button: 'left', buttons: 1, clickCount: 1 },
+    { type: 'mouseReleased', x: 90, y: 80, button: 'left', buttons: 0, clickCount: 1 }
   ]);
 });
 
@@ -332,12 +341,13 @@ test('ending a session after standalone mouseDown clears both native and visual 
   const { controller, nativeEvents } = harness(pointerVisualizer);
 
   const down = await controller.mouseDown('tab-selected', { x: 190, y: 230 }, 'session-a');
-  assert.equal(down.input, 'electron-native');
+  assert.equal(down.input, 'cdp');
   controller.releaseSessionInput('session-a');
+  await waitForTest(() => nativeEvents.length === 2);
 
   assert.deepEqual(nativeEvents, [
-    { type: 'mouseDown', x: 190, y: 230, button: 'left', clickCount: 1 },
-    { type: 'mouseUp', x: 0, y: 0, button: 'left', clickCount: 1 }
+    { type: 'mousePressed', x: 190, y: 230, button: 'left', buttons: 1, clickCount: 1 },
+    { type: 'mouseReleased', x: 0, y: 0, button: 'left', buttons: 0, clickCount: 1 }
   ]);
   assert.deepEqual(visualReleases, [['tab-selected', { x: 190, y: 230 }, 'left']]);
   assert.equal(controller.heldInputState('session-a'), null);
@@ -361,8 +371,8 @@ test('invalidating a pressed pointer viewport explicitly releases the native but
 
   assert.equal(release.released, true);
   assert.equal(lateUp.releasedByCleanup, true);
-  assert.deepEqual(nativeEvents.filter((event) => event.type === 'mouseUp'), []);
-  assert.deepEqual(cdpEvents.map((entry) => entry.params.type), ['mouseReleased']);
+  assert.deepEqual(nativeEvents.filter((event) => event.type === 'mouseReleased' || event.type === 'mouseUp'), []);
+  assert.deepEqual(cdpEvents.map((entry) => entry.params.type), ['mousePressed', 'mouseReleased']);
   assert.equal(controller.heldInputState('session-a'), null);
 });
 
@@ -438,8 +448,8 @@ test('a selected button held across surface hide is released through CDP exactly
 
   assert.equal(cleanup.released, true);
   assert.equal(lateUp.releasedByCleanup, true);
-  assert.deepEqual(nativeEvents, [{ type: 'mouseDown', x: 120, y: 140, button: 'left', clickCount: 1 }]);
-  assert.deepEqual(cdpEvents.map((entry) => entry.params.type), ['mouseReleased']);
+  assert.deepEqual(nativeEvents, []);
+  assert.deepEqual(cdpEvents.map((entry) => entry.params.type), ['mousePressed', 'mouseReleased']);
   assert.ok(cdpEvents.every((entry) => entry.tabId === tab.id));
 });
 
@@ -484,7 +494,7 @@ test('cleanup joins an ordinary asynchronous CDP mouseUp instead of releasing tw
     resolveRelease();
     const result = await pendingUp;
 
-    assert.equal(result.input, 'cdp-background');
+    assert.equal(result.input, 'cdp');
     assert.deepEqual(cdpEvents.map((entry) => entry.params.type), ['mousePressed', 'mouseReleased'],
       `${cleanupKind} cleanup must leave exactly one committed release`);
     assert.equal(controller.heldInputState('session-a'), null);
@@ -621,9 +631,9 @@ test('a superseded visual release still reports an already committed click', asy
 
   assert.equal(result.input, 'mouse', 'a caller must not retry a click whose down/up edges both committed');
   assert.deepEqual(nativeEvents, [
-    { type: 'mouseMove', x: 140, y: 180 },
-    { type: 'mouseDown', x: 140, y: 180, button: 'left', clickCount: 1 },
-    { type: 'mouseUp', x: 140, y: 180, button: 'left', clickCount: 1 }
+    { type: 'mouseMoved', x: 140, y: 180 },
+    { type: 'mousePressed', x: 140, y: 180, button: 'left', buttons: 1, clickCount: 1 },
+    { type: 'mouseReleased', x: 140, y: 180, button: 'left', buttons: 0, clickCount: 1 }
   ]);
   // Contract change (session 4): a committed click NEVER reports interrupted —
   // that lie made the model re-screenshot and replan after clicks that landed.
@@ -698,7 +708,7 @@ test('cancelling during a drag delay prevents the next stale visual step and dup
   const pending = controller.drag('tab-selected', {
     startX: 10, startY: 10, endX: 300, endY: 300, steps: 2, durationMs: 1_000
   }, 'session-a');
-  await waitForTest(() => nativeEvents.some((event) => event.type === 'mouseMove' && event.x === 155));
+  await waitForTest(() => nativeEvents.some((event) => event.type === 'mouseMoved' && event.x === 155));
   const cancelledAt = Date.now();
   controller.releaseSessionInput('session-a');
   const result = await pending;
@@ -706,8 +716,8 @@ test('cancelling during a drag delay prevents the next stale visual step and dup
   assert.equal(result.input, 'interrupted');
   assert.ok(Date.now() - cancelledAt < 150, 'drag delay must wake promptly when its operation is cancelled');
   assert.equal(pointerMoves.some((point) => point.x === 300 && point.y === 300), false, 'cancelled drag must not issue its next stale visual target');
-  assert.equal(nativeEvents.filter((event) => event.type === 'mouseUp').length, 1, 'session cleanup owns the only release edge');
-  assert.deepEqual(nativeEvents.find((event) => event.type === 'mouseUp'), { type: 'mouseUp', x: 0, y: 0, button: 'left', clickCount: 1 });
+  assert.equal(nativeEvents.filter((event) => event.type === 'mouseReleased').length, 1, 'session cleanup owns the only release edge');
+  assert.deepEqual(nativeEvents.find((event) => event.type === 'mouseReleased'), { type: 'mouseReleased', x: 0, y: 0, button: 'left', buttons: 0, clickCount: 1 });
 });
 
 test('a newer pointer action during a drag delay remains the last visual target', async () => {
@@ -726,11 +736,11 @@ test('a newer pointer action during a drag delay remains the last visual target'
   const drag = controller.drag('tab-selected', {
     startX: 10, startY: 10, endX: 300, endY: 300, steps: 2, durationMs: 1_000
   }, 'session-a');
-  await waitForTest(() => nativeEvents.some((event) => event.type === 'mouseMove' && event.x === 155));
+  await waitForTest(() => nativeEvents.some((event) => event.type === 'mouseMoved' && event.x === 155));
   const winningMove = await controller.mouseMove('tab-selected', { x: 500, y: 100 }, { sessionId: 'session-b' });
   const dragResult = await drag;
 
-  assert.equal(winningMove.input, 'electron-native');
+  assert.equal(winningMove.input, 'cdp');
   assert.equal(dragResult.input, 'interrupted');
   assert.deepEqual(pointerMoves.at(-1), { x: 500, y: 100 }, 'the paused drag must never reclaim the pointer after a newer action');
   assert.equal(pointerMoves.some((point) => point.x === 300 && point.y === 300), false);
@@ -759,8 +769,8 @@ test('a superseded move cannot dispatch its stale final native position', async 
   const [staleResult, winningResult] = await Promise.all([stale, winning]);
 
   assert.equal(staleResult.input, 'interrupted');
-  assert.equal(winningResult.input, 'electron-native');
-  assert.deepEqual(nativeEvents, [{ type: 'mouseMove', x: 460, y: 90 }]);
+  assert.equal(winningResult.input, 'cdp');
+  assert.deepEqual(nativeEvents, [{ type: 'mouseMoved', x: 460, y: 90 }]);
 });
 
 test('release remains an edge event when its visual movement is superseded', async () => {
@@ -776,7 +786,7 @@ test('release remains an edge event when its visual movement is superseded', asy
   await controller.mouseUp('tab-selected', { x: 10, y: 20 }, 'session-a');
 
   assert.deepEqual(pointerCalls, [['release', 'tab-selected', { x: 320, y: 240 }, 'left']]);
-  assert.deepEqual(nativeEvents, [{ type: 'mouseUp', x: 320, y: 240, button: 'left', clickCount: 1 }]);
+  assert.deepEqual(nativeEvents, [{ type: 'mouseReleased', x: 320, y: 240, button: 'left', buttons: 0, clickCount: 1 }]);
   assert.equal(controller.heldInputState('session-a'), null);
 });
 
@@ -810,7 +820,7 @@ test('a pointer renderer failure during release cannot suppress native mouseUp',
 
   const result = await controller.mouseUp('tab-selected', { x: 180, y: 190 }, 'session-a');
 
-  assert.equal(result.input, 'electron-native');
-  assert.deepEqual(nativeEvents, [{ type: 'mouseUp', x: 180, y: 190, button: 'left', clickCount: 1 }]);
+  assert.equal(result.input, 'cdp');
+  assert.deepEqual(nativeEvents, [{ type: 'mouseReleased', x: 180, y: 190, button: 'left', buttons: 0, clickCount: 1 }]);
   assert.equal(controller.heldInputState('session-a'), null);
 });
