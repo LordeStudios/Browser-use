@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Drag Relay — 6 drags + 6 clicks, 20 seconds</title>
+<style>
+  :root {
+    --bg: #0a1018;
+    --panel: #111a27;
+    --line: #223146;
+    --text: #e7eefb;
+    --muted: #92a3b9;
+    --accent: #7ad7ff;
+    --good: #43e08a;
+    --bad: #ff6a6a;
+    --idle: #7387a0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--text);
+    background: radial-gradient(1100px 560px at 50% -12%, #16263c 0%, var(--bg) 62%);
+    font: 14px/1.45 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+    display: flex; justify-content: center; padding: 24px 18px 36px;
+  }
+  main { width: min(1000px, 100%); }
+  h1 { margin: 0 0 4px; font-size: 20px; }
+  .sub { margin: 0 0 16px; color: var(--muted); font-size: 12.5px; }
+  .hud { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .stat { flex: 1 1 140px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 9px 13px; }
+  .stat b { display: block; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .stat span { font-size: 19px; font-variant-numeric: tabular-nums; }
+  #state[data-state="ready"] { color: var(--idle); }
+  #state[data-state="running"] { color: var(--accent); }
+  #state[data-state="pass"] { color: var(--good); }
+  #state[data-state="fail"] { color: var(--bad); }
+  #gap[data-warn="true"] { color: var(--bad); }
+  #gap[data-warn="false"] { color: var(--good); }
+  .field {
+    position: relative; height: 300px; margin-bottom: 14px;
+    background: #0d1622; border: 1px solid var(--line); border-radius: 14px;
+  }
+  .token {
+    position: absolute; width: 74px; height: 74px; border-radius: 50%;
+    border: 2px solid #3f6ea8; background: #14243a; color: var(--text);
+    font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums;
+    display: grid; place-items: center; cursor: grab; user-select: none;
+    transition: box-shadow .12s ease, border-color .12s ease;
+  }
+  .token:hover { border-color: var(--accent); }
+  .token.dragging { cursor: grabbing; box-shadow: 0 12px 30px #000a; z-index: 40; }
+  .token.placed { background: #12281d; border-color: #2f7a52; color: var(--good); cursor: default; }
+  .slots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .slot {
+    position: relative; height: 108px; border: 1px dashed #2c4058; border-radius: 12px;
+    background: #0c1522; display: flex; flex-direction: column; align-items: center;
+    justify-content: flex-end; gap: 8px; padding: 8px;
+  }
+  .slot.filled { border-style: solid; border-color: #2f7a52; background: #0f2018; }
+  .slot.next { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .slot-label { position: absolute; top: 6px; left: 8px; font-size: 11px; color: var(--muted); }
+  .arm {
+    width: 100%; padding: 7px 0; border-radius: 8px; border: 1px solid #2c4058;
+    background: #16233a; color: var(--text); font-weight: 600; cursor: pointer;
+  }
+  .arm:disabled { opacity: .4; cursor: default; }
+  .arm:hover:not(:disabled) { border-color: var(--accent); }
+  .foot { display: flex; gap: 14px; align-items: flex-start; margin-top: 14px; }
+  .log {
+    flex: 1 1 auto; max-height: 150px; overflow: auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #c6d5ea;
+  }
+  .log .ok { color: var(--good); }
+  .log .no { color: var(--bad); }
+  #reset { flex: 0 0 auto; border: 1px solid var(--line); background: #16213a; color: var(--text); border-radius: 10px; padding: 10px 16px; font-weight: 600; cursor: pointer; }
+  #result { margin-top: 10px; font-size: 13px; color: var(--muted); min-height: 18px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Drag Relay</h1>
+  <p class="sub">For each number <b>1 → 6</b>: <b>drag</b> its token into its slot, then <b>click</b> that slot's arm button. The clock starts on your <b>first grab</b> and you have <b>20.00s</b>. Out of order fails. The <b>idle gap</b> meter reports whether you worked continuously or stopped to think.</p>
+
+  <div class="hud">
+    <div class="stat"><b>State</b><span id="state" data-state="ready">READY</span></div>
+    <div class="stat"><b>Pairs</b><span id="progress">0 / 6</span></div>
+    <div class="stat"><b>Time left</b><span id="clock">20.00s</span></div>
+    <div class="stat"><b>Max idle gap</b><span id="gap" data-warn="false">—</span></div>
+    <div class="stat"><b>Next</b><span id="next">1</span></div>
+  </div>
+
+  <div class="field" id="field"></div>
+  <div class="slots" id="slots"></div>
+
+  <div class="foot">
+    <div class="log" id="log" aria-live="polite"></div>
+    <button id="reset" type="button">Reset</button>
+  </div>
+  <div id="result"></div>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const PAIRS = 6;
+  const TIME_LIMIT_MS = 20_000;
+  const THINK_GAP_MS = 1_500;   // a gap this long between actions = a think-pause
+
+  const field = document.getElementById('field');
+  const slotsHost = document.getElementById('slots');
+  const stateEl = document.getElementById('state');
+  const progressEl = document.getElementById('progress');
+  const clockEl = document.getElementById('clock');
+  const gapEl = document.getElementById('gap');
+  const nextEl = document.getElementById('next');
+  const logEl = document.getElementById('log');
+  const resultEl = document.getElementById('result');
+
+  let state = 'ready';          // ready | running | pass | fail
+  let startedAt = 0;
+  let ticker = null;
+  let pairsDone = 0;
+  let nextValue = 1;
+  let lastActionAt = 0;
+  let hasAction = false;
+  let maxGapMs = 0;
+  let drag = null;              // { token, value, dx, dy, originX, originY }
+  const log = [];
+  const placed = new Set();
+  const armed = new Set();
+
+  const fmt = (ms) => `${Math.max(0, ms / 1000).toFixed(2)}s`;
+
+  function setState(next, detail) {
+    state = next;
+    stateEl.dataset.state = next;
+    stateEl.textContent = next.toUpperCase();
+    if (detail) resultEl.textContent = detail;
+    document.title = `Drag Relay — ${next.toUpperCase()} ${pairsDone}/${PAIRS}`;
+  }
+
+  function renderGap() {
+    gapEl.textContent = maxGapMs ? fmt(maxGapMs) : '—';
+    gapEl.dataset.warn = String(maxGapMs >= THINK_GAP_MS);
+  }
+
+  function noteAction(kind, value, ok, note = '') {
+    const at = state === 'running' ? Math.round(performance.now() - startedAt) : 0;
+    // A gap needs TWO actions: the first action of a run lands at ~0ms, so
+    // gating on lastActionAt's truthiness silently disabled the meter.
+    if (state === 'running' && hasAction) maxGapMs = Math.max(maxGapMs, at - lastActionAt);
+    if (state === 'running') { lastActionAt = at; hasAction = true; }
+    log.push({ at, kind, value, ok, note });
+    window.__relayLog = log;
+    renderGap();
+    logEl.insertAdjacentHTML('beforeend',
+      `<div class="${ok ? 'ok' : 'no'}">+${String(at).padStart(5, ' ')}ms  ${kind} ${value}${note ? '  ' + note : ''}</div>`);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function startClock() {
+    if (state !== 'ready') return;
+    state = 'running';
+    startedAt = performance.now();
+    ticker = setInterval(() => {
+      const left = TIME_LIMIT_MS - (performance.now() - startedAt);
+      clockEl.textContent = `${fmt(Math.max(0, left))} left`;
+      if (left <= 0) fail(`the 20s window closed with ${PAIRS - pairsDone} pair(s) unfinished.`);
+    }, 40);
+    clockEl.textContent = `${fmt(TIME_LIMIT_MS)} left`;
+    setState('running', 'Clock running — keep working; do not stop to think.');
+  }
+
+  function finish(result, detail) {
+    if (state === 'pass' || state === 'fail') return;
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    const elapsed = startedAt ? Math.round(performance.now() - startedAt) : 0;
+    const verdict = maxGapMs >= THINK_GAP_MS ? `PAUSED TO THINK (${fmt(maxGapMs)} idle)` : 'CONTINUOUS WORK';
+    setState(result, `${result === 'pass' ? 'PASSED' : 'FAILED'} in ${fmt(elapsed)} — ${detail} · max idle gap ${fmt(maxGapMs)} · ${verdict}`);
+    window.__relayResult = { state: result, elapsedMs: elapsed, maxGapMs, verdict, pairsDone, log: [...log] };
+  }
+
+  const fail = (reason) => finish('fail', reason);
+  const pass = () => finish('pass', `all ${PAIRS} pairs in order.`);
+
+  function renderNext() {
+    nextEl.textContent = state === 'pass' || state === 'fail' ? '—' : String(nextValue);
+    progressEl.textContent = `${pairsDone} / ${PAIRS}`;
+    for (const slot of slotsHost.children) {
+      slot.classList.toggle('next', Number(slot.dataset.value) === nextValue && state !== 'pass' && state !== 'fail');
+    }
+  }
+
+  // ── State machine (also the test surface: window.__relay) ────────────────
+  function place(value, slotValue) {
+    if (state === 'pass' || state === 'fail') return { ok: false, reason: 'finished' };
+    if (state === 'ready') startClock();
+    if (placed.has(value)) return { ok: false, reason: 'already placed' };
+    if (value !== nextValue) {
+      noteAction('drop', value, false, `(expected token ${nextValue})`);
+      fail(`token ${value} was dropped before token ${nextValue}.`);
+      return { ok: false, reason: 'out of order' };
+    }
+    if (slotValue !== value) {
+      noteAction('drop', value, false, `(onto slot ${slotValue})`);
+      fail(`token ${value} was dropped onto slot ${slotValue}.`);
+      return { ok: false, reason: 'wrong slot' };
+    }
+    placed.add(value);
+    noteAction('drop', value, true);
+    const slot = slotsHost.querySelector(`[data-value="${value}"]`);
+    if (slot) slot.classList.add('filled');
+    renderNext();
+    return { ok: true };
+  }
+
+  function arm(value) {
+    if (state === 'pass' || state === 'fail') return { ok: false, reason: 'finished' };
+    if (state === 'ready') startClock();
+    if (!placed.has(value)) {
+      noteAction('arm', value, false, '(slot empty)');
+      fail(`arm ${value} was clicked before its token was placed.`);
+      return { ok: false, reason: 'empty slot' };
+    }
+    if (armed.has(value)) return { ok: false, reason: 'already armed' };
+    if (value !== nextValue) {
+      noteAction('arm', value, false, `(expected ${nextValue})`);
+      fail(`arm ${value} was clicked before arm ${nextValue}.`);
+      return { ok: false, reason: 'out of order' };
+    }
+    armed.add(value);
+    noteAction('arm', value, true);
+    pairsDone += 1;
+    nextValue += 1;
+    renderNext();
+    if (pairsDone >= PAIRS) pass();
+    return { ok: true };
+  }
+
+  // ── Drag mechanics (synthetic mouse events: mousedown/mousemove/mouseup) ──
+  function slotAt(x, y) {
+    for (const slot of slotsHost.children) {
+      const rect = slot.getBoundingClientRect();
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return Number(slot.dataset.value);
+    }
+    return null;
+  }
+
+  function onMove(event) {
+    if (!drag) return;
+    drag.token.style.left = `${event.clientX - drag.dx}px`;
+    drag.token.style.top = `${event.clientY - drag.dy}px`;
+  }
+
+  function onUp(event) {
+    if (!drag) return;
+    const current = drag;
+    drag = null;
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    current.token.classList.remove('dragging');
+    const slotValue = slotAt(event.clientX, event.clientY);
+    if (slotValue === null) {
+      // Missed the slots: return the token to its origin (costs time, not a fail).
+      current.token.style.left = `${current.originX}px`;
+      current.token.style.top = `${current.originY}px`;
+      noteAction('drop', current.value, false, '(missed the slots)');
+      return;
+    }
+    const outcome = place(current.value, slotValue);
+    if (outcome.ok) {
+      current.token.classList.add('placed');
+      current.token.style.left = `${current.originX}px`;
+      current.token.style.top = `${current.originY}px`;
+    } else {
+      current.token.style.left = `${current.originX}px`;
+      current.token.style.top = `${current.originY}px`;
+    }
+  }
+
+  function bindToken(token) {
+    token.addEventListener('mousedown', (event) => {
+      if (state === 'pass' || state === 'fail' || placed.has(Number(token.dataset.value))) return;
+      if (state === 'ready') startClock();
+      const rect = token.getBoundingClientRect();
+      drag = {
+        token,
+        value: Number(token.dataset.value),
+        dx: event.clientX - rect.left,
+        dy: event.clientY - rect.top,
+        originX: Number(token.dataset.originX),
+        originY: Number(token.dataset.originY)
+      };
+      token.classList.add('dragging');
+      noteAction('grab', drag.value, true);
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  function build() {
+    const values = Array.from({ length: PAIRS }, (_, i) => i + 1);
+    // Shuffle token POSITIONS and slot ORDER on the page; the required order is
+    // always 1..6 (the labels are the only guide).
+    const spots = [];
+    const width = field.clientWidth || 960;
+    const height = field.clientHeight || 300;
+    for (let i = 0; i < PAIRS; i += 1) {
+      spots.push({
+        x: 20 + Math.round(Math.random() * Math.max(0, width - 74 - 40)),
+        y: 20 + Math.round(Math.random() * Math.max(0, height - 74 - 40))
+      });
+    }
+    for (let i = spots.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [spots[i], spots[j]] = [spots[j], spots[i]];
+    }
+    values.forEach((value, index) => {
+      const token = document.createElement('div');
+      token.className = 'token';
+      token.dataset.value = String(value);
+      token.dataset.originX = String(spots[index].x);
+      token.dataset.originY = String(spots[index].y);
+      token.style.left = `${spots[index].x}px`;
+      token.style.top = `${spots[index].y}px`;
+      token.textContent = String(value);
+      bindToken(token);
+      field.append(token);
+    });
+    const slotOrder = [...values].sort(() => Math.random() - 0.5);
+    for (const value of slotOrder) {
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      slot.dataset.value = String(value);
+      const label = document.createElement('span');
+      label.className = 'slot-label';
+      label.textContent = `slot ${value}`;
+      const armButton = document.createElement('button');
+      armButton.type = 'button';
+      armButton.className = 'arm';
+      armButton.dataset.value = String(value);
+      armButton.textContent = 'arm ✓';
+      armButton.addEventListener('click', () => arm(value));
+      slot.append(label, armButton);
+      slotsHost.append(slot);
+    }
+  }
+
+  function reset() {
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    state = 'ready';
+    startedAt = 0;
+    pairsDone = 0;
+    nextValue = 1;
+    lastActionAt = 0;
+    hasAction = false;
+    maxGapMs = 0;
+    drag = null;
+    log.length = 0;
+    placed.clear();
+    armed.clear();
+    window.__relayLog = log;
+    window.__relayResult = null;
+    field.replaceChildren();
+    slotsHost.replaceChildren();
+    logEl.replaceChildren();
+    resultEl.textContent = '';
+    clockEl.textContent = `${fmt(TIME_LIMIT_MS)}`;
+    gapEl.textContent = '—';
+    build();
+    setState('ready');
+    renderNext();
+  }
+
+  // Test surface: drive the state machine without mouse geometry.
+  window.__relay = {
+    place,
+    arm,
+    reset,
+    snapshot: () => ({ state, pairsDone, nextValue, maxGapMs, log: [...log], result: window.__relayResult || null })
+  };
+
+  document.getElementById('reset').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>
