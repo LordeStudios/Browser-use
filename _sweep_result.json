@@ -24,28 +24,24 @@
   {
     "file": "agent-efficiency",
     "tests": 20,
-    "pass": 16,
-    "fail": 4,
+    "pass": 17,
+    "fail": 3,
     "status": "RED",
     "secs": 2,
     "failed": [
       "fresh AGI uses desktop metadata first; vision=auto",
       "fresh AGI uses desktop metadata first; vision=always",
-      "fresh AGI uses desktop metadata first; vision=off",
-      "Ollama has one computer schema catalog and measures stream plus repair"
+      "fresh AGI uses desktop metadata first; vision=off"
     ]
   },
   {
     "file": "agent-effort",
     "tests": 10,
-    "pass": 5,
-    "fail": 5,
+    "pass": 8,
+    "fail": 2,
     "status": "RED",
     "secs": 1,
     "failed": [
-      "ollama provider maps tiers onto the think flag, decision budget, and p",
-      "ollama auto mode advertises the escalation channel and effortNeeded su",
-      "openai-compatible protocol maps effort onto reasoning_effort and think",
       "auto demotes one rung after two consecutive big-thinking no-action dec",
       "a decision with a real mutation resets the speculation streak"
     ]
@@ -133,7 +129,7 @@
     "pass": 11,
     "fail": 0,
     "status": "GREEN",
-    "secs": 34,
+    "secs": 12,
     "failed": []
   },
   {
@@ -172,7 +168,7 @@
     "pass": 12,
     "fail": 1,
     "status": "RED",
-    "secs": 15,
+    "secs": 10,
     "failed": [
       "browser_* tools work headless through the CLI CDP adapter (navigate/sc"
     ]
@@ -210,7 +206,7 @@
     "pass": 3,
     "fail": 0,
     "status": "GREEN",
-    "secs": 0,
+    "secs": 1,
     "failed": []
   },
   {
@@ -513,8 +509,8 @@
   {
     "file": "native-visual-actions",
     "tests": 26,
-    "pass": 15,
-    "fail": 11,
+    "pass": 16,
+    "fail": 10,
     "status": "RED",
     "secs": 1,
     "failed": [
@@ -526,7 +522,6 @@
       "fresh image remains pending across computer_window after native mutati",
       "first native inspection obtains native pixels rather than browser evid",
       "explicit native screenshot satisfies pending image without redundant r",
-      "ollama structural repair retains native pixels and coordinate metadata",
       "openai does not silently replace rejected native images with empty DOM",
       "ollama does not silently replace rejected native images with empty DOM"
     ]
@@ -762,13 +757,12 @@
   {
     "file": "wire-input-hygiene",
     "tests": 7,
-    "pass": 5,
-    "fail": 2,
+    "pass": 6,
+    "fail": 1,
     "status": "RED",
     "secs": 0,
     "failed": [
-      "real desktop tools still attach the playbook, as its own block with no",
-      "agentMessages from other sessions reach the model on every provider pr"
+      "real desktop tools still attach the playbook, as its own block with no"
     ]
   },
   {

@@ -18,31 +18,6 @@
     ]
   },
   {
-    "file": "agent-efficiency",
-    "kind": "REGRESSED",
-    "fork": "16/20",
-    "base": "17/20",
-    "detail": [
-      "fresh AGI uses desktop metadata first; vision=auto",
-      "fresh AGI uses desktop metadata first; vision=always",
-      "fresh AGI uses desktop metadata first; vision=off",
-      "Ollama has one computer schema catalog and measures stream plus repair"
-    ]
-  },
-  {
-    "file": "agent-effort",
-    "kind": "REGRESSED",
-    "fork": "5/10",
-    "base": "8/10",
-    "detail": [
-      "ollama provider maps tiers onto the think flag, decision budget, and p",
-      "ollama auto mode advertises the escalation channel and effortNeeded su",
-      "openai-compatible protocol maps effort onto reasoning_effort and think",
-      "auto demotes one rung after two consecutive big-thinking no-action dec",
-      "a decision with a real mutation resets the speculation streak"
-    ]
-  },
-  {
     "file": "browser-use-bug-fixes",
     "kind": "REGRESSED",
     "fork": "2/4",
@@ -91,25 +66,6 @@
     ]
   },
   {
-    "file": "native-visual-actions",
-    "kind": "REGRESSED",
-    "fork": "15/26",
-    "base": "16/26",
-    "detail": [
-      "reported cross-action stroke payload remains invalid rather than silen",
-      "separate stroke action refreshes native evidence through the normal ch",
-      "a partially failed native action still requests fresh pixels",
-      "native vision rejection settles unverified without a model retry loop",
-      "fresh image remains pending across computer_observe after native mutat",
-      "fresh image remains pending across computer_window after native mutati",
-      "first native inspection obtains native pixels rather than browser evid",
-      "explicit native screenshot satisfies pending image without redundant r",
-      "ollama structural repair retains native pixels and coordinate metadata",
-      "openai does not silently replace rejected native images with empty DOM",
-      "ollama does not silently replace rejected native images with empty DOM"
-    ]
-  },
-  {
     "file": "plan-and-skill-delivery",
     "kind": "REGRESSED",
     "fork": "14/17",
@@ -132,13 +88,24 @@
     ]
   },
   {
-    "file": "wire-input-hygiene",
-    "kind": "REGRESSED",
-    "fork": "5/7",
-    "base": "6/7",
+    "file": "agent-efficiency",
+    "kind": "same",
+    "fork": "17/20",
+    "base": "17/20",
     "detail": [
-      "real desktop tools still attach the playbook, as its own block with no",
-      "agentMessages from other sessions reach the model on every provider pr"
+      "fresh AGI uses desktop metadata first; vision=auto",
+      "fresh AGI uses desktop metadata first; vision=always",
+      "fresh AGI uses desktop metadata first; vision=off"
+    ]
+  },
+  {
+    "file": "agent-effort",
+    "kind": "same",
+    "fork": "8/10",
+    "base": "8/10",
+    "detail": [
+      "auto demotes one rung after two consecutive big-thinking no-action dec",
+      "a decision with a real mutation resets the speculation streak"
     ]
   },
   {
@@ -441,6 +408,24 @@
     ]
   },
   {
+    "file": "native-visual-actions",
+    "kind": "same",
+    "fork": "16/26",
+    "base": "16/26",
+    "detail": [
+      "reported cross-action stroke payload remains invalid rather than silen",
+      "separate stroke action refreshes native evidence through the normal ch",
+      "a partially failed native action still requests fresh pixels",
+      "native vision rejection settles unverified without a model retry loop",
+      "fresh image remains pending across computer_observe after native mutat",
+      "fresh image remains pending across computer_window after native mutati",
+      "first native inspection obtains native pixels rather than browser evid",
+      "explicit native screenshot satisfies pending image without redundant r",
+      "openai does not silently replace rejected native images with empty DOM",
+      "ollama does not silently replace rejected native images with empty DOM"
+    ]
+  },
+  {
     "file": "objective-ledger",
     "kind": "same",
     "fork": "11/11",
@@ -592,6 +577,15 @@
     "fork": "5/5",
     "base": "5/5",
     "detail": []
+  },
+  {
+    "file": "wire-input-hygiene",
+    "kind": "same",
+    "fork": "6/7",
+    "base": "6/7",
+    "detail": [
+      "real desktop tools still attach the playbook, as its own block with no"
+    ]
   },
   {
     "file": "workspace-scope-default",

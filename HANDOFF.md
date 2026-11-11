@@ -1,7 +1,7 @@
 # HANDOFF — DSH harness rewrite of the browser-use desktop chat agent
 
 **Status date:** 2026-11-11 (session 2 — the dropped-machinery restoration)
-**HEAD:** `faea5dc` "Harness prompt: restore the lost working directives + the default assembler"
+**HEAD:** `cf21743` "Effort protocol has ONE owner: the provider, not the registry"
 **Working tree:** clean (all changes committed).
 
 ### What session 2 found and fixed
@@ -62,18 +62,26 @@ to `agentInternals.cjs`, which owns that plumbing after the file split.
 | `desktop-thinking-hygiene` | 13/13 | **13/13** | fixed (+4) |
 | `desktop-openai-compatible-provider` | 17/18 | **17/18** | parity |
 
-**Affected-suite sweep** (`node _sweep.cjs .`, 77 suites): baseline **52 green / 25 red,
-669/720 pass** → fork **48 green / 29 red** measured mid-session, with the last three
-commits fixing ~8 more tests since. Re-run the sweep and
-`node _sweep_diff.cjs . <baselineRoot>` for the exact current table.
+**Affected-suite sweep** (`node _sweep.cjs .`, 77 suites, measured at HEAD `cf21743`):
+
+| | suites green | suites red | tests pass |
+|---|---|---|---|
+| **Baseline** (original repo) | 52 | 25 | 669/720 |
+| **Fork** at session 1 handoff | 38 | 39 | — |
+| **Fork** now | **49** | **28** | **662/720** |
+
+Session 2 started at 38 green / 39 red. The remaining gap is 9 regressed suites carrying 15
+tests, listed below. Four suites are now BETTER than the baseline (gen4, gen5,
+mid-run-steering-and-patch-cadence, prompt-compression-safety), and every loop/prompt/
+recovery/effort suite is at parity or better.
 
 **Always compare against the baseline, not against zero** — the checkout has 25 pre-existing
 red suites (native-evidence-lifecycle 0/8, native-visual-actions 16/26, skill-delivery-to-model
 0/2, …).
 
-### Remaining known gaps (fork worse than baseline)
+### Remaining known gaps (fork worse than baseline — 9 suites, 15 tests)
 
-Ordered by test count. Each is a *behavioural* difference, not a lost helper.
+Each is a *behavioural* difference, not a lost helper.
 
 1. **Park/resume integration (2 tests).** `agent-continuity-regressions` #6 and
    `agent-coding-gating` #11 expect a parked run to resume **in-process** before `start()`
@@ -82,9 +90,13 @@ Ordered by test count. Each is a *behavioural* difference, not a lost helper.
    `result: null` / `awaiting_recovery`. Fixing this means reworking how park integrates with
    `start()`'s resolution — it touches the suites that are currently FIXED, so it needs care.
 2. `plan-and-skill-delivery` 14/17 — "one bounce carries one demand" (the multi-ask
-   accounting gate lost its independent counter when folded into the named-gap audit).
-3. `responses-continuity` 5/8, `desktop-package-contract` 11/13, `gen9-notebook` 7/9,
-   `browser-use-bug-fixes` 2/4, `evidence-survives-compaction` 5/6,
+   accounting gate lost its independent counter when folded into the named-gap audit), plus
+   the skill-body delivery path and the partial-accounting rejection.
+3. `responses-continuity` 5/8 — the Responses-protocol route selection and partial-action
+   rejection.
+4. `desktop-package-contract` 11/13 — missing-bound-tab advisory shape + the desktop shell's
+   dark reference controls (renderer wiring).
+5. `gen9-notebook` 7/9, `browser-use-bug-fixes` 2/4, `evidence-survives-compaction` 5/6,
    `large-paste-attachment` 1/2 — one to two tests each; triage with
    `node --test --test-force-exit --test-name-pattern="<name>" tests/<suite>.test.mjs`
    against the baseline copy side by side.
@@ -102,8 +114,10 @@ ANTHROPIC_AUTH_TOKEN="sk-xt-…" node cli/agent-cli.mjs \
   --max-seconds 210 --max-steps 16 --out-dir scratch/dsh-verify/run004
 ```
 
-Result: **completed**, 5 decisions / 6 tool calls, 52 s, correct answer
-("The page title is \"Example Domain\" and it contains 1 link."),
+Result (final commit, run005): **completed**, 3 decisions / 3 tool calls, 22 s, correct
+answer
+("The page at https://example.com has the title \"Example Domain\" and contains
+exactly 1 link, which points to https://iana.org/help/example-domains."),
 `success: true, verified: true`. Wire log: `HTTP 200 https://api.xkiro.com/v1/chat/completions`.
 `final-state.json` → `state` carries the live harness state: `flowControl`
 (`phase:"accept"`, `decisionNumber:5`, `evidenceEpoch:5`, `lowYieldStreak:0`),
