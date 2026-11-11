@@ -2,7 +2,7 @@
 
 const POINTER_COMMAND_CHANNEL = 'browser-use:agent-pointer-command';
 const POINTER_ACK_CHANNEL = 'browser-use:agent-pointer-ack';
-const POINTER_ACK_TIMEOUT_MS = 450;
+const POINTER_ACK_TIMEOUT_MS = 250;
 const POINTER_READY_TIMEOUT_MS = 1_500;
 
 class AgentPointerOverlay {

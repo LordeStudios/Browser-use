@@ -1004,9 +1004,9 @@ test('the overlay never hangs on paint frames and never hides on a single ack ti
   const fs = require('node:fs');
   const path = require('node:path');
   const page = fs.readFileSync(path.join(process.cwd(), 'desktop/renderer/agent-pointer.js'), 'utf8');
-  assert.match(page, /setTimeout\(finish, 180\)/, 'the ack has a bounded rAF fallback');
+  assert.match(page, /setTimeout\(finish, 60\)/, 'the ack has a bounded rAF fallback');
   const overlay = fs.readFileSync(path.join(process.cwd(), 'desktop/pointer/agentPointerOverlay.cjs'), 'utf8');
-  assert.match(overlay, /POINTER_ACK_TIMEOUT_MS = 450/, 'the ack window is short');
+  assert.match(overlay, /POINTER_ACK_TIMEOUT_MS = 250/, 'the ack window is short');
   assert.match(overlay, /this\.ackTimeouts < 3/, 'one timeout is a strike, not a hide');
   assert.match(overlay, /this\.ackTimeouts = 0;\r?\n    clearTimeout\(pending\.timer\)/, 'a good ack resets the strikes');
 });

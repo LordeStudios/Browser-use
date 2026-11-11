@@ -2409,19 +2409,37 @@ test('an element index beats guessed coordinates: the DOM rect is exact', async 
   assert.equal(coordinate, undefined, 'the guessed coordinates never override the element');
 });
 
-test('a dead visualizer is cut off after two strikes instead of taxing every click', async () => {
+test('the visualizer is never skipped: strikes are telemetry, speed comes from short animations', async () => {
+  // Owner directive: every click is visualized — the cursor animation is the
+  // product's transparency guarantee, so it is non-negotiable. Slow clicks are
+  // fixed by speeding the animation up and bounding the ack, never by hiding it.
   const { BrowserViewController } = require('../desktop/mcp/browserViewController.cjs');
   const tab = { id: 'tab-1', webContents: { isDestroyed: () => false, debugger: { isAttached: () => false, attach: () => {}, detach: () => {}, sendCommand: async () => ({}) } } };
   const controller = new BrowserViewController({
     getTabs: () => [tab], getSelectedTabId: () => 'tab-1', getConsoleEntries: () => [], normalizeUrl: (value) => value,
-    // A visualizer whose moves never complete (the live overlay never acks).
     pointerVisualizer: { move: () => new Promise(() => {}) }
   });
-  assert.equal(controller.visualizerUsable('tab-1'), true);
-  controller.noteVisualizerStrike('tab-1');
-  assert.equal(controller.visualizerUsable('tab-1'), true, 'one strike is a glitch');
-  controller.noteVisualizerStrike('tab-1');
-  assert.equal(controller.visualizerUsable('tab-1'), false, 'two strikes cut the visual stages off');
+  for (let i = 0; i < 6; i += 1) controller.noteVisualizerStrike('tab-1');
+  assert.equal(controller.visualizerUsable('tab-1'), true, 'strikes never disable the visualizer');
+
+  // Fast but present: the animation constants are short, and the ack cannot hang.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const page = fs.readFileSync(path.join(process.cwd(), 'desktop/renderer/agent-pointer.js'), 'utf8');
+  assert.match(page, /MOVE_MIN_MS = 40/);
+  assert.match(page, /MOVE_MAX_MS = 90/);
+  assert.match(page, /CLICK_MS = 70/);
+  assert.match(page, /setTimeout\(finish, 60\)/);
+});
+
+test('one decision can carry a full ordered click sequence (batch cap >= 40)', async () => {
+  // The 6s game is unwinnable while a decision caps actions at 12: 40 clicks
+  // would need four round trips. The cap must fit a whole sequence.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const internals = fs.readFileSync(path.join(process.cwd(), 'desktop/agent/agentInternals.cjs'), 'utf8');
+  assert.match(internals, /maxActionsPerStep: 48/, 'the default allows a full 40-field sequence');
+  assert.match(internals, /clamp\(safeSettings\.maxActionsPerStep, 1, 64\)/, 'the ceiling is 64');
 });
 
 test('a run pins its bound tab for the run duration and releases it at teardown', async () => {

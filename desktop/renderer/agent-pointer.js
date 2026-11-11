@@ -5,15 +5,15 @@ const host = window.browserUseAgentPointer;
 
 const TIP_X = 2.25;
 const TIP_Y = 2.1;
-const MOVE_MIN_MS = 140;
-const MOVE_MAX_MS = 360;
+const MOVE_MIN_MS = 40;
+const MOVE_MAX_MS = 90;
 const MOVE_DISTANCE_FACTOR = 0.35;
 // Keep the agent pointer available long enough to inspect the last action.
 // Activity still makes it appear immediately and the fade itself remains rapid.
 const IDLE_DELAY_MS = 60_000;
-const FADE_MS = 110;
-const CLICK_MS = 360;
-const CONTACT_MS = 430;
+const FADE_MS = 70;
+const CLICK_MS = 70;
+const CONTACT_MS = 80;
 const POINTER_RIGHT_MARGIN = 24;
 const POINTER_BOTTOM_MARGIN = 28;
 
@@ -114,7 +114,7 @@ function acknowledgeAfterPaint(sequence, status, frameCount, beforeAcknowledge =
     pointer.dataset.paintConfirmedAt = String(Date.now());
     host.acknowledge({ sequence, status });
   };
-  const fallbackTimer = setTimeout(finish, 180);
+  const fallbackTimer = setTimeout(finish, 60);
   const waitForFrame = () => {
     requestAnimationFrame(() => {
       if (settled || paintToken !== state.paintToken) return;

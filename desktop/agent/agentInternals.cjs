@@ -397,7 +397,7 @@ const FAST_PATH_ACTIONS = new Set([
   'skill_search'
 ]);
 const DEFAULT_SETTINGS = Object.freeze({
-  maxActionsPerStep: 12,
+  maxActionsPerStep: 48,
   stepTimeoutMs: 90_000,
   // F6 (gen5) decision watchdog: dead-air window per model call before one
   // bounded retry runs; a second hang parks the run (never terminates).
@@ -2967,7 +2967,7 @@ function normalizeSettings(settings) {
     ...safeSettings,
     layaBrain,
     layaEnabled: layaBrain === 'laya',
-    maxActionsPerStep: clamp(safeSettings.maxActionsPerStep, 1, 16),
+    maxActionsPerStep: clamp(safeSettings.maxActionsPerStep, 1, 64),
     contextWindowTokens: clamp(settings.contextWindowTokens ?? 131_072, 16_384, 1_048_576),
     stepTimeoutMs: clamp(settings.stepTimeoutMs, 5_000, 180_000),
     decisionWatchdogMs: clamp(Number(settings.decisionWatchdogMs) || 120_000, 50, 600_000),

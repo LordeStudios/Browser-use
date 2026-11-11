@@ -451,7 +451,7 @@ class BrowserViewController {
         this.assertPointerAllowed(tabId, 'browser_click');
         if (!this.inputOperationCurrent(operation)) return { tabId, x, y, input: 'interrupted', button: normalizedButton, pointer: { interrupted: true, reason: 'input-operation-cancelled' } };
         this.lastPointer.set(tabId, { x, y });
-        const native = await this.clickViaNative(tabId, { x, y, button: normalizedButton });
+        const native = await this.clickViaNative(tabId, { x, y, button: normalizedButton, sessionId, operation });
         return {
           tabId, x, y, input: 'mouse', button: normalizedButton,
           ...(repeatPoint ? { repeatPoint: true } : {}),
@@ -504,14 +504,27 @@ class BrowserViewController {
   // dead channel on every click costs a full CDP dispatch plus a probe plus the
   // retry (~300ms) and makes real-time sequences impossible. The channel is
   // learned once per tab and reused.
-  async clickViaNative(tabId, { x, y, button }) {
+  async clickViaNative(tabId, { x, y, button, sessionId = null, operation = null }) {
     const webContents = this.requireTab(tabId)?.webContents;
     if (!webContents || typeof webContents.sendInputEvent !== 'function' || webContents.isDestroyed?.()) return null;
+    // Visualize the native click exactly like the CDP one (fast, non-blocking):
+    // the cursor animation is the product's transparency guarantee.
+    if (this.visualizerUsable(tabId)) {
+      try {
+        this.pointerVisualizer?.move?.(tabId, { x, y }, { waitForArrival: false, operationId: operation?.pointerAction });
+        this.pointerVisualizer?.press?.(tabId, { x, y }, button, { operationId: operation?.pointerAction });
+      } catch { /* the visual never blocks the input */ }
+    }
     webContents.sendInputEvent({ type: 'mouseMove', x, y });
     await new Promise((resolve) => setTimeout(resolve, 8));
     webContents.sendInputEvent({ type: 'mouseDown', x, y, button, clickCount: 1 });
     await new Promise((resolve) => setTimeout(resolve, 8));
     webContents.sendInputEvent({ type: 'mouseUp', x, y, button, clickCount: 1 });
+    if (this.visualizerUsable(tabId)) {
+      try {
+        this.pointerVisualizer?.release?.(tabId, { x, y }, button, { operationId: operation?.pointerAction });
+      } catch { /* the visual never blocks the input */ }
+    }
     const dispatchedAt = Date.now();
     const probed = await this.hitTest(tabId, { x, y }).catch(() => null);
     const delivered = Array.isArray(probed?.pageClicks) && probed.pageClicks.some((entry) => Number(entry?.at) >= dispatchedAt - 80
@@ -1435,8 +1448,11 @@ class BrowserViewController {
   // visual stages skipped entirely (the cursor is decoration; waiting on it
   // cost ~2 timeouts per click — the click-order run's 1.2s/click).
   visualizerUsable(tabId) {
+    // The visualizer is NON-NEGOTIABLE (owner directive): every click is
+    // visualized. Speed comes from short animations and bounded acks, never
+    // from skipping the visual — a disconnected cursor fails the app's
+    // transparency mission. Strikes are telemetry only.
     if (!this.pointerVisualizer) return false;
-    if (this.visualizerBroken.has(String(tabId))) return false;
     return this.getSelectedTabId() === tabId && this.isTabPaintable?.(tabId) !== false;
   }
 
