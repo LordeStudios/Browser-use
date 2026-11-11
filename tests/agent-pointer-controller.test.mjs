@@ -125,7 +125,12 @@ test('a superseded click cannot reclaim the pointer or press after a newer move'
   assert.deepEqual(nativeEvents, [{ type: 'mouseMove', x: 500, y: 120 }]);
 });
 
-test('a timed-out visual arrival fails closed before native input', async () => {
+test('a timed-out visual arrival still delivers the press through the direct route', async () => {
+  // The cursor animation is DECORATION, not a gate. A timed-out arrival with a
+  // still-current operation must not eat the press: the model computed the
+  // coordinates, so the press goes out through the direct CDP route and the
+  // release pairing keeps the click whole. (A SUPERSEDED operation still fails
+  // closed — see the session-cancellation test below.)
   const pointerCalls = [];
   const pointerVisualizer = {
     move: () => Promise.resolve({ sequence: 3, timedOut: true }),
@@ -135,10 +140,10 @@ test('a timed-out visual arrival fails closed before native input', async () => 
 
   const result = await controller.mouseDown('tab-selected', { x: 200, y: 220 }, 'session-a');
 
-  assert.equal(result.input, 'interrupted');
-  assert.deepEqual(nativeEvents, []);
-  assert.deepEqual(pointerCalls, []);
-  assert.equal(controller.heldInputState('session-a'), null);
+  assert.equal(result.pointer?.deliveryFallback, true, 'the reply names the delivery fallback');
+  assert.deepEqual(nativeEvents, [{ type: 'mouseDown', x: 200, y: 220, button: 'left', clickCount: 1 }], 'the press is delivered directly');
+  assert.deepEqual(pointerCalls, [], 'the visual press is skipped — only the direct route ran');
+  assert.notEqual(controller.heldInputState('session-a'), null, 'the hold is tracked so the release pairs');
 });
 
 test('session cancellation during visual travel prevents a late held press', async () => {

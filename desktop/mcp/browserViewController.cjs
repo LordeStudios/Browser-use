@@ -591,10 +591,17 @@ class BrowserViewController {
       return afterMaybePromise(visual, (visualResult) => {
         // A newer movement owns both the visual pointer and the final native
         // mouseMoved event. An interrupted older target must never reappear later.
-        if (!this.inputOperationCurrent(activeOperation) || pointerCannotProceed(visualResult, {
+        if (!this.inputOperationCurrent(activeOperation)) return { tabId, input: 'interrupted', pointer: visualResult };
+        if (pointerCannotProceed(visualResult, {
           required: visualRequired,
           waitForArrival: waitForPointer
-        })) return { tabId, input: 'interrupted', pointer: visualResult };
+        })) {
+          // The cursor visual is decoration: deliver the hover position even
+          // when its acknowledgement is lost.
+          this.lastPointer.set(tabId, { x, y });
+          const outcome = this.dispatchInput(tabId, prepared.tab.webContents, { type: 'mouseMoved', x, y }, 'mouse', prepared.forceBackground);
+          return addPointerOutcome(outcome, { ...safePointerProjection(visualResult), deliveryFallback: true });
+        }
         this.lastPointer.set(tabId, { x, y });
         const outcome = this.dispatchInput(tabId, prepared.tab.webContents, { type: 'mouseMoved', x, y }, 'mouse', prepared.forceBackground);
         return addPointerOutcome(outcome, visualResult);
@@ -636,15 +643,37 @@ class BrowserViewController {
       const visualRequired = Boolean(this.pointerVisualizer) && this.getSelectedTabId() === tabId && this.isTabPaintable?.(tabId) !== false;
       const visual = this.pointerVisualizer?.move?.(tabId, { x, y }, { waitForArrival: true, operationId: operation.pointerAction });
       return afterMaybePromise(visual, (visualResult) => {
-        if (!this.inputOperationCurrent(operation) || pointerCannotProceed(visualResult, { required: visualRequired, waitForArrival: true })) {
+        if (!this.inputOperationCurrent(operation)) {
           return { tabId, input: 'interrupted', pointer: visualResult };
+        }
+        if (pointerCannotProceed(visualResult, { required: visualRequired, waitForArrival: true })) {
+          // The visual pointer is DECORATION. A cancelled, timed-out or
+          // unacknowledged cursor move must never eat the press: deliver it
+          // through the direct CDP route and report the fallback, so a canvas
+          // sequence (select piece, then destination) is never reduced to a
+          // stray mouseup.
+          this.lastPointer.set(tabId, { x, y });
+          this.clearReleasedButtonTombstone(owner, tabId, normalizedButton);
+          this.trackHeld(sessionId, tabId, 'buttons', normalizedButton, { route: 'cdp' });
+          const outcome = this.dispatchInput(tabId, prepared.tab.webContents, { type: 'mousePressed', x, y, button: normalizedButton, buttons: mouseButtonMask(normalizedButton), clickCount: 1 }, 'mouse', prepared.forceBackground);
+          return addPointerOutcome(outcome, { ...safePointerProjection(visualResult), deliveryFallback: true });
         }
         this.lastPointer.set(tabId, { x, y });
         const pressVisual = this.pointerVisualizer?.press?.(tabId, { x, y }, normalizedButton, { operationId: operation.pointerAction });
         return afterMaybePromise(pressVisual, (pressResult) => {
-          if (!this.inputOperationCurrent(operation) || pointerCannotProceed(pressResult, { required: visualRequired, waitForArrival: true })) {
+          if (!this.inputOperationCurrent(operation)) {
             if (pressResult?.sequence) this.pointerVisualizer?.cancelPress?.(tabId, pressResult.sequence);
             return { tabId, input: 'interrupted', pointer: pressResult || visualResult };
+          }
+          if (pointerCannotProceed(pressResult, { required: visualRequired, waitForArrival: true })) {
+            // Same contract: the press must land even when its visual
+            // acknowledgement is lost. The release pairing below dispatches
+            // through the same direct route, so the page still sees a click.
+            if (pressResult?.sequence) this.pointerVisualizer?.cancelPress?.(tabId, pressResult.sequence);
+            this.clearReleasedButtonTombstone(owner, tabId, normalizedButton);
+            this.trackHeld(sessionId, tabId, 'buttons', normalizedButton, { route: 'cdp' });
+            const outcome = this.dispatchInput(tabId, prepared.tab.webContents, { type: 'mousePressed', x, y, button: normalizedButton, buttons: mouseButtonMask(normalizedButton), clickCount: 1 }, 'mouse', prepared.forceBackground);
+            return addPointerOutcome(outcome, { ...safePointerProjection(pressResult || visualResult), deliveryFallback: true });
           }
           this.clearReleasedButtonTombstone(owner, tabId, normalizedButton);
           this.trackHeld(sessionId, tabId, 'buttons', normalizedButton, {
@@ -871,10 +900,15 @@ class BrowserViewController {
       const origin = this.wheelOrigin(tabId, before, { x, y });
       const visualRequired = Boolean(this.pointerVisualizer) && this.getSelectedTabId() === tabId && this.isTabPaintable?.(tabId) !== false;
       const pointer = await this.pointerVisualizer?.move?.(tabId, origin, { waitForArrival: true, operationId: operation.pointerAction });
-      if (!this.inputOperationCurrent(operation) || pointerCannotProceed(pointer, {
+      if (!this.inputOperationCurrent(operation)) return { tabId, deltaX, deltaY, input: 'interrupted', origin, pointer };
+      if (pointerCannotProceed(pointer, {
         required: visualRequired,
         waitForArrival: true
-      })) return { tabId, deltaX, deltaY, input: 'interrupted', origin, pointer };
+      })) {
+        // The wheel must scroll even when the cursor visual cannot proceed.
+        await this.dispatchCdp(tabId, 'background wheel input', 'Input.dispatchMouseEvent', { type: 'mouseWheel', ...origin, deltaX, deltaY });
+        return { tabId, deltaX, deltaY, origin, pointer: { ...safePointerProjection(pointer), deliveryFallback: true } };
+      }
       this.lastPointer.set(tabId, origin);
       this.pointerVisualizer?.activity?.(tabId, origin, { operationId: operation.pointerAction });
       await this.dispatchCdp(tabId, 'background wheel input', 'Input.dispatchMouseEvent', { type: 'mouseWheel', ...origin, deltaX, deltaY });
