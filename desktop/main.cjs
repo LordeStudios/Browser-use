@@ -4985,7 +4985,12 @@ app.whenReady().then(async () => {
         const snapshot = instance?.state?.();
         if (live.includes(snapshot?.status)) return safeIpcValue(await instance.cancel(snapshot.id), { status: 'cancelled' });
       }
-      throw error;
+      // Stop on a run that already finished (or was never started) is a
+      // NO-OP, not an error: the renderer keeps its own id and may ask again
+      // after the run settled. Throwing here surfaced as
+      // "Error occurred in handler for 'browser-use:agent-cancel': Unknown AI
+      // chat run." on every late Stop click.
+      return { status: 'idle', cancelled: false, note: 'No live run to cancel.' };
     }
   });
   ipcMain.handle('browser-use:agent-retire', async (_event, conversationId) => {

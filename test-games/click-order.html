@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Click Order Test — 40 fields, 6 seconds</title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --panel: #111a2b;
+    --line: #22304a;
+    --text: #e6eefc;
+    --muted: #93a4bd;
+    --accent: #c8ff00;
+    --good: #3ddc84;
+    --bad: #ff5d5d;
+    --idle: #6b7c96;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(1200px 600px at 50% -10%, #16233a 0%, var(--bg) 60%);
+    color: var(--text);
+    font: 14px/1.45 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 28px 18px 40px;
+  }
+  main { width: min(980px, 100%); }
+  h1 { margin: 0 0 6px; font-size: 20px; letter-spacing: .2px; }
+  .sub { margin: 0 0 18px; color: var(--muted); font-size: 12.5px; }
+  .hud {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch;
+    margin-bottom: 16px;
+  }
+  .stat {
+    flex: 1 1 150px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 14px;
+  }
+  .stat b { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .stat span { font-size: 20px; font-variant-numeric: tabular-nums; }
+  #state[data-state="ready"] { color: var(--idle); }
+  #state[data-state="running"] { color: var(--accent); }
+  #state[data-state="pass"] { color: var(--good); }
+  #state[data-state="fail"] { color: var(--bad); }
+  .bar { height: 6px; border-radius: 999px; background: #1b2740; overflow: hidden; margin: 0 0 16px; }
+  .bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #6aa9ff, var(--accent)); transition: width .08s linear; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+  }
+  .field {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: #0f1728;
+    color: var(--text);
+    border-radius: 10px;
+    padding: 12px 0;
+    font-size: 17px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: transform .06s ease, background .12s ease, border-color .12s ease;
+  }
+  .field:hover { border-color: #3b527a; background: #131f36; }
+  .field:active { transform: scale(.97); }
+  .field.done { background: #12261c; border-color: #2f6b4a; color: var(--good); cursor: default; }
+  .field.wrong { background: #2a1214; border-color: #7a2c2c; color: var(--bad); }
+  .field.next { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .foot { display: flex; gap: 14px; align-items: flex-start; margin-top: 18px; }
+  .log {
+    flex: 1 1 auto;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    max-height: 190px;
+    overflow: auto;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: #c8d6ea;
+  }
+  .log div { white-space: nowrap; }
+  .log .ok { color: var(--good); }
+  .log .no { color: var(--bad); }
+  #reset {
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    background: #16213a;
+    color: var(--text);
+    border-radius: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  #reset:hover { border-color: #3b527a; }
+  #result { margin-top: 10px; font-size: 13px; color: var(--muted); min-height: 18px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Click Order Test</h1>
+  <p class="sub">Click the numbered fields in <b>ascending order</b>. The timer starts on your <b>first click</b> and you have <b>6.00s</b> to finish all 40. One wrong field — or one second late — fails the run.</p>
+
+  <div class="hud">
+    <div class="stat"><b>State</b><span id="state" data-state="ready">READY</span></div>
+    <div class="stat"><b>Progress</b><span id="progress">0 / 40</span></div>
+    <div class="stat"><b>Time left</b><span id="clock">6.00s</span></div>
+    <div class="stat"><b>Next</b><span id="next">—</span></div>
+  </div>
+  <div class="bar"><i id="fill"></i></div>
+
+  <div class="grid" id="grid" role="group" aria-label="numbered fields"></div>
+
+  <div class="foot">
+    <div class="log" id="log" aria-live="polite"></div>
+    <button id="reset" type="button">Reset</button>
+  </div>
+  <div id="result"></div>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const FIELD_COUNT = 40;
+  const MAX_NUMBER = 200;
+  const TIME_LIMIT_MS = 6_000;
+
+  const grid = document.getElementById('grid');
+  const stateEl = document.getElementById('state');
+  const progressEl = document.getElementById('progress');
+  const clockEl = document.getElementById('clock');
+  const nextEl = document.getElementById('next');
+  const fillEl = document.getElementById('fill');
+  const logEl = document.getElementById('log');
+  const resultEl = document.getElementById('result');
+
+  // Deterministic-enough random set: 40 UNIQUE values from 1..200, placed in a
+  // shuffled grid so position carries no information.
+  const numbers = [];
+  const pool = Array.from({ length: MAX_NUMBER }, (_, i) => i + 1);
+  for (let i = 0; i < FIELD_COUNT; i += 1) {
+    const pick = Math.floor(Math.random() * pool.length);
+    numbers.push(pool.splice(pick, 1)[0]);
+  }
+  for (let i = numbers.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
+  }
+  const ascending = [...numbers].sort((a, b) => a - b);
+
+  let state = 'ready';       // ready | running | pass | fail
+  let index = 0;             // how many correct clicks so far
+  let startedAt = 0;         // performance.now() of the first click
+  let ticker = null;
+  const clickLog = [];       // [{at, value, expected, ok}]
+
+  function setState(next, detail) {
+    state = next;
+    stateEl.dataset.state = next;
+    stateEl.textContent = next.toUpperCase();
+    if (detail) resultEl.textContent = detail;
+    // The state line is part of the page text: an agent reading the DOM (or a
+    // click result's text tail) sees the verdict without guessing.
+    document.title = `Click Order Test — ${next.toUpperCase()} ${index}/${FIELD_COUNT}`;
+  }
+
+  function renderNext() {
+    const target = ascending[index];
+    nextEl.textContent = state === 'running' ? String(target) : (state === 'ready' ? '—' : String(target ?? '—'));
+    nextEl.textContent = state === 'pass' || state === 'fail' ? '—' : String(target ?? '—');
+    progressEl.textContent = `${index} / ${FIELD_COUNT}`;
+    fillEl.style.width = `${(index / FIELD_COUNT) * 100}%`;
+    for (const button of grid.children) {
+      button.classList.toggle('next', state !== 'pass' && state !== 'fail' && Number(button.dataset.value) === ascending[index]);
+    }
+  }
+
+  function clockText(ms) {
+    return `${Math.max(0, ms / 1000).toFixed(2)}s`;
+  }
+
+  function fail(reason, button) {
+    if (state === 'pass' || state === 'fail') return;
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    if (button) button.classList.add('wrong');
+    setState('fail', `FAILED after ${clockText(performance.now() - startedAt)} — ${reason}`);
+    logEl.insertAdjacentHTML('beforeend', `<div class="no">FAIL — ${reason}</div>`);
+    window.__clickOrderResult = { state: 'fail', reason, index, log: [...clickLog] };
+  }
+
+  function win() {
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    const elapsed = performance.now() - startedAt;
+    clockEl.textContent = clockText(TIME_LIMIT_MS - elapsed) + ' left';
+    setState('pass', `PASSED in ${clockText(elapsed)} — all ${FIELD_COUNT} fields in order.`);
+    window.__clickOrderResult = { state: 'pass', elapsedMs: Math.round(elapsed), log: [...clickLog] };
+  }
+
+  function tick() {
+    if (state !== 'running') return;
+    const elapsed = performance.now() - startedAt;
+    const left = TIME_LIMIT_MS - elapsed;
+    clockEl.textContent = `${clockText(Math.max(0, left))} left`;
+    if (left <= 0) fail(`the ${TIME_LIMIT_MS / 1000}s window closed with ${FIELD_COUNT - index} field(s) unclicked.`);
+  }
+
+  function onClick(button) {
+    if (state === 'pass' || state === 'fail') return;
+    const value = Number(button.dataset.value);
+    if (state === 'ready') {
+      state = 'running';
+      startedAt = performance.now();
+      ticker = setInterval(tick, 40);
+      setState('running', 'Timer started — click the remaining fields in ascending order.');
+      clockEl.textContent = `${clockText(TIME_LIMIT_MS)} left`;
+    }
+    const elapsed = performance.now() - startedAt;
+    const expected = ascending[index];
+    const ok = value === expected;
+    clickLog.push({ at: Math.round(elapsed), value, expected, ok });
+    window.__clickLog = clickLog;
+    logEl.insertAdjacentHTML('beforeend',
+      `<div class="${ok ? 'ok' : 'no'}">+${String(Math.round(elapsed)).padStart(4, ' ')}ms  click ${value}  (expected ${expected}) ${ok ? 'OK' : 'WRONG'}</div>`);
+    logEl.scrollTop = logEl.scrollHeight;
+    if (!ok) { fail(`expected ${expected}, got ${value}.`, button); return; }
+    button.classList.add('done');
+    button.disabled = true;
+    index += 1;
+    renderNext();
+    if (index >= FIELD_COUNT) win();
+  }
+
+  function build() {
+    grid.replaceChildren();
+    numbers.forEach((value) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'field';
+      button.dataset.value = String(value);
+      button.textContent = String(value);
+      button.addEventListener('click', () => onClick(button));
+      grid.append(button);
+    });
+  }
+
+  function reset() {
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    state = 'ready';
+    index = 0;
+    startedAt = 0;
+    clickLog.length = 0;
+    window.__clickLog = clickLog;
+    window.__clickOrderResult = null;
+    logEl.replaceChildren();
+    resultEl.textContent = '';
+    clockEl.textContent = `${clockText(TIME_LIMIT_MS)}`;
+    build();
+    setState('ready');
+    renderNext();
+  }
+
+  document.getElementById('reset').addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>
