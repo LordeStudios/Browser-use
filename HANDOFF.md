@@ -1,8 +1,230 @@
-# HANDOFF — DSH harness rewrite of the browser-use desktop chat agent
+# HANDOFF — browser-use desktop chat agent
+
+> **Session 3 handoff (2026-11-11, 08:46–10:36) — READ THIS FIRST.**
+> Session 2's handoff follows below as `SESSION 2 (historical)`.
+> Everything in this top section is newer, overrides the older status line, and
+> describes **uncommitted work in progress**.
+
+**HEAD:** `4033085` "Input delivery must never depend on the pointer animation"
+**Working tree:** **3 modified files, uncommitted** — see §3.
+**App state:** dev instance running (11 `electron.exe`) on lichess training page, with a
+**temporary debug probe handler** (§5) that must be removed before shipping.
+
+## 0. The user's standing mandate (do not re-litigate)
+
+1. **Zero external identity** in the program: no DSH/DeepSeek *harness* names anywhere in
+   code, comments, titles, or prompts. The six remaining "DeepSeek" strings are the LLM
+   **provider option** in the settings UI — a vendor choice, keep them.
+2. **Match the reference harness's discipline, not just its numbers**: prompt ≤ 2,000 chars,
+   identity one sentence, largest block ~434, tools own their guidance (plugins), no wall
+   of prose anywhere. "Not just renaming while keeping all the bloated comments and
+   red-taped policies."
+3. **Never break the MCP bridge**: external agents using browser-use over MCP must keep
+   seeing its tools (`desktop/mcp/localMcpServer.cjs` has its OWN 31-tool list; untouched).
+4. **Find root causes, do not patch symptoms.** The user's exact words: "not patching the
+   errors without resolving the root cause", "the agent is still making the models stupid",
+   "find the remaining issues (mainly remaining differences in loop between deepseek
+   harness)". Same model over MCP through the reference harness gives "premium drive"; the
+   gap is our loop, not the model.
+
+## 1. Commits since session 2 (oldest → newest)
+
+| Commit | What it did |
+|---|---|
+| `f0d430b` | Added a "· DSH" window-title marker to distinguish the fork from the stale installed build — **later removed** (`1f7a6eb`, `68a6698`). Do not re-add. |
+| `f134c9f` | `LOOP_BLOAT_AUDIT.md` + three measurement scripts (`_dsh_inventory.cjs`, `_fork_prompt_breakdown.cjs`, `_wire_breakdown.cjs`). Measured: DSH 1,776 chars of system prose / 10 sections; fork 10,865 / largest 4,466 / identity ~999. |
+| `1f7a6eb` | Cut the prompt to **1,990 chars agi / 1,532 browser** (largest block 456, identity 55 chars, 10 blocks). Moved modeling/drawing playbooks to `computer_pointer`/`computer_stroke` schemas via `attachCreativePlaybooks()` (exported from `desktopChatAgent.cjs`), planning rule into `update_plan`'s schema, condensed the four monster tool descriptions. **Also ran a blind identity-strip pass that corrupted the splash art and mangled `HANDSHAKE_TIMEOUT_MS`** — see §2. Re-pinned 4 suites. |
+| `68a6698` | Restored `desktop/assets/splash-screen.html` byte-identical; fixed `HANAKE_TIMEOUT_MS` → `HANDSHAKE_TIMEOUT_MS`, dangling `"· "` titles, `// : ` comment starts (5 files). |
+| `4033085` | Input-delivery fallback in `browserViewController.cjs` (4 sites) + `browser_click` batch-chain schema guidance + re-pinned one pointer test. See §2. |
+
+## 2. Root causes found (all evidence-backed)
+
+### 2a. IPC "An object could not be cloned" (select-tab / agent-start)
+The codebase sanitizes the **send** path (`safeIpcSend` always projects; its own comment says
+probing was insufficient and "was the source of the remaining cancel errors") but the
+**handle-reply** path returned raw state blobs from 148 handlers; only 7 used
+`safeIpcValue`. Fix installed at the **top of `desktop/main.cjs` (lines ~2–45)**: a
+registry-level `ipcMain.handle` wrapper that clone-probes every reply, logs the exact
+offending field path via `findCloneOffenderPath` (once per path), and falls back to
+`ipcJsonProjection`. It must stay **above all registrations**, including
+`webBridge.installIpcCapture({ ipcMain })` (which adds its own nested wrapper — fine).
+`desktop-package-contract` 11/13 (same 2 pre-existing reds) after this change.
+
+### 2b. Misaligned splash image
+`desktop/assets/splash-screen.html` is one giant base64-embedded PNG inside an SVG. The
+identity-strip pass deleted the letters `DSH` occurring **naturally inside base64**
+(`...8cDSH4JN1q...` → `...8c4JN1q...`), shifting every following byte and breaking base64
+group alignment. Restored byte-identical from
+`C:/Users/london/Desktop/browser-use/browser-use/desktop/assets/splash-screen.html`.
+**Rule: never run a text substitution over opaque data (base64, generated assets).**
+
+### 2c. "The AI clicks once then replans forever" — a stack of causes, none of them the model
+Evidence from the user's logs: every click returned
+`"pointer": {"interrupted": true, "reason": "input-operation-cancelled"}` and (later)
+`"hit": {"hit": null, "reason": "hit-test-unavailable"}`.
+
+1. **The visual pointer overlay gated delivery** (fixed in `4033085`). `mouseDown` skipped
+   `mousePressed` whenever the animated cursor move/press could not proceed (cancelled,
+   timed out, ACK lost) while the paired release still dispatched → page got a stray
+   `mouseup` with no `mousedown`; chessground/canvas drop it. Fix at 4 sites (`mouseDown`
+   move + press, `mouseMove`, wheel scroll): a **superseded** operation still vetoes, but a
+   visual failure with a current op delivers through `prepared.forceBackground` and reports
+   `pointer.deliveryFallback: true`. Re-pinned the test that encoded the old "fail closed"
+   contract; the superseded case keeps its own test and still fails closed.
+2. **Our own layout sync cancelled our own operation** (UNCOMMITTED, see §3). Chain:
+   `prepareNativeInput()` → `ensureTabPaintable()` → `syncBrowserViewVisibility()` →
+   overlay `syncBounds()` size change → `clearPressedInteraction(..., true)` →
+   `onPressedSurfaceInvalidated` → `releaseTabPointerButtons()` →
+   `cancelActivePointerOperations()` → the operation minted moments earlier is dead.
+   Root fix installed: `suppressPointerInvalidation` flag around `ensureTabPaintable`;
+   `releaseTabPointerButtons` skips cancelling during our own preparation. **Not yet
+   verified live.**
+3. **`(0,0)` placeholder clicks** (UNCOMMITTED, §3). Latest user log:
+   `{"element": 6, "x": 0, "y": 0}` → `hasCoordinatePair()` returned true, so the
+   coordinate path won and clicked the **page's top-left corner** (hit: `label.hbg`,
+   rect `{0,0,60,60}`) instead of element 6. That is the "randomly clicking random
+   buttons". Fix: when an element index is present and both coords are 0, treat them as
+   the schema placeholder and use the index.
+4. **The reply lies about committed clicks** (NOT FIXED — P0). `clickAt`'s last return
+   (`browserViewController.cjs:444`) is
+   `pointer: safePointerProjection(released.pointer || pressed.pointer || moved.pointer)`.
+   `mouseUp` always dispatches the release and returns the *visual* move result, which can
+   be `interrupted` even though the click fully landed. The model reads `interrupted: true`,
+   concludes the click failed, takes another screenshot and replans. **This is the
+   re-screenshot/rethink loop the user keeps complaining about.** Fix: when press+release
+   both committed, return a truthful pointer (`committed: true`, at most
+   `visualInterrupted: true` as informational) and never a top-level `interrupted` flag.
+5. **DPR / coordinate-space mismatch** (NOT FIXED — P0). Live probe on lichess:
+   viewport `878×706`, **devicePixelRatio 1.25**, board `cg-board` rect
+   `{x:14, y:64, w:493, h:493}` (ends at y=557). The model read screenshot **image
+   pixels** and sent them as `coordinateSpace: "viewport"`: y≈579/580 clicks land *below*
+   the board; the same square in CSS px is `(229,463) ≈ (286,579)/1.25`. Model tried both
+   variants. Fix in `viewportPoint` (`agentInternals.cjs`): when a `screenshotId` is
+   present (or the screenshot's dimensions differ from the CSS viewport), map image
+   pixels → CSS px using the captured DPR/size instead of trusting the label; reject a
+   stale/empty screenshotId rather than silently assuming 1:1.
+6. **`hit-test-unavailable`** (NOT root-caused). `hitTest` → `evaluatePage` (debugger
+   `Runtime.evaluate`, fallback `executeJavaScript`), 3 s timeout, catch-all → the sentinel.
+   A live probe proved eval WORKS on a fresh tab (`document.title`). So it is situational:
+   the 3 s timeout under load, a debugger lease handoff, or `requireTab` throwing mid-run.
+   Make `hitTest` surface the real error (like §2a's wrapper) before deciding.
+
+### 2d. Single-instance / launch traps
+`main.cjs:4579` uses `requestSingleInstanceLock()`; the app has a **tray**, and
+`window-all-closed` deliberately does NOT quit while the tray exists. Closing the window
+leaves it hidden holding the lock → a relaunch exits in ~1 s with no error. Quit via the
+tray or kill only the fork's processes:
+`Get-CimInstance Win32_Process -Filter "name='electron.exe'" | ? { $_.ExecutablePath -like '*browser-use-dsh-fork*' } | % { Stop-Process -Id $_.ProcessId -Force }`
+(My WorkBuddy host is also `electron.exe` — never blanket-kill.) The agent shell exports
+`ELECTRON_RUN_AS_NODE=1`, which makes `electron.exe` run as plain Node and crash at
+`ipcMain` — always launch with `env -u ELECTRON_RUN_AS_NODE npm run desktop:dev`.
+
+## 3. Uncommitted working tree (3 files — commit or finish first)
+
+| File | Change | Status |
+|---|---|---|
+| `desktop/agent/desktopAgentCoordinator.cjs` | `hasCoordinatePair`: element + `(0,0)` → index path (§2c.3) | syntax OK, **no test written** |
+| `desktop/mcp/browserViewController.cjs` | `suppressPointerInvalidation` in ctor/`prepareNativeInput`/`releaseTabPointerButtons` (§2c.2) | syntax OK, **not verified live**, no test |
+| `desktop/main.cjs` | **TEMPORARY** `browser-use:debug-page-probe` handler at line 5561 (§5) | must be **removed** before shipping |
+
+`git diff --stat`: 44 insertions, 3 deletions across those files. `4033085` is the last
+commit; `LOOP_BLOAT_AUDIT.md` has a "RESULT" section with the measured before/after.
+
+## 4. Loop differences vs the reference harness that are STILL open
+
+The user's "mainly remaining differences in loop" — none of these are done:
+
+- **Completion waterfall**: `reviewCompletion` is one ~300-line function with **13 done-gates**
+  and **8 separate `run.*Bounces` counters**; the reference harness uses an ordered
+  middleware waterfall where the first bail wins and bounds live in one table. Convert to
+  one ordered pass. This is where the "congested broken loop" lives.
+- **Decision/action waterfalls**: **12 inline pre-execute guard stages**
+  (`fillGate` → `constraintTamper` → `presentationTamper` → `repeatGuard` → read-only cap →
+  `riskGate` → `layaVerifier` → `canAttempt` → `prepareAction` → `assertProgress` …) plus
+  inline post-decision blocks (flow assessment, evidence streak, evidence-phase
+  checkpoints). ~8,000 lines across `desktopChatAgent.cjs` / `agentInternals.cjs` /
+  `desktopAgentCoordinator.cjs` vs the reference's ~3,900-line decision runtime.
+- **Per-decision notebook block**: 1,196 chars rides EVERY decision in
+  `providerTurnLedger.cjs` (§4 of the audit). Trim to a pointer.
+- Prompt parity is done (§1); tool-guidance ownership is done for playbooks/planning; the
+  remaining `model_catalog` (831), `browser_done` (711), `browser_click` (~1,031 after the
+  batch-chain clause) descriptions are schema surface but still 2× the reference's largest
+  section — condense if the user insists on the 434 ceiling everywhere.
+
+## 5. Temporary debug probe (REMOVE)
+
+`desktop/main.cjs:5561` `ipcMain.handle('browser-use:debug-page-probe', ...)` accepts
+`{expression}` (runs `browserViewController.evaluatePage`) or `{click:{x,y}}` (runs
+`browserViewController.clickAt`). Call over the loopback bridge:
+
+```bash
+curl -s -X POST http://127.0.0.1:4210/ipc -H 'content-type: application/json' \
+  -d '{"channel":"browser-use:debug-page-probe","args":[{"expression":"document.title"}]}'
+curl -s -X POST http://127.0.0.1:4210/ipc -H 'content-type: application/json' \
+  -d '{"channel":"browser-use:state","args":[]}'
+```
+
+Useful before removing: navigate to `https://lichess.org/training`, read the `cg-board`
+rect, `clickAt` a pawn square, then eval `document.querySelectorAll('piece.selected').length`
+to prove the click actually selects a piece. **The currently running dev instance has this
+handler; any fresh instance will not.**
+
+## 6. Priority list for the next agent
+
+- **P0 — truthful click reply** (`clickAt:444`): committed clicks must never say
+  `interrupted`. Add a test that a delivered press+release reports `committed: true`.
+- **P0 — DPR screenshot mapping** in `viewportPoint`: add a DPR-1.25 test proving a
+  screenshot pixel `(286,579)` maps to CSS `(229,463)` on the board.
+- **P0 — remove the probe handler** from `desktop/main.cjs`.
+- **P1 — verify the suppression fix live** (relaunch, real lichess click, check chessground
+  selection) and add a unit test for `prepareNativeInput` not cancelling a minted op.
+- **P1 — commit the 3 files** with the two fixes + their tests; keep the identity and
+  no-opaque-data rules.
+- **P2 — completion waterfall**, then decision/action waterfalls, then the notebook wire
+  trim. Each re-pins the suites that pin the old structure — re-pin only when the contract
+  intentionally changes, and say why in the commit.
+
+## 7. Verification state (measured, do not claim more)
+
+- `agent-pointer-controller` 28/28 · `desktop-input-release` 13/13 · `computer-patch`
+  34/34 · `prompt-compression-safety` 6/6 · `desktop-thinking-hygiene` 13/13 ·
+  enforcement/flow suites all green (gen2 14, gen3 12, gen4 19, gen5 13, flow 9,
+  streaks 6, verification 6, contradiction 3, stalls 7).
+- Core suite **72/78 — the same 4 pre-existing reds** (tests 12, 17, 37, 64), unchanged
+  through every change in session 3.
+- `desktop-package-contract` 11/13 and `desktop-openai-compatible-provider` 17/18 and
+  `agent-coding-gating` 11/12 — each only its pre-existing red(s).
+- `tests/agent-pointer-overlay-e2e.mjs` fails **identically on the untouched baseline**
+  (display-size bounds assertion) — environmental; use `env -u ELECTRON_RUN_AS_NODE`.
+- Real CLI run (sensenova over xkiro, before the input fix): completed, 3 decisions / 3
+  tool calls / 24 s, correct answer. Wire system prompt 2,349 = 1,990 harness + 359
+  per-request effort protocol.
+- MCP bridge: 31 `browser_*` tools, `git diff desktop/mcp/` empty for the agent-side work.
+- The installed app at `AppData\Local\Programs\browser-use\Browser-use.exe` is a **Nov 7
+  stale packaged build** and shows the old loop by definition. Don't debug against it.
+
+## 8. Traps & lessons
+
+- `desktop/mcp/browserViewController.cjs` is **CRLF** (2,092 lines). Multi-line `\n`
+  anchors silently fail; convert to LF for edits and back, or use EOL-aware scripts. A
+  previous attempt at these same four edits produced cascading syntax errors — verify with
+  `node --check` after EVERY site and revert with `git checkout -- <file>` on any doubt.
+- Never re-pin a test to hide a behaviour regression. Re-pin only when the contract
+  intentionally changed (the "timed-out visual arrival" test was re-pinned because
+  "fail closed" WAS the bug) and keep the superseded-case test intact.
+- The reference harness repo is at `C:/Users/london/Desktop/deepseek/deepseek-harness`;
+  its whole system prose is 1,776 chars across 10 sections, its agent loop uses
+  `dispatch.waterfall` middleware, and per-tool guidance is 1–3 sentences.
+- Rebuild the installed app with `npm run desktop:package` if the user wants the packaged
+  build to show the new loop; the dev instance is `npm run desktop:dev`.
+
+---
+
+## SESSION 2 (historical) — dropped-machinery restoration
 
 **Status date:** 2026-11-11 (session 2 — the dropped-machinery restoration)
-**HEAD:** `cf21743` "Effort protocol has ONE owner: the provider, not the registry"
-**Working tree:** clean (all changes committed).
+**HEAD at that time:** `cf21743` "Effort protocol has ONE owner: the provider, not the registry"
+**Working tree at that time:** clean (all changes committed).
 
 ### What session 2 found and fixed
 
