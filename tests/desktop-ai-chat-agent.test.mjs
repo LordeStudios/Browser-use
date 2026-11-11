@@ -2388,6 +2388,29 @@ test('grounds coordinate actions against the explicitly targeted background tab'
   assert.deepEqual(click[2], { x: 1200, y: 800 });
 });
 
+test('a run pins its bound tab for the run duration and releases it at teardown', async () => {
+  // Without a pin, EVERY CDP command pays an attach -> command -> detach
+  // cycle — four per click, ~100ms each, plus attach-race failures (the
+  // hit-test's bare messageless errors). The pin rides the run lifecycle.
+  const controller = createController();
+  const pins = [];
+  const unpins = [];
+  controller.pinDebugger = (tabId, owner) => { pins.push([String(tabId), String(owner)]); return true; };
+  controller.unpinDebugger = (tabId, owner) => { unpins.push([String(tabId), String(owner)]); return true; };
+  const agent = new DesktopChatAgent({
+    controller, getSelectedTabId: () => 'tab-1', emit: () => {},
+    createProvider: () => createProvider([
+      { toolCalls: [{ name: 'browser_done', input: { summary: 'ok', success: true, verified: true } }] }
+    ])
+  });
+  const run = await agent.start({ task: 'Pin and go', provider: { id: 'mock' } });
+  assert.equal(run.status, 'completed');
+  assert.equal(pins.length, 1, 'the bound tab is pinned once at run start');
+  assert.equal(pins[0][0], 'tab-1');
+  assert.equal(unpins.length, 1, 'the pin is released exactly once at teardown');
+  assert.deepEqual(unpins[0], pins[0]);
+});
+
 test('an element:null beside valid coordinates is absent, not a bounce', async () => {
   // Recovery log 2026-11-11 18:11: five bounced clicks in a row — the model
   // sent `element: null` (the natural JSON "absent") beside the coordinates

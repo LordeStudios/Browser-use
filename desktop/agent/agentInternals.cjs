@@ -1473,6 +1473,26 @@ function isAnalysisOnlyRequest(task) {
   return !/\b(?:fix\w*|build\w*|implement\w*|create\w*|add\w*|write|edit\w*|patch\w*|change\w*|updat\w*|remov\w*|delet\w*|renam\w*|mov\w*|deploy\w*|install\w*|refactor\w*|rewrit\w*|redesign\w*|apply|applied|animat\w*|configure|typ(?:e|ing)|click\w*|fill\w*|navigat\w*)\b/i.test(withoutNegatedChange);
 }
 
+// Debugger pinning follows the run's tab binding: pin the new tab, unpin the
+// old one. Pinning removes the attach -> command -> detach churn from every
+// CDP command (four cycles per click before this) — the latency and the
+// attach-race failures behind the hit-test's bare errors. Best effort: a
+// missing pinDebugger (mock controllers) just keeps the churn behavior.
+function rebindDebuggerPin(controller, run, nextTabId) {
+  try {
+    if (typeof controller?.pinDebugger !== 'function') return;
+    const next = String(nextTabId || '');
+    if (!next) return;
+    for (const pinned of run.pinnedDebuggerTabs || []) {
+      if (String(pinned) !== next) {
+        try { controller.unpinDebugger(pinned, run.id); } catch { /* best effort */ }
+      }
+    }
+    controller.pinDebugger(next, run.id);
+    run.pinnedDebuggerTabs = [next];
+  } catch { /* pinning is a latency optimization; never fail the action */ }
+}
+
 function coerceElementIndex(value) {
   if (value === undefined || value === null) return undefined;
   const parsed = Number(value);
@@ -2169,6 +2189,7 @@ async function executeAction(controller, run, call) {
       }
       if (!selected?.id) return { ok: false, recoverable: true, recoverySource: 'tab_selection', error: 'browser_select_tab returned no selected tab identity. Re-list tabs and retry once.', tabId };
       run.tabId = selected.id;
+      rebindDebuggerPin(controller, run, selected.id);
       run.skipNavigationSettleOnce = true;
       run.latestObservation = null;
       run.loopState = { recentActions: [], unchangedPages: 0, lastFingerprint: null, noProgressActions: 0, consecutiveWaits: 0, lastWaitedMs: 0 };

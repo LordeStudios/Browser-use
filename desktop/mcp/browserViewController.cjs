@@ -829,6 +829,25 @@ class BrowserViewController {
     return withDebugger(webContents, purpose, (debuggerClient) => debuggerClient.sendCommand(method, params));
   }
 
+  // Run-scoped debugger pinning: without a pin, EVERY CDP command pays an
+  // attach -> command -> detach cycle (the lease's finally detaches any
+  // un-pinned tab), ~100ms+ per command and four cycles per click — plus
+  // attach/detach races between queued operations. The agent pins its bound
+  // tab for the run's duration; input, hit tests and snapshots then ride one
+  // stable attach.
+  pinDebugger(tabId, owner) {
+    if (!this.debuggerLeaseManager) return false;
+    try { this.requireTab(tabId); } catch { return false; }
+    this.debuggerLeaseManager.pin(String(tabId), String(owner || 'agent'));
+    return true;
+  }
+
+  unpinDebugger(tabId, owner) {
+    if (!this.debuggerLeaseManager) return false;
+    this.debuggerLeaseManager.unpin(String(tabId), String(owner || 'agent'));
+    return true;
+  }
+
   async currentViewport(tabId, tab = this.requireTab(tabId)) {
     const known = this.lastViewport.get(tabId);
     if (known && known.width > 0 && known.height > 0) return known;
@@ -1394,9 +1413,13 @@ class BrowserViewController {
         this.evaluatePage(tab, 'post-input hit test', expression, 3_000, 'Timed out hit-testing the clicked point.')
       );
     };
-    const describe = (error) => (error instanceof Error
-      ? `${error.name}: ${error.message || `(no message; ${error.constructor?.name || 'Error'} after ${Date.now() - startedAt}ms)`}`
-      : String(error));
+    const describe = (error) => {
+      if (!(error instanceof Error)) return String(error);
+      if (error.message) return `${error.name}: ${error.message.slice(0, 160)}`;
+      // A messageless Error names itself through its first stack frame.
+      const frame = String(error.stack || '').split('\n').slice(1, 2).join(' | ').trim().slice(0, 160);
+      return `${error.name}: (no message; thrown at ${frame || 'unknown frame'}; after ${Date.now() - startedAt}ms)`;
+    };
     try {
       return await attempt();
     } catch (firstError) {

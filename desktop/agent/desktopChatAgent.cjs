@@ -534,6 +534,7 @@ class DesktopChatAgent {
       diagnosticCursor: { console: [], network: [] },
       visualEvidence: null,
       visualLedger: [],
+      pinnedDebuggerTabs: [],
       intermediateMessagePublished: false,
       usage: continuation ? (previous.usage || previous.turnLedger?.usage || { inputTokens: 0, outputTokens: 0, totalTokens: 0, requests: 0 }) : { inputTokens: 0, outputTokens: 0, totalTokens: 0, requests: 0 },
       thoughtCount: Number(previous?.thoughtCount) || 0,
@@ -600,6 +601,12 @@ class DesktopChatAgent {
     run.pendingUserMessages = continuation ? (previous.pendingUserMessages || []) : [];
     run.computerOwner = request.computerOwner || `chat:${run.id}`;
     run.coordinator.metrics.attemptStartedAt = run.attemptStartedAt;
+    // Pin the bound tab's debugger for the run's duration: without a pin, EVERY
+    // CDP command (each mouse event, hit test, snapshot) pays an
+    // attach -> command -> detach cycle — four per click, ~100ms+ each, plus
+    // attach-race failures that surfaced as messageless hit-test errors. The
+    // pin follows tab rebinds (browser_select_tab) and is released at teardown.
+    try { this.controller.pinDebugger?.(run.tabId, run.id); run.pinnedDebuggerTabs = [String(run.tabId)]; } catch { /* latency optimization only */ }
     // A thinking ceiling the USER states in the task ("thinking must use a
     // maximum of 10s") is hard and run-wide (kept functionality).
     const statedBudget = harvestThinkingBudgetFromText(task);
@@ -1639,6 +1646,11 @@ class DesktopChatAgent {
           catch (error) { this.publish('computer.cleanup.error', run, { error: error.message }); }
         }
         const finalTabId = String(run.tabId || '');
+        // Release the run's debugger pins (best effort — a destroyed tab is fine).
+        for (const pinned of run.pinnedDebuggerTabs || []) {
+          try { this.controller.unpinDebugger?.(pinned, run.id); } catch { /* teardown is best effort */ }
+        }
+        run.pinnedDebuggerTabs = [];
         if (typeof run.closeTab === 'function') {
           for (const ownedTabId of run.ownedTabIds || []) {
             if (String(ownedTabId) !== finalTabId) {
