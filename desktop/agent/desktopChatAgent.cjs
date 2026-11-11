@@ -743,7 +743,7 @@ class DesktopChatAgent {
               run.visualEvidence = latestObservation.screenshot;
               if (!Array.isArray(run.visualLedger)
                 || !run.visualLedger.some((item) => item.source === 'auto' && item.revision === (Number(run.coordinator.observationRevision) || 0))) {
-                recordVisualCapture(run, 'auto');
+                recordVisualCapture(run, 'auto', latestObservation.screenshot);
               }
             } else if (run.visualEvidence?.data) latestObservation.screenshot = run.visualEvidence;
             run.latestObservation = latestObservation;
@@ -2431,7 +2431,7 @@ class DesktopChatAgent {
     if (['browser_screenshot', 'computer_screenshot'].includes(call.name) && output.ok && output.result?.data && run.latestObservation) {
       run.visualEvidence = output.result;
       run.latestObservation.screenshot = output.result;
-      recordVisualCapture(run, 'tool');
+      recordVisualCapture(run, 'tool', output.result);
     }
     if (output.ok && actionMutates(call.name, call.input)) {
       run.progressStreak = 0;

@@ -37,6 +37,31 @@ test('mapped screenshot coordinates bypass the CSS-viewport bounds check before 
     /must stay inside the current 878 by 706 viewport/, 'unmapped image pixels stay invalid in viewport space');
 });
 
+test('a click may cite any retained capture id, not only the latest frame', () => {
+  // The staleness trap: auto-observations replace run.visualEvidence with a
+  // new capture id, which used to invalidate the id the model legitimately
+  // received from its own browser_screenshot call — the live chess run bounced
+  // the model's click for exactly that (recovery log 2026-11-11 18:11). The
+  // visual ledger retains each capture's scale, so any held id stays mappable.
+  const supersededRun = {
+    visualEvidence: { screenshotId: 'shot-t-auto-9', scaleX: 2, scaleY: 2 },
+    visualLedger: [
+      { at: 1, source: 'tool', revision: 3, screenshotId: 'shot-t-123', scaleX: 1.25, scaleY: 1.25 },
+      { at: 2, source: 'auto', revision: 9, screenshotId: 'shot-t-auto-9', scaleX: 2, scaleY: 2 }
+    ],
+    latestObservation: { dom: { viewport: { width: 878, height: 706 } } }
+  };
+  const point = viewportPoint(supersededRun, 286, 579, 'browser_click', 't', { screenshotId: 'shot-t-123' });
+  assert.deepEqual(point, { x: 229, y: 463 }, 'the superseded capture id maps through ITS OWN scale');
+  const latest = viewportPoint(supersededRun, 400, 500, 'browser_click', 't', { screenshotId: 'shot-t-auto-9' });
+  assert.deepEqual(latest, { x: 200, y: 250 }, 'the latest capture keeps mapping too');
+  assert.throws(
+    () => viewportPoint(supersededRun, 286, 579, 'browser_click', 't', { screenshotId: 'shot-t-never-taken' }),
+    /require the latest screenshotId/,
+    'an id no retained capture knows is still stale'
+  );
+});
+
 test('a stale screenshotId is rejected instead of being silently read 1:1', () => {
   assert.throws(() => viewportPoint(run, 286, 579, 'browser_click', 't', { screenshotId: 'shot-t-old' }),
     /require the latest screenshotId from browser_screenshot/);

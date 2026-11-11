@@ -161,14 +161,21 @@ function pushHarnessNotice(run, text) {
 // trace positions that support the claim (a capture recorded before the last
 // submit is not post-submit evidence). Bounded; entries never expire (the
 // prose bar "evidence you captured does not expire" applies to the gate too).
-function recordVisualCapture(run, source) {
+function recordVisualCapture(run, source, screenshot = null) {
   if (!run) return;
   if (!Array.isArray(run.visualLedger)) run.visualLedger = [];
   run.visualLedger.push({
     at: Date.now(),
     source: String(source || 'unknown').slice(0, 24),
     revision: Number(run.coordinator?.observationRevision) || 0,
-    historyLength: Array.isArray(run.history) ? run.history.length : 0
+    historyLength: Array.isArray(run.history) ? run.history.length : 0,
+    // The capture's frame identity and image/CSS scale: a model click citing
+    // this id maps through THIS scale even after a later auto-capture
+    // replaced run.visualEvidence (the staleness trap that bounced the
+    // model's own screenshot id on the live chess run).
+    ...(screenshot?.screenshotId ? { screenshotId: String(screenshot.screenshotId) } : {}),
+    ...(Number(screenshot?.scaleX) > 0 ? { scaleX: Number(screenshot.scaleX) } : {}),
+    ...(Number(screenshot?.scaleY) > 0 ? { scaleY: Number(screenshot.scaleY) } : {})
   });
   if (run.visualLedger.length > 64) run.visualLedger.splice(0, run.visualLedger.length - 64);
 }
@@ -3196,12 +3203,22 @@ function viewportPoint(run, xValue, yValue, actionLabel, tabId = null, options =
   const screenshotId = options.screenshotId === undefined || options.screenshotId === null || String(options.screenshotId) === ''
     ? null : String(options.screenshotId);
   if (options.coordinateSpace === 'screenshot' || screenshotId) {
+    // The cited id maps against ANY capture this run still holds: the model's
+    // own browser_screenshot id stays valid after later auto-captures replaced
+    // run.visualEvidence — rejecting it looped the run (six bounced clicks,
+    // live recovery log 2026-11-11 18:11). Only an id no retained capture
+    // knows is stale.
     const shot = run?.visualEvidence;
-    if (!screenshotId || !shot?.screenshotId || shot.screenshotId !== screenshotId) {
+    let capture = shot?.screenshotId && shot.screenshotId === screenshotId ? shot : null;
+    if (!capture && screenshotId && Array.isArray(run?.visualLedger)) {
+      const retained = run.visualLedger.find(entry => entry?.screenshotId === screenshotId && Number(entry?.scaleX) > 0 && Number(entry?.scaleY) > 0);
+      if (retained) capture = { screenshotId, scaleX: retained.scaleX, scaleY: retained.scaleY };
+    }
+    if (!capture) {
       throw new Error(`${actionLabel} screenshot coordinates require the latest screenshotId from browser_screenshot for this run.`);
     }
-    const scaleX = Number(shot.scaleX);
-    const scaleY = Number(shot.scaleY);
+    const scaleX = Number(capture.scaleX);
+    const scaleY = Number(capture.scaleY);
     if (!(scaleX > 0) || !(scaleY > 0)) {
       throw new Error(`${actionLabel} cannot map screenshot coordinates: the capture did not include a CSS-viewport scale. Use CSS-viewport coordinates instead.`);
     }
