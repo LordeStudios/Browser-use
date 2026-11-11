@@ -44,6 +44,7 @@ const { RepeatCallGuard } = require('./harness/guards.cjs');
 const {
   FlowGuard,
   observeEvidenceStreak,
+  observeEvidencePhase,
   observeActionlessStall,
   resetActionlessStall,
   evidenceCallsAllSucceeded,
@@ -1530,9 +1531,16 @@ class DesktopChatAgent {
               calls,
               allSucceeded: evidenceCallsAllSucceeded(calls, run, decisionStartClock)
             });
-            run.readOnlyDecisionStreak = batchHadMutation ? 0 : (Number(run.readOnlyDecisionStreak) || 0) + 1;
             if (evidenceOutcome.notice) {
               appendConversationMessage(run, 'user', evidenceOutcome.notice.text, { source: 'runtime' });
+            }
+            // Evidence-phase checkpoints: a run that keeps reading without
+            // editing is nudged at 3/5/7 and then every 3rd decision. The
+            // nudge is chosen by what the run IS — diagnosis (answer now),
+            // coding (read + patch), or general (advance or answer).
+            const phaseOutcome = observeEvidencePhase(run, { batchHadMutation, calls });
+            if (phaseOutcome.nudge) {
+              appendConversationMessage(run, 'user', phaseOutcome.nudge.text, { source: 'runtime' });
             }
           }
           // DSH PROGRESS ADVISORY (kept: madeProgress, one single source).

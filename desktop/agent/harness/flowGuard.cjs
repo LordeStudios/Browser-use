@@ -259,6 +259,73 @@ function readOnlyCapApplies({ call, mutation, calls = [], mutates = null, streak
   return isCodingTask(taskText, workspace);
 }
 
+// ── evidence-phase checkpoint nudge ─────────────────────────────────────────
+
+// Discrete early checkpoints, then recurring every 3rd decision — a run that
+// keeps reading past 7 must not go unnagged forever. The recurring cadence
+// STOPS at the read-only cap: past it the read-only rejection carries the
+// demand, and another advisory here would just restate it.
+const EVIDENCE_PHASE_CHECKPOINTS = Object.freeze([3, 5, 7]);
+
+// Three variants, chosen by what the run IS:
+//   diagnosis  — the requested outcome is an EXPLANATION. Once the evidence
+//                identifies the cause, more research is not progress: the
+//                answer is the deliverable.
+//   coding     — an AGI run on a coding task: co-emit the smallest relevant
+//                read and the patch on the single most likely cause.
+//   general    — advance or answer; do not re-inspect.
+function evidencePhaseNudge({ streak = 0, taskText = '', controlMode = 'browser', workspace = null, quote = (t) => t } = {}) {
+  const text = String(taskText || '');
+  const diagnosisTask = /\b(?:why|find out|diagnose|diagnosis|explain|investigate|figure out|root cause)\b/i.test(text);
+  if (diagnosisTask) {
+    return [
+      `Evidence-phase check: ${streak} consecutive read-only decisions on a diagnosis task.`,
+      'If the evidence already identifies the cause, ANSWER NOW: return browser_done with the diagnosis and the specific supporting evidence. Do not run more queries to feel thorough.',
+      'Only keep reading when one precise fact is genuinely still missing — state that fact in one sentence and fetch exactly it this decision.',
+      text ? `The question to answer: ${quote(text)}` : ''
+    ].filter(Boolean).join('\n');
+  }
+  if (controlMode === 'agi' && isCodingTask(text, workspace)) {
+    return [
+      `Evidence-phase check: ${streak} consecutive decisions produced NO edit.`,
+      'Decide from the evidence already collected: co-emit computer_read (the smallest relevant section) and computer_patch on the single most likely cause THIS decision — or state the one precise fact still missing and the single command that obtains it.',
+      'Further untargeted git/search/list calls are not acceptable progress.',
+      text ? `The task you must complete: ${quote(text)}` : ''
+    ].filter(Boolean).join('\n');
+  }
+  return [
+    `Evidence-phase check: ${streak} consecutive read-only decisions.`,
+    'Decide from the evidence already collected: perform the next grounded ACTION that advances the goal, or return browser_done with what the evidence supports. Re-inspecting the same surface is not progress.',
+    text ? `The task you must complete: ${quote(text)}` : ''
+  ].filter(Boolean).join('\n');
+}
+
+// observeEvidencePhase(run, { batchHadMutation, calls }) → { streak, nudge }
+//   The streak counts consecutive decisions that issued calls but performed
+//   NO mutation. Any mutation resets it.
+function observeEvidencePhase(run, { batchHadMutation = false, calls = [] } = {}) {
+  if (!run) return { streak: 0, nudge: null };
+  if (batchHadMutation) {
+    run.readOnlyDecisionStreak = 0;
+    return { streak: 0, nudge: null };
+  }
+  if (!calls.length) return { streak: Number(run.readOnlyDecisionStreak) || 0, nudge: null };
+  const streak = (Number(run.readOnlyDecisionStreak) || 0) + 1;
+  run.readOnlyDecisionStreak = streak;
+  const atCheckpoint = EVIDENCE_PHASE_CHECKPOINTS.includes(streak)
+    || (streak > 7 && (streak - 7) % 3 === 0 && streak < READ_ONLY_ENFORCE_STREAK);
+  return {
+    streak,
+    nudge: atCheckpoint
+      ? {
+        id: `guard.evidence-phase.${streak}`,
+        source: EVIDENCE_NOTICE_SOURCE,
+        text: evidencePhaseNudge({ streak, taskText: run.task, controlMode: run.settings?.controlMode, workspace: run.workspace })
+      }
+      : null
+  };
+}
+
 module.exports = {
   FLOW_NOTICE_SOURCE,
   EVIDENCE_NOTICE_SOURCE,
@@ -270,11 +337,14 @@ module.exports = {
   EVIDENCE_FS_READ_ACTIONS,
   ACTIONLESS_STALL_NOTICE_STREAK,
   ACTIONLESS_STALL_PARK_STREAK,
+  EVIDENCE_PHASE_CHECKPOINTS,
   genuineEvidenceCall,
   evidenceCallsAllSucceeded,
   readOnlyEnforcementDemand,
   readOnlyCapApplies,
   observeEvidenceStreak,
+  evidencePhaseNudge,
+  observeEvidencePhase,
   normalizeStallText,
   actionlessStallKey,
   normalizeActionlessStall,

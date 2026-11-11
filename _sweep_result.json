@@ -38,14 +38,11 @@
   {
     "file": "agent-effort",
     "tests": 10,
-    "pass": 5,
-    "fail": 5,
+    "pass": 8,
+    "fail": 2,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
-      "ollama provider maps tiers onto the think flag, decision budget, and p",
-      "ollama auto mode advertises the escalation channel and effortNeeded su",
-      "openai-compatible protocol maps effort onto reasoning_effort and think",
       "auto demotes one rung after two consecutive big-thinking no-action dec",
       "a decision with a real mutation resets the speculation streak"
     ]
@@ -53,13 +50,11 @@
   {
     "file": "agent-orchestration-regressions",
     "tests": 10,
-    "pass": 9,
-    "fail": 1,
-    "status": "RED",
+    "pass": 10,
+    "fail": 0,
+    "status": "GREEN",
     "secs": 0,
-    "failed": [
-      "the coding gate no longer fires on a browser task whose quoted fill va"
-    ]
+    "failed": []
   },
   {
     "file": "agent-recovery-tabs",
@@ -67,7 +62,7 @@
     "pass": 1,
     "fail": 2,
     "status": "RED",
-    "secs": 1,
+    "secs": 0,
     "failed": [
       "observation recovery continues the same run without the generic recove",
       "repeated malformed provider decisions reset internally and preserve co"
@@ -174,7 +169,7 @@
     "pass": 12,
     "fail": 1,
     "status": "RED",
-    "secs": 14,
+    "secs": 12,
     "failed": [
       "browser_* tools work headless through the CLI CDP adapter (navigate/sc"
     ]
@@ -185,7 +180,7 @@
     "pass": 3,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 0,
     "failed": []
   },
   {
@@ -308,7 +303,7 @@
     "pass": 11,
     "fail": 0,
     "status": "GREEN",
-    "secs": 5,
+    "secs": 2,
     "failed": []
   },
   {
@@ -325,12 +320,11 @@
   {
     "file": "desktop-thinking-hygiene",
     "tests": 13,
-    "pass": 10,
-    "fail": 3,
+    "pass": 11,
+    "fail": 2,
     "status": "RED",
     "secs": 0,
     "failed": [
-      "the provider prompt never names a \"harness\" the model can narrate",
       "a subagent-authored card carries a producer badge",
       "a badged message keeps its model-facing text separate from the user bo"
     ]
@@ -350,7 +344,7 @@
     "pass": 12,
     "fail": 0,
     "status": "GREEN",
-    "secs": 0,
+    "secs": 1,
     "failed": []
   },
   {
@@ -433,7 +427,7 @@
     "pass": 8,
     "fail": 1,
     "status": "RED",
-    "secs": 3,
+    "secs": 14,
     "failed": [
       "gen8 B: clicking the subagent card switches the live pane; clicking th"
     ]
@@ -444,7 +438,7 @@
     "pass": 7,
     "fail": 2,
     "status": "RED",
-    "secs": 0,
+    "secs": 1,
     "failed": [
       "notebook and workspace pin survive forced compaction AND the raw-evict",
       "agent run start: notebook created in notebookDir, pinned wire carries "
@@ -476,7 +470,7 @@
     "pass": 6,
     "fail": 0,
     "status": "GREEN",
-    "secs": 0,
+    "secs": 1,
     "failed": []
   },
   {
@@ -525,7 +519,7 @@
     "pass": 16,
     "fail": 10,
     "status": "RED",
-    "secs": 0,
+    "secs": 1,
     "failed": [
       "reported cross-action stroke payload remains invalid rather than silen",
       "separate stroke action refreshes native evidence through the normal ch",
@@ -605,7 +599,7 @@
     "pass": 6,
     "fail": 0,
     "status": "GREEN",
-    "secs": 1,
+    "secs": 2,
     "failed": []
   },
   {
@@ -614,7 +608,7 @@
     "pass": 1,
     "fail": 2,
     "status": "RED",
-    "secs": 0,
+    "secs": 1,
     "failed": [
       "a long request is quoted whole, not cut to its first sentence",
       "every copy of the request the model reads carries every ask"
@@ -666,16 +660,11 @@
   {
     "file": "stall-regressions",
     "tests": 7,
-    "pass": 3,
-    "fail": 4,
-    "status": "RED",
+    "pass": 7,
+    "fail": 0,
+    "status": "GREEN",
     "secs": 0,
-    "failed": [
-      "completed in-page probe evidence satisfies the coding gate (the 8-boun",
-      "terminal evidence still satisfies the coding gate",
-      "probe evidence with real failures does NOT satisfy the coding gate",
-      "non-coding tasks bypass the gate entirely"
-    ]
+    "failed": []
   },
   {
     "file": "system-one-integrations",
@@ -798,7 +787,7 @@
     "pass": 12,
     "fail": 0,
     "status": "GREEN",
-    "secs": 3,
+    "secs": 1,
     "failed": []
   }
 ]

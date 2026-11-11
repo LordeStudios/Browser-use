@@ -109,11 +109,15 @@ test('the provider prompt never names a "harness" the model can narrate', () => 
 
 test('a subagent-authored card carries a producer badge', () => {
   const rendererSource = renderer();
+  // DSH file split: appendConversationMessage/normalizeConversationMessage —
+  // the code that actually stamps the badge — lives in agentInternals.cjs;
+  // the call sites stay in the agent file.
+  const internalsSource = read('desktop/agent/agentInternals.cjs');
   const agentSource = agent();
   const store = read('desktop/store/chatHistoryStore.cjs');
   // The badge must exist on the message, survive a save/reload, and render.
   assert.match(agentSource, /badge: 'research'/, 'research briefs must be badged');
-  assert.match(agentSource, /\.\.\.\(badge \? \{ badge \} : \{\}\)/, 'messages must carry the badge');
+  assert.match(internalsSource, /\.\.\.\(badge \? \{ badge \} : \{\}\)/, 'messages must carry the badge');
   assert.match(store, /\.\.\.\(badge \? \{ badge \} : \{\}\)/, 'the badge must survive persistence');
   assert.match(rendererSource, /className = 'agent-message-badge'/);
   assert.match(rendererSource, /options\.badge/, 'renderChatMessage must render the badge');
@@ -167,7 +171,9 @@ test('a research brief is published with a badge and a user-facing body', () => 
 });
 
 test('a badged message keeps its model-facing text separate from the user body', () => {
-  const source = agent();
+  // DSH file split: normalizeConversationMessage owns the display-body
+  // plumbing, so this assertion reads agentInternals.cjs.
+  const source = read('desktop/agent/agentInternals.cjs');
   const store = read('desktop/store/chatHistoryStore.cjs');
   // The research brief's content is addressed to the MODEL ("advisory
   // context — do not acknowledge it"). Showing that on a user-facing card

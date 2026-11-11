@@ -30,28 +30,6 @@
     ]
   },
   {
-    "file": "agent-effort",
-    "kind": "REGRESSED",
-    "fork": "5/10",
-    "base": "8/10",
-    "detail": [
-      "ollama provider maps tiers onto the think flag, decision budget, and p",
-      "ollama auto mode advertises the escalation channel and effortNeeded su",
-      "openai-compatible protocol maps effort onto reasoning_effort and think",
-      "auto demotes one rung after two consecutive big-thinking no-action dec",
-      "a decision with a real mutation resets the speculation streak"
-    ]
-  },
-  {
-    "file": "agent-orchestration-regressions",
-    "kind": "REGRESSED",
-    "fork": "9/10",
-    "base": "10/10",
-    "detail": [
-      "the coding gate no longer fires on a browser task whose quoted fill va"
-    ]
-  },
-  {
     "file": "browser-use-bug-fixes",
     "kind": "REGRESSED",
     "fork": "2/4",
@@ -86,10 +64,9 @@
   {
     "file": "desktop-thinking-hygiene",
     "kind": "REGRESSED",
-    "fork": "10/13",
+    "fork": "11/13",
     "base": "13/13",
     "detail": [
-      "the provider prompt never names a \"harness\" the model can narrate",
       "a subagent-authored card carries a producer badge",
       "a badged message keeps its model-facing text separate from the user bo"
     ]
@@ -145,16 +122,21 @@
     ]
   },
   {
-    "file": "stall-regressions",
-    "kind": "REGRESSED",
-    "fork": "3/7",
-    "base": "7/7",
+    "file": "agent-effort",
+    "kind": "same",
+    "fork": "8/10",
+    "base": "8/10",
     "detail": [
-      "completed in-page probe evidence satisfies the coding gate (the 8-boun",
-      "terminal evidence still satisfies the coding gate",
-      "probe evidence with real failures does NOT satisfy the coding gate",
-      "non-coding tasks bypass the gate entirely"
+      "auto demotes one rung after two consecutive big-thinking no-action dec",
+      "a decision with a real mutation resets the speculation streak"
     ]
+  },
+  {
+    "file": "agent-orchestration-regressions",
+    "kind": "same",
+    "fork": "10/10",
+    "base": "10/10",
+    "detail": []
   },
   {
     "file": "agent-recovery-tabs",
@@ -520,6 +502,13 @@
       "skill_search finds an installed skill by what it is for",
       "skill_run gives the model the WHOLE skill body, not the list summary"
     ]
+  },
+  {
+    "file": "stall-regressions",
+    "kind": "same",
+    "fork": "7/7",
+    "base": "7/7",
+    "detail": []
   },
   {
     "file": "system-one-integrations",
