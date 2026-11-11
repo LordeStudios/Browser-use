@@ -562,7 +562,13 @@ const userSafeSystem = String(system || '').trim() || IDENTITY_LINE;
         // paying for a bigger budget and another round of reasoning to
         // re-derive an action that is already in the partial output is what
         // turns one decision into a two-minute monologue.
-        const salvaged = extractEmbeddedDecision(contentFor(payload));
+        const salvaged = extractEmbeddedDecision(contentFor(payload))
+          // The reasoning stream is where a thinking model usually STATES its
+          // chosen action before the JSON cut lands. Harvesting from the tail
+          // turns a budget cut into an immediate action instead of a full
+          // re-think — the "one decision becomes a two-minute monologue" loop
+          // (multiple thought cards, no action between them).
+          || extractEmbeddedDecision(String(accumulatedThought || '').slice(-4_000));
         if (salvaged && hasExecutableDecision(salvaged)) {
           try {
             const synthetic = isAnthropic

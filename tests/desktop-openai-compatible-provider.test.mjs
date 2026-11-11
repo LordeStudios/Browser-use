@@ -434,3 +434,27 @@ test('a consistently tool-hostile gateway latches after three strikes', async ()
   assert.equal(provider.nativeToolsBroken, true, 'the session latches after three strikes');
   assert.equal(bodies.at(-1).tools, undefined, 'latched sessions stop shipping tool schemas');
 });
+
+test('a budget cut mid-think salvages the action the model stated in its reasoning', async () => {
+  // The multi-thought-card loop: reasoning + JSON share max_tokens; a long
+  // think cut the JSON before it closed; the salvage read only the (empty)
+  // content, so every cut cost a full re-think card. Thinking models state
+  // their chosen action at the END of the reasoning stream — harvest there.
+  const bodies = [];
+  const reasoning = 'The board shows the knight forks the rook. '.repeat(80)
+    + 'Decision reached: click element 4 to take the fork. {"toolCalls":[{"name":"browser_click","input":{"element":4}}]}';
+  const provider = createOpenAiCompatibleProvider({
+    providerId: 'openai', baseUrl: 'https://fixture.invalid/v1', model: 'thinking-fixture', apiKey: 'key',
+    fetchImpl: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      bodies.push(body);
+      const response = fixtureResponse({
+        choices: [{ message: { content: '', reasoning_content: reasoning }, finish_reason: 'length' }],
+        usage: { prompt_tokens: 500, completion_tokens: 4_000 }
+      });
+      return response;
+    }
+  });
+  const decision = await provider.complete({ ...STRIKE_ARGS, tools: TOOL_CATALOG, effort: 'advanced', onThought: () => {} });
+  assert.equal(decision.toolCalls?.[0]?.name, 'browser_click', 'the stated action was salvaged from the reasoning tail');
+});
