@@ -597,7 +597,10 @@ function nativeVisionError() {
 
 // ── Tool schemas ────────────────────────────────────────────────────────────
 
-const NUMERIC_TOOL_INPUTS = new Set(['x', 'y', 'ms', 'element', 'index', 'steps', 'durationMs', 'deltaX', 'deltaY', 'startX', 'startY', 'endX', 'endY', 'maxElements']);
+// fromElement/toElement are DOM indices. They were typed 'string' because the
+// inference reads this list, and a model shown `fromElement: string` will not
+// treat it as an element index (the drag-relay runs). 'from'/'to' stay strings:/n// browser_target_drag takes visual-target IDENTITIES there.
+const NUMERIC_TOOL_INPUTS = new Set(['x', 'y', 'ms', 'element', 'index', 'fromElement', 'toElement', 'steps', 'durationMs', 'deltaX', 'deltaY', 'startX', 'startY', 'endX', 'endY', 'maxElements']);
 
 function androidAdbToolInputSchema() {
   return { type: 'object', properties: {

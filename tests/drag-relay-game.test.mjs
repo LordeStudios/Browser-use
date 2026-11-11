@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
 
 // The drag-relay game is the multi-drag + multi-click test surface, and its
 // idle-gap meter answers the owner's question directly: did the agent work
@@ -184,4 +187,28 @@ test('browser_drag is a CORE tool; the desktop pointer is scoped to native surfa
   const computer = fs.readFileSync(path.join(process.cwd(), 'desktop/computer/computerCatalog.cjs'), 'utf8');
   assert.match(computer, /NEVER for page content: inside the browsing view use browser_click \/ browser_drag/,
     'the desktop pointer must point page work back to the browser tools');
+});
+
+test('the drag tool teaches the element form and types its indices as numbers', () => {
+  // The relay runs never called browser_drag. Even with the tool listed, its
+  // headline said "Drag from start x/y to end x/y" and fromElement/toElement
+  // were typed STRING (the schema infers types from a name list), so a model
+  // reading the contract had no reason to believe it could drag between
+  // elements. Both are contract bugs, not model bugs.
+  const { toolDefinitions } = require('../desktop/agent/agentInternals.cjs');
+  const { openAiToolSchemas } = require('../desktop/agent/providers/wire.cjs');
+  const definitions = toolDefinitions('drag the tokens', 'agi', { workspace: true });
+  const drag = definitions.find((tool) => tool.name === 'browser_drag');
+  assert.ok(drag, 'browser_drag must be defined');
+  const schema = openAiToolSchemas([drag])[0].function;
+  assert.match(schema.description, /fromElement\/toElement/, 'the headline names the preferred form');
+  assert.match(schema.description, /PREFERRED/, 'and says it is preferred');
+  assert.equal(schema.parameters.properties.fromElement.type, 'number', 'a DOM index is a number');
+  assert.equal(schema.parameters.properties.toElement.type, 'number', 'a DOM index is a number');
+
+  // The click contract must agree with the element-first executor.
+  const click = definitions.find((tool) => tool.name === 'browser_click');
+  const clickSchema = openAiToolSchemas([click])[0].function;
+  assert.match(clickSchema.description, /index wins/, 'the click description must not claim coordinates win');
+  assert.ok(!/authoritative when both/.test(clickSchema.description), 'the stale precedence claim is gone');
 });
