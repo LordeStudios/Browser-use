@@ -897,3 +897,68 @@ test('the post-input hit test resolves against the page instead of timing out at
   assert.equal(hit.tag, 'cg-board');
   assert.equal(hit.rect.width, 493);
 });
+
+test('a swallowed CDP click is re-sent through the native pipeline and reported', async () => {
+  // The click-order game: every field reported hit:true while the page
+  // received nothing. The harness must ENFORCE delivery: probe the page, and
+  // when an armed probe shows no click at the point, re-send through
+  // Electron's independent injection path and say which channel landed.
+  const { BrowserViewController } = require('../desktop/mcp/browserViewController.cjs');
+  const nativeClicks = [];
+  let nativeDelivered = [];
+  const tab = {
+    id: 'tab-1',
+    webContents: {
+      isDestroyed: () => false,
+      sendInputEvent: (event) => {
+        if (event.type === 'mouseUp') nativeDelivered.push({ x: event.x, y: event.y, at: Date.now(), tag: 'button' });
+      },
+      debugger: { isAttached: () => false, attach: () => {}, detach: () => {}, sendCommand: async () => ({}) },
+      executeJavaScript: async () => ({
+        hit: true, tag: 'button', id: null, classes: 'field', role: null, isCanvas: false,
+        rect: { x: 0, y: 0, width: 10, height: 10 }, textLength: 10, textTail: 'tail',
+        pageClicks: nativeDelivered.slice(-2),
+        lastDown: nativeDelivered.length ? nativeDelivered.at(-1) : null,
+        lastUp: nativeDelivered.length ? nativeDelivered.at(-1) : null
+      })
+    }
+  };
+  const controller = new BrowserViewController({ getTabs: () => [tab], getSelectedTabId: () => 'tab-1', getConsoleEntries: () => [], normalizeUrl: (value) => value });
+
+  // First click arms the probe (no evidence yet, so no retry and no verdict).
+  const first = await controller.clickAt('tab-1', { x: 40, y: 60 }, 'session-a');
+  assert.equal(first.delivered, undefined, 'the first click on a tab reports no delivery verdict');
+
+  // Second click: the page still shows nothing, so the native pipeline runs.
+  const second = await controller.clickAt('tab-1', { x: 40, y: 60 }, 'session-a');
+  assert.equal(second.delivery, 'electron-retry', 'the click was re-sent through the native pipeline');
+  assert.equal(second.delivered, true, 'the retried click reached the page');
+  assert.ok(nativeClicks.length === 0, 'no stray native bookkeeping');
+  assert.equal(nativeDelivered.length, 1, 'exactly one native click was injected');
+});
+
+test('a click the page received is reported as delivered over CDP, with no retry', async () => {
+  const { BrowserViewController } = require('../desktop/mcp/browserViewController.cjs');
+  const sent = [];
+  const tab = {
+    id: 'tab-1',
+    webContents: {
+      isDestroyed: () => false,
+      sendInputEvent: (event) => sent.push(event),
+      debugger: { isAttached: () => false, attach: () => {}, detach: () => {}, sendCommand: async () => ({}) },
+      executeJavaScript: async () => ({
+        hit: true, tag: 'button', id: null, classes: 'field', role: null, isCanvas: false,
+        rect: { x: 0, y: 0, width: 10, height: 10 }, textLength: 10, textTail: 'tail',
+        pageClicks: [{ x: 40, y: 60, at: Date.now(), tag: 'button' }],
+        lastDown: { x: 40, y: 60, at: Date.now(), tag: 'button' },
+        lastUp: { x: 40, y: 60, at: Date.now(), tag: 'button' }
+      })
+    }
+  };
+  const controller = new BrowserViewController({ getTabs: () => [tab], getSelectedTabId: () => 'tab-1', getConsoleEntries: () => [], normalizeUrl: (value) => value });
+  await controller.clickAt('tab-1', { x: 40, y: 60 }, 'session-a');
+  const result = await controller.clickAt('tab-1', { x: 40, y: 60 }, 'session-a');
+  assert.equal(result.delivery, 'cdp');
+  assert.equal(result.delivered, true);
+  assert.equal(sent.length, 0, 'a delivered click never touches the native pipeline');
+});

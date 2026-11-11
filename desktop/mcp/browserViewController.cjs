@@ -67,6 +67,10 @@ class BrowserViewController {
     // Cleanup that races it must join the same delivery instead of enqueueing a
     // second release while the first one is still awaiting the debugger queue.
     this.pendingButtonReleases = new Map();
+    // Tabs whose page probe has been armed (a hit test or observation returned
+    // probe data). Delivery enforcement only acts on armed probes: an empty
+    // list from a just-installed probe proves nothing.
+    this.clickProbeArmed = new Set();
     this.globalInputGeneration = 0;
     // tabId -> { at, elements[] }. Snapshot indices are only valid for the newest
     // DOM read of that tab, which keeps index-based clicks deterministic.
@@ -451,10 +455,61 @@ class BrowserViewController {
       // Once mouse-down commits, mouse-up is always delivered as an edge event.
       // A newer visual target may change where the tip ends, but the real click is
       // complete and must never be reported as retryable interruption.
-      const hit = await this.hitTest(tabId, { x, y });
-      return { tabId, x, y, input: 'mouse', button: normalizeButton(button), ...(repeatPoint ? { repeatPoint: true } : {}), pointer: committedClickPointer({ moved, pressed, released }), hit };
+      const dispatchedAt = Date.now();
+      const probed = await this.hitTest(tabId, { x, y });
+      const enforced = await this.enforceClickDelivery(tabId, { x, y, button: normalizeButton(button), hit: probed, dispatchedAt });
+      const hit = enforced.hit;
+      return {
+        tabId, x, y, input: 'mouse', button: normalizeButton(button),
+        ...(repeatPoint ? { repeatPoint: true } : {}),
+        pointer: committedClickPointer({ moved, pressed, released }),
+        ...(enforced.delivered === null ? {} : { delivered: enforced.delivered, delivery: enforced.delivery }),
+        hit
+      };
     } finally {
       if (ownsOperation) this.finishInputOperation(operation);
+    }
+  }
+
+  // VERIFIED CLICK DELIVERY: a dispatched click is not a delivered click. The
+  // page probe (installed by the observation collector and the hit test)
+  // records every mouse event the page receives. When the probe is armed and
+  // the page shows NO click at the point, the click is re-sent through
+  // Electron's NATIVE input injection — an independent pipeline from CDP —
+  // and re-probed. The reply then names which channel landed, so a swallowed
+  // click can never masquerade as a plain success (the click-order game: every
+  // field reported hit:true while the page received nothing).
+  async enforceClickDelivery(tabId, { x, y, button, hit, dispatchedAt }) {
+    const clicks = Array.isArray(hit?.pageClicks) ? hit.pageClicks : null;
+    if (!clicks) return { hit, delivered: null, delivery: 'cdp' };
+    const armedBeforeClick = this.clickProbeArmed?.has(String(tabId)) === true;
+    if (hit?.pageClicks !== undefined) this.clickProbeArmed?.add(String(tabId));
+    const matched = clicks.some((entry) => Number(entry?.at) >= dispatchedAt - 60
+      && Math.abs(Number(entry?.x) - x) <= 2 && Math.abs(Number(entry?.y) - y) <= 2);
+    if (matched) return { hit, delivered: true, delivery: 'cdp' };
+    if (!armedBeforeClick) {
+      // First click on this tab: the probe only just installed, so an empty
+      // list proves nothing. Never double-click on a guess.
+      return { hit, delivered: null, delivery: 'cdp' };
+    }
+    const tab = this.requireTab(tabId);
+    const webContents = tab?.webContents;
+    if (!webContents || typeof webContents.sendInputEvent !== 'function' || webContents.isDestroyed?.()) {
+      return { hit, delivered: false, delivery: 'cdp' };
+    }
+    try {
+      webContents.sendInputEvent({ type: 'mouseMove', x, y });
+      await new Promise((resolve) => setTimeout(resolve, 24));
+      webContents.sendInputEvent({ type: 'mouseDown', x, y, button, clickCount: 1 });
+      await new Promise((resolve) => setTimeout(resolve, 24));
+      webContents.sendInputEvent({ type: 'mouseUp', x, y, button, clickCount: 1 });
+      await new Promise((resolve) => setTimeout(resolve, 90));
+      const retried = await this.hitTest(tabId, { x, y }).catch(() => hit);
+      const landed = Array.isArray(retried?.pageClicks) && retried.pageClicks.some((entry) => Number(entry?.at) >= dispatchedAt
+        && Math.abs(Number(entry?.x) - x) <= 2 && Math.abs(Number(entry?.y) - y) <= 2);
+      return { hit: retried || hit, delivered: landed, delivery: 'electron-retry' };
+    } catch {
+      return { hit, delivered: false, delivery: 'cdp' };
     }
   }
 
@@ -2052,6 +2107,23 @@ function buildElementCollectorScript({ interactiveOnly, includeText, maxElements
   const cached = elementCollectorScriptCache.get(key);
   if (cached) return cached;
   const script = `(() => {
+    // Arm the click probe at OBSERVATION time: the hit test also installs it,
+    // but that runs AFTER a click, so the first click of a run would have no
+    // delivery evidence. Same shape as the hit-test probe (window.__bdsClickProbe).
+    try {
+      if (!window.__bdsClickProbe) {
+        const probe = { clicks: [], lastDown: null, lastUp: null };
+        const point = (event) => ({ x: Math.round(event.clientX), y: Math.round(event.clientY) });
+        const target = (event) => ({ tag: event.target?.tagName ? String(event.target.tagName).toLowerCase() : null, id: event.target?.id || null, cls: String(event.target?.className || '').slice(0, 60) });
+        document.addEventListener('click', (event) => {
+          probe.clicks.push({ ...point(event), ...target(event), at: Date.now() });
+          if (probe.clicks.length > 20) probe.clicks.shift();
+        }, true);
+        document.addEventListener('mousedown', (event) => { probe.lastDown = { ...point(event), ...target(event), at: Date.now() }; }, true);
+        document.addEventListener('mouseup', (event) => { probe.lastUp = { ...point(event), ...target(event), at: Date.now() }; }, true);
+        window.__bdsClickProbe = probe;
+      }
+    } catch { /* probing is best-effort */ }
     const cap = ${JSON.stringify(maxElements)};
     const anchor = ${JSON.stringify(anchor || null)};
     const filterSelector = ${JSON.stringify(selector)};
