@@ -1425,10 +1425,38 @@ class BrowserViewController {
   // minutes on.
   async hitTest(tabId, { x, y }) {
     const expression = `(() => {
+          // CLICK-PROBE: the page itself records every click/mousedown/mouseup
+          // it receives, with coordinates and target. A click that dispatches
+          // (hit test says the element is under the point) but produces no
+          // page event is a DELIVERY problem; a page event at a DIFFERENT
+          // coordinate is a transform problem; a page event on the right
+          // element with no app reaction is the page's own behavior. Without
+          // this the agent (and the harness) cannot tell those apart — the
+          // live click-order game showed hit:true on every field while
+          // progress stayed 0/40.
+          try {
+            if (!window.__bdsClickProbe) {
+              const probe = { clicks: [], lastDown: null, lastUp: null };
+              const point = (event) => ({ x: Math.round(event.clientX), y: Math.round(event.clientY) });
+              const target = (event) => ({
+                tag: event.target?.tagName ? String(event.target.tagName).toLowerCase() : null,
+                id: event.target?.id || null,
+                cls: String(event.target?.className || '').slice(0, 60)
+              });
+              document.addEventListener('click', (event) => {
+                probe.clicks.push({ ...point(event), ...target(event), at: Date.now() });
+                if (probe.clicks.length > 20) probe.clicks.shift();
+              }, true);
+              document.addEventListener('mousedown', (event) => { probe.lastDown = { ...point(event), ...target(event), at: Date.now() }; }, true);
+              document.addEventListener('mouseup', (event) => { probe.lastUp = { ...point(event), ...target(event), at: Date.now() }; }, true);
+              window.__bdsClickProbe = probe;
+            }
+          } catch { /* probing is best-effort */ }
+          const probe = window.__bdsClickProbe || null;
           const el = document.elementFromPoint(${JSON.stringify(x)}, ${JSON.stringify(y)});
           const text = String((document.body && document.body.innerText) || '');
           const tail = text.replace(/\\s+/g, ' ').trim().slice(-240);
-          if (!el) return { hit: false, tag: null, textLength: text.length, textTail: tail };
+          if (!el) return { hit: false, tag: null, textLength: text.length, textTail: tail, ...(probe ? { pageClicks: probe.clicks.slice(-2), lastDown: probe.lastDown, lastUp: probe.lastUp } : {}) };
           const rect = el.getBoundingClientRect();
           return {
             hit: true,
@@ -1439,7 +1467,8 @@ class BrowserViewController {
             isCanvas: el.tagName === 'CANVAS',
             rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
             textLength: text.length,
-            textTail: tail
+            textTail: tail,
+            ...(probe ? { pageClicks: probe.clicks.slice(-2), lastDown: probe.lastDown, lastUp: probe.lastUp } : {})
           };
         })()`;
     const startedAt = Date.now();
