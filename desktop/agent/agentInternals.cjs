@@ -2348,11 +2348,25 @@ async function executeAction(controller, run, call) {
       return pointerActionOutput(await controller.drag(targetTabId, { startX: from.center.x, startY: from.center.y, endX: to.center.x, endY: to.center.y, steps: clamp(call.input?.steps ?? 8, 1, 100), durationMs: clamp(call.input?.durationMs ?? 250, 5, 5_000) }, run.id), 'semantic target drag');
     }
     if (call.name === 'browser_click') {
-      // Coordinate input is authoritative when present. Models often retain a
-      // stale DOM index while adding the fresh visual point; resolving the
-      // index first silently clicks an unrelated control (the chess failure
-      // clicked the site logo instead of the board). The index remains useful
-      // metadata for the model but never overrides an explicit point.
+      // ELEMENT-FIRST. A DOM element's rect is EXACT — the browser itself lays
+      // it out and the hit test reads the same box. Model coordinates are a
+      // guess derived from pixels. The old rule ("coordinates are
+      // authoritative when present") was right only when the index was stale;
+      // the index is re-resolved against the CURRENT snapshot at click time,
+      // so it cannot be stale. The live click-order run clicked element 40
+      // (Reset at 790,500) with a guessed (825,648) and hit <main> — a DOM
+      // target missed by the model's arithmetic, which must never happen.
+      // When the index resolves, it wins; coordinates are the fallback.
+      const requestedIndex = coerceElementIndex(call.input.element !== undefined ? call.input.element : call.input.index);
+      if (requestedIndex !== undefined) {
+        try {
+          return pointerActionOutput(await controller.clickElement(targetTabId, { index: requestedIndex }, run.id), 'indexed click');
+        } catch (elementError) {
+          // Fail-closed element resolution falls back to an explicit point when
+          // the model supplied one; otherwise the element error is the answer.
+          if (!coordinatorHasCoordinatePair(call.input)) throw elementError;
+        }
+      }
       if (coordinatorHasCoordinatePair(call.input)) {
         // An element value beside valid coordinates is metadata, never a
         // veto: models say "no element" as ""/-1/null-like values, and the
@@ -2381,9 +2395,6 @@ async function executeAction(controller, run, call) {
         }
         return result;
       }
-      const rawIndex = call.input.element !== undefined ? call.input.element : call.input.index;
-      const index = coerceElementIndex(rawIndex);
-      if (index !== undefined) return pointerActionOutput(await controller.clickElement(targetTabId, { index }, run.id), 'indexed click');
       throw new Error('browser_click requires either an element index or {x, y} coordinates.');
     }
     if (call.name === 'browser_drag') {

@@ -2388,6 +2388,42 @@ test('grounds coordinate actions against the explicitly targeted background tab'
   assert.deepEqual(click[2], { x: 1200, y: 800 });
 });
 
+test('an element index beats guessed coordinates: the DOM rect is exact', async () => {
+  // The click-order run clicked element 40 (Reset at 790,500) with a guessed
+  // (825,648) and hit <main>. A DOM target resolved against the current
+  // snapshot cannot be stale, so the element wins and the coordinates are the
+  // fallback — zero offset for DOM clicks, whatever the model's arithmetic.
+  const controller = createController();
+  const agent = new DesktopChatAgent({
+    controller, getSelectedTabId: () => 'tab-1', emit: () => {},
+    createProvider: () => createProvider([
+      { toolCalls: [{ name: 'browser_click', input: { element: 0, x: 900, y: 900 } }] },
+      { toolCalls: [{ name: 'browser_done', input: { summary: 'Clicked the element.', success: true, verified: true } }] }
+    ])
+  });
+  const run = await agent.start({ task: 'Click the control', provider: { id: 'mock' } });
+  assert.equal(run.status, 'completed');
+  const indexed = controller.calls.find(([name]) => name === 'click');
+  const coordinate = controller.calls.find(([name]) => name === 'clickAt');
+  assert.ok(indexed, 'the element path executes');
+  assert.equal(coordinate, undefined, 'the guessed coordinates never override the element');
+});
+
+test('a dead visualizer is cut off after two strikes instead of taxing every click', async () => {
+  const { BrowserViewController } = require('../desktop/mcp/browserViewController.cjs');
+  const tab = { id: 'tab-1', webContents: { isDestroyed: () => false, debugger: { isAttached: () => false, attach: () => {}, detach: () => {}, sendCommand: async () => ({}) } } };
+  const controller = new BrowserViewController({
+    getTabs: () => [tab], getSelectedTabId: () => 'tab-1', getConsoleEntries: () => [], normalizeUrl: (value) => value,
+    // A visualizer whose moves never complete (the live overlay never acks).
+    pointerVisualizer: { move: () => new Promise(() => {}) }
+  });
+  assert.equal(controller.visualizerUsable('tab-1'), true);
+  controller.noteVisualizerStrike('tab-1');
+  assert.equal(controller.visualizerUsable('tab-1'), true, 'one strike is a glitch');
+  controller.noteVisualizerStrike('tab-1');
+  assert.equal(controller.visualizerUsable('tab-1'), false, 'two strikes cut the visual stages off');
+});
+
 test('a run pins its bound tab for the run duration and releases it at teardown', async () => {
   // Without a pin, EVERY CDP command pays an attach -> command -> detach
   // cycle — four per click, ~100ms each, plus attach-race failures (the

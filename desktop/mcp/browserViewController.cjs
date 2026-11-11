@@ -71,6 +71,11 @@ class BrowserViewController {
     // probe data). Delivery enforcement only acts on armed probes: an empty
     // list from a just-installed probe proves nothing.
     this.clickProbeArmed = new Set();
+    // Visualizer circuit breaker: tabs whose pointer overlay never acks. A
+    // dead overlay must not tax every stage with its timeout — two strikes and
+    // the tab stops waiting on the visual (input goes straight to delivery).
+    this.visualizerStrikes = new Map();
+    this.visualizerBroken = new Set();
     this.globalInputGeneration = 0;
     // tabId -> { at, elements[] }. Snapshot indices are only valid for the newest
     // DOM read of that tab, which keeps index-based clicks deterministic.
@@ -656,12 +661,12 @@ class BrowserViewController {
         return { tabId, input: 'interrupted', pointer: { interrupted: true, reason: 'input-operation-cancelled' } };
       }
       const prepared = this.prepareNativeInput(tabId);
-      const visualRequired = Boolean(this.pointerVisualizer) && this.getSelectedTabId() === tabId && this.isTabPaintable?.(tabId) !== false;
-      const visual = this.pointerVisualizer?.move?.(tabId, { x, y }, {
+      const visualRequired = this.visualizerUsable(tabId);
+      const visual = visualRequired ? this.pointerVisualizer?.move?.(tabId, { x, y }, {
         waitForArrival: waitForPointer,
         operationId: activeOperation.pointerAction,
         ...(Number.isFinite(pointerDurationMs) ? { durationMs: pointerDurationMs } : {})
-      });
+      }) : null;
       return afterMaybePromise(visual, (visualResult) => {
         // A newer movement owns both the visual pointer and the final native
         // mouseMoved event. An interrupted older target must never reappear later.
@@ -670,6 +675,7 @@ class BrowserViewController {
           required: visualRequired,
           waitForArrival: waitForPointer
         })) {
+          this.noteVisualizerStrike(tabId);
           // The cursor visual is decoration: deliver the hover position even
           // when its acknowledgement is lost.
           this.lastPointer.set(tabId, { x, y });
@@ -721,13 +727,14 @@ class BrowserViewController {
     const prepared = this.prepareNativeInput(tabId);
     return this.runInputOperation(operation, ownsOperation, () => {
       if (!this.inputOperationCurrent(operation)) return { tabId, input: 'interrupted', pointer: { interrupted: true, reason: 'input-operation-cancelled' } };
-      const visualRequired = Boolean(this.pointerVisualizer) && this.getSelectedTabId() === tabId && this.isTabPaintable?.(tabId) !== false;
-      const visual = this.pointerVisualizer?.move?.(tabId, { x, y }, { waitForArrival: true, operationId: operation.pointerAction });
+      const visualRequired = this.visualizerUsable(tabId);
+      const visual = visualRequired ? this.pointerVisualizer?.move?.(tabId, { x, y }, { waitForArrival: true, operationId: operation.pointerAction }) : null;
       return afterMaybePromise(visual, (visualResult) => {
         if (!this.inputOperationCurrent(operation)) {
           return { tabId, input: 'interrupted', pointer: visualResult };
         }
         if (pointerCannotProceed(visualResult, { required: visualRequired, waitForArrival: true })) {
+          this.noteVisualizerStrike(tabId);
           // The visual pointer is DECORATION. A cancelled, timed-out or
           // unacknowledged cursor move must never eat the press: deliver it
           // through the direct CDP route and report the fallback, so a canvas
@@ -786,7 +793,7 @@ class BrowserViewController {
       const operationStale = !this.inputOperationCurrent(operation);
       const visual = operationStale
         ? { interrupted: true, reason: 'input-operation-cancelled' }
-        : this.pointerVisualizer?.move?.(tabId, { x, y }, { waitForArrival: true, operationId: operation.pointerAction });
+        : (this.visualizerUsable(tabId) ? this.pointerVisualizer?.move?.(tabId, { x, y }, { waitForArrival: true, operationId: operation.pointerAction }) : null);
       return afterMaybePromise(visual, (visualResult) => {
         const deliverRelease = () => {
           // Releases are edge events and must never be dropped. If their requested
@@ -1378,6 +1385,23 @@ class BrowserViewController {
   isHeld(sessionId, tabId, kind, value) {
     const held = this.heldInput.get(inputOwner(sessionId));
     return Boolean(held && held.tabId === tabId && held[kind]?.has(value));
+  }
+
+  // Visualizer health: a tab whose overlay never acknowledges a move gets its
+  // visual stages skipped entirely (the cursor is decoration; waiting on it
+  // cost ~2 timeouts per click — the click-order run's 1.2s/click).
+  visualizerUsable(tabId) {
+    if (!this.pointerVisualizer) return false;
+    if (this.visualizerBroken.has(String(tabId))) return false;
+    return this.getSelectedTabId() === tabId && this.isTabPaintable?.(tabId) !== false;
+  }
+
+  noteVisualizerStrike(tabId) {
+    const key = String(tabId);
+    const strikes = (this.visualizerStrikes.get(key) || 0) + 1;
+    this.visualizerStrikes.set(key, strikes);
+    if (strikes >= 2) this.visualizerBroken.add(key);
+    return strikes;
   }
 
   // The mask of buttons currently held in this tab for this owner — CDP
