@@ -66,8 +66,9 @@ function boot() {
   const setInterval = (fn) => { intervals.push({ fn }); return intervals.length; };
   const clearInterval = () => {};
   const window = {};
+  const location = { search: '' };   // labeled default; '?plain=1' strips a11y
   // eslint-disable-next-line no-new-func
-  new Function('document', 'performance', 'setInterval', 'clearInterval', 'window', script)(document, performance, setInterval, clearInterval, window);
+  new Function('document', 'performance', 'setInterval', 'clearInterval', 'window', 'location', script)(document, performance, setInterval, clearInterval, window, location);
   return { window, clock, intervals, relay: window.__relay, document };
 }
 
@@ -149,4 +150,23 @@ test('the 20s window closes the run', () => {
   const result = game.relay.snapshot().result;
   assert.equal(result.state, 'fail');
   assert.match(game.document.getElementById('result').textContent, /20s window closed/);
+});
+
+test('the harness discovers positioned visual objects on UNLABELED pages', () => {
+  // Real pages are not authored for the agent: a draggable object is often a
+  // plain absolutely-positioned div with no role/tabindex/label. The snapshot
+  // must find it from GEOMETRY, not from vocabulary.
+  const controllerSrc = fs.readFileSync(path.join(process.cwd(), 'desktop/mcp/browserViewController.cjs'), 'utf8');
+  const collectorStart = controllerSrc.indexOf('function buildElementCollectorScript');
+  const collector = controllerSrc.slice(collectorStart, collectorStart + 30_000);
+  assert.match(collector, /style\.position !== 'absolute' && style\.position !== 'fixed'/, 'positioned boxes are visual objects');
+  assert.match(collector, /box\.width < 40 \|\| box\.height < 40/, 'a real box is required');
+  assert.match(collector, /positionedVisuals\.push/, 'they join the visual targets');
+
+  const internals = fs.readFileSync(path.join(process.cwd(), 'desktop/agent/agentInternals.cjs'), 'utf8');
+  assert.match(internals, /visualTargets center\.x directly/, 'the guidance tells the model to use the CSS-px centers');
+  assert.match(internals, /must match exactly ONE entry/, 'visual-target identity must be unique');
+
+  // The game ships an unlabeled mode so the real-world path is testable.
+  assert.match(html, /const PLAIN = new URLSearchParams\(location\.search\)/, 'the game can strip every label');
 });

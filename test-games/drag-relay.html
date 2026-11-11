@@ -104,6 +104,10 @@
   'use strict';
   const PAIRS = 6;
   const TIME_LIMIT_MS = 20_000;
+  // ?plain=1 = an UNLABELED page (no role, no tabindex, no aria-label), i.e.
+  // what the real web looks like. The harness must find the objects from
+  // geometry alone; the labeled default is only a convenience.
+  const PLAIN = new URLSearchParams(location.search).has('plain');
   const THINK_GAP_MS = 1_500;   // a gap this long between actions = a think-pause
 
   const field = document.getElementById('field');
@@ -318,9 +322,11 @@
     values.forEach((value, index) => {
       const token = document.createElement('div');
       token.className = 'token';
-      token.setAttribute('role', 'button');
-      token.setAttribute('tabindex', '0');
-      token.setAttribute('aria-label', `token ${value} — drag me to slot ${value}`);
+      if (!PLAIN) {
+        token.setAttribute('role', 'button');
+        token.setAttribute('tabindex', '0');
+        token.setAttribute('aria-label', `token ${value} — drag me to slot ${value}`);
+      }
       token.dataset.value = String(value);
       token.dataset.originX = String(spots[index].x);
       token.dataset.originY = String(spots[index].y);
@@ -334,8 +340,10 @@
     for (const value of slotOrder) {
       const slot = document.createElement('div');
       slot.className = 'slot';
-      slot.setAttribute('tabindex', '0');
-      slot.setAttribute('aria-label', `slot ${value} — drop token ${value} here`);
+      if (!PLAIN) {
+        slot.setAttribute('tabindex', '0');
+        slot.setAttribute('aria-label', `slot ${value} — drop token ${value} here`);
+      }
       slot.dataset.value = String(value);
       const label = document.createElement('span');
       label.className = 'slot-label';
@@ -344,8 +352,10 @@
       armButton.type = 'button';
       armButton.className = 'arm';
       armButton.dataset.value = String(value);
-      armButton.setAttribute('aria-label', `arm slot ${value}`);
-      armButton.title = `arm slot ${value}`;
+      if (!PLAIN) {
+        armButton.setAttribute('aria-label', `arm slot ${value}`);
+        armButton.title = `arm slot ${value}`;
+      }
       armButton.textContent = `arm ${value} ✓`;
       armButton.addEventListener('click', () => arm(value));
       slot.append(label, armButton);

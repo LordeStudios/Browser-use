@@ -2430,7 +2430,31 @@ function buildElementCollectorScript({ interactiveOnly, includeText, maxElements
       }
       if (customElements.length >= 256) break;
     }
-    const visualTargetElements = Array.from(new Set([...document.querySelectorAll(VISUAL_TARGET_SELECTOR), ...customElements]));
+    // POSITIONED VISUAL OBJECTS: a plain <div> with position:absolute/fixed and
+    // a real box is how most pages (and every game) draw their draggable
+    // objects — no role, no tabindex, no label. Without this rule the agent
+    // cannot even SEE such an object in the snapshot and is forced to guess
+    // from pixels (the drag-relay failure). Generic: geometry, not vocabulary.
+    const positionedVisuals = [];
+    try {
+      const seen = new Set();
+      for (const region of regionElements) {
+        for (const candidate of region.querySelectorAll('div,span,img,svg,li,button')) {
+          if (seen.has(candidate)) continue;
+          seen.add(candidate);
+          if (positionedVisuals.length >= 128) break;
+          const style = getComputedStyle(candidate);
+          if (style.position !== 'absolute' && style.position !== 'fixed') continue;
+          if (style.display === 'none' || style.visibility === 'hidden') continue;
+          const box = candidate.getBoundingClientRect();
+          if (box.width < 40 || box.height < 40) continue;
+          if (box.right < 0 || box.bottom < 0 || box.left > window.innerWidth || box.top > window.innerHeight) continue;
+          positionedVisuals.push(candidate);
+        }
+        if (positionedVisuals.length >= 128) break;
+      }
+    } catch { /* best effort */ }
+    const visualTargetElements = Array.from(new Set([...document.querySelectorAll(VISUAL_TARGET_SELECTOR), ...customElements, ...positionedVisuals]));
     const visualTargets = visualTargetElements
       .slice(0, 256)
       .map((element) => {
