@@ -392,3 +392,45 @@ test('a gateway that rejects caching is latched off and requests retry cleanly',
   assert.equal(calls, callsBefore + 1);
   assert.equal(typeof bodies[2].system, 'string');
 });
+
+const TOOL_CATALOG = [{ name: 'computer_file', description: 'read a file', inputSchema: { type: 'object', properties: { path: { type: 'string' } } } }];
+const STRIKE_ARGS = { task: 'check', observation: { navigation: {}, dom: { elements: [] } }, history: [], messages: [], coordinator: {}, plan: [], goals: [] };
+const DONE_DECISION = '{"done":{"summary":"ok","success":true,"verified":true}}';
+const fixtureResponse = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+test('a single tools-400 is a strike, not a permanent JSON degradation', async () => {
+  const bodies = [];
+  const provider = createOpenAiCompatibleProvider({
+    providerId: 'openai', baseUrl: 'https://fixture.invalid/v1', model: 'gpt-fixture', apiKey: 'key',
+    fetchImpl: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      bodies.push(body);
+      if (body.tools?.length && bodies.length === 1) return fixtureResponse({ error: { message: 'tools rejected by this gateway' } }, 400);
+      return fixtureResponse({ choices: [{ message: { content: DONE_DECISION } }] });
+    }
+  });
+  await provider.complete({ ...STRIKE_ARGS, tools: TOOL_CATALOG, effort: 'advanced' });
+  await provider.complete({ ...STRIKE_ARGS, tools: TOOL_CATALOG, effort: 'advanced' });
+  assert.ok(bodies[0].tools?.length > 0, 'the first decision attempts native tools');
+  assert.equal(bodies[1].tools, undefined, 'the same decision retries JSON-style after the 400');
+  assert.ok(bodies[2].tools?.length > 0, 'native tools resume on the next decision');
+  assert.equal(provider.nativeToolsBroken, false, 'one transient rejection never latches the session');
+});
+
+test('a consistently tool-hostile gateway latches after three strikes', async () => {
+  const bodies = [];
+  const provider = createOpenAiCompatibleProvider({
+    providerId: 'openai', baseUrl: 'https://fixture.invalid/v1', model: 'gpt-fixture', apiKey: 'key',
+    fetchImpl: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      bodies.push(body);
+      if (body.tools?.length) return fixtureResponse({ error: { message: 'tools rejected by this gateway' } }, 400);
+      return fixtureResponse({ choices: [{ message: { content: DONE_DECISION } }] });
+    }
+  });
+  for (let i = 0; i < 3; i++) await provider.complete({ ...STRIKE_ARGS, tools: TOOL_CATALOG, effort: 'advanced' });
+  assert.equal(provider.nativeToolsFailures, 3, 'three consecutive strikes');
+  await provider.complete({ ...STRIKE_ARGS, tools: TOOL_CATALOG, effort: 'advanced' });
+  assert.equal(provider.nativeToolsBroken, true, 'the session latches after three strikes');
+  assert.equal(bodies.at(-1).tools, undefined, 'latched sessions stop shipping tool schemas');
+});

@@ -273,3 +273,42 @@ test('force compacts below the fill threshold on demand and returns stats', asyn
   const idle = await ledger.compact({ current: context, system: 'compact', tools: [], outputTokens: 2_048, summarize: async () => { throw new Error('must not run'); } });
   assert.equal(idle.compacted, false);
 });
+
+test('JSON-route turns carry a bounded reasoning tail so the model continues its own chain of thought', () => {
+  // The display-only ban stripped the model's own reasoning from its context,
+  // which is what degraded the same model that reasons clearly in Claude Code
+  // and OpenCode (the owner's chess runs: re-derived board orientation every
+  // decision, same clicks on repeat). The tail is bounded and tail-anchored:
+  // the conclusion survives, the monologue does not.
+  const ledger = new ProviderTurnLedger({ maxTurns: 4, maxBytes: 50000 });
+  const context = { task: 'Play the puzzle', messages: [], history: [] };
+  const longThinking = 'Board orientation check. '.repeat(30) + 'The knight on d5 forks the rook on c3; capture it.';
+  ledger.begin(context);
+  ledger.accept(
+    { actions: [{ name: 'browser_click', input: { element: 4 }, callId: 'c1' }] },
+    { message: { content: '{"toolCalls":[{"name":"browser_click","input":{"element":4}}]}', thinking: longThinking } },
+    'json'
+  );
+  ledger.begin({ ...context, history: [{ callId: 'c1', output: { ok: true } }] });
+
+  const assistant = ledger.wireMessages({ format: 'json' }).find(message => message.role === 'assistant');
+  const parsed = JSON.parse(assistant.content);
+  assert.equal(typeof parsed.reasoningTail, 'string', 'the reasoning tail rides the wire');
+  assert.ok(parsed.reasoningTail.length <= 1_200, `the tail is bounded (got ${parsed.reasoningTail.length})`);
+  assert.match(parsed.reasoningTail, /forks the rook/, 'the tail keeps the END of the reasoning — the conclusion, not the preamble');
+
+  // The window is the last two turns: after three more turns the first tail drops.
+  for (let i = 2; i <= 4; i++) {
+    ledger.accept(
+      { actions: [{ name: 'browser_click', input: { element: i }, callId: `c${i}` }] },
+      { message: { content: '{}', thinking: `Turn ${i} reasoning tail: the plan holds, click element ${i}.` } },
+      'json'
+    );
+    ledger.begin({ ...context, history: [{ callId: `c${i}`, output: { ok: true } }] });
+  }
+  const wire = ledger.wireMessages({ format: 'json' });
+  const firstAssistant = JSON.parse(wire.find(message => message.role === 'assistant').content);
+  assert.equal(firstAssistant.reasoningTail, undefined, 'reasoning tails older than two turns drop off the wire');
+  const tailed = wire.filter(message => message.role === 'assistant' && JSON.parse(message.content).reasoningTail);
+  assert.equal(tailed.length, 2, 'exactly the last two turns carry tails');
+});

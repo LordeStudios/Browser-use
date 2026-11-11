@@ -215,6 +215,30 @@ function boundedResult(output, archive = null) {
   return json({ ok: safe?.ok === true, truncated: true, resultId, sha256, originalBytes: bytes(serialized),
     notice: 'Use read_agent_result with resultId and offset to retrieve the full sanitized result.', preview: serialized.slice(0, 4000) });
 }
+// Reasoning continuity: pull the model's own reasoning out of the raw
+// provider payload for whichever protocol produced it.
+// - openai/responses: choices[0].message.reasoning_content (DeepSeek-style) / .reasoning
+// - anthropic:        content[] blocks of type 'thinking'
+// - json:             message.thinking (ollama think-mode) or a top-level thinking field
+function reasoningFromPayload(payload, format) {
+  if (!payload || typeof payload !== 'object') return null;
+  if (format === 'openai' || format === 'responses') {
+    const message = payload?.choices?.[0]?.message;
+    const direct = message?.reasoning_content ?? message?.reasoning;
+    if (typeof direct === 'string' && direct.trim()) return direct;
+    return null;
+  }
+  if (format === 'anthropic') {
+    if (!Array.isArray(payload?.content)) return null;
+    const joined = payload.content
+      .filter(block => block?.type === 'thinking' && typeof block.thinking === 'string')
+      .map(block => block.thinking).join('\n');
+    return joined.trim() ? joined : null;
+  }
+  const jsonThinking = payload?.message?.thinking ?? payload?.thinking ?? payload?.reasoning_content;
+  return typeof jsonThinking === 'string' && jsonThinking.trim() ? jsonThinking : null;
+}
+
 function decisionCalls(parsed) {
   return Array.isArray(parsed?.actions) ? parsed.actions : Array.isArray(parsed?.toolCalls) ? parsed.toolCalls
     : parsed?.done && typeof parsed.done === 'object' ? [{ name: 'browser_done', input: parsed.done }] : [];
@@ -427,6 +451,16 @@ class ProviderTurnLedger {
     else if (compatible && format === 'responses' && payload?.output) this.replay.set(id, { identity, format, value: copy(payload.output) });
     const mapped = actions.map((action, index) => ({ ...action, callId: calls[index].id }));
     this.pending.userMessages = this.stagedUserMessages || [];
+    // REASONING CONTINUITY: a reasoning model that cannot see its own previous
+    // conclusions re-derives the situation from scratch every decision and
+    // degenerates into repetitive shallow loops (the owner's chess-runs
+    // evidence; Claude Code / OpenCode replay reasoning and the same model
+    // reasons clearly). The JSON/text routes used to strip it entirely
+    // ("display-only"). Carry a bounded tail of THIS decision's reasoning so
+    // the next decision continues the chain of thought — recent turns only,
+    // tail-only, so continuity never becomes a monologue transcript.
+    const reasoning = reasoningFromPayload(payload, format);
+    if (reasoning) this.pending.reasoningTail = String(reasoning).replace(/\s+/g, ' ').trim().slice(-1_200);
     if (Array.isArray(parsed.actions)) return { ...parsed, actions: mapped };
     if (Array.isArray(parsed.toolCalls)) return { ...parsed, toolCalls: mapped };
     if (parsed.done) return { ...parsed, actions: mapped };
@@ -487,7 +521,12 @@ class ProviderTurnLedger {
       } else {
         // Saved or foreign-provider turns are evidence, not fabricated native
         // tool calls (signed thinking cannot be reconstructed on restore).
-        prior.push({ role: 'assistant', content: json({ assistantText: turn.text, ...turn.metadata, actions: turn.calls }) });
+        const recent = this.turns.length - 2;
+        prior.push({ role: 'assistant', content: json({
+          assistantText: turn.text,
+          ...(turn.reasoningTail && this.turns.indexOf(turn) >= recent ? { reasoningTail: turn.reasoningTail } : {}),
+          ...turn.metadata, actions: turn.calls
+        }) });
         if (turn.results.length) prior.push({ role: 'user', content: json({ actionResults: turn.results.map(result => ({ callId: result.id, output: JSON.parse(result.content) })) }) });
       }
     }

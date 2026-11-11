@@ -74,6 +74,11 @@ class OpenAiCompatibleProvider {
     // provider). The agent publishes a one-time advisory when this flips.
     this.visionDegraded = false;
     this.nativeToolsBroken = false;
+    // Strike counter for the native-tools latch: one 400 is a transient
+    // rejection (retry this decision JSON-style, native resumes next
+    // decision); three consecutive strikes latch the session. A successful
+    // native-tools request clears the counter.
+    this.nativeToolsFailures = 0;
     // Prompt caching (Anthropic-protocol routes): the request structure is
     // append-only, so a cache breakpoint on the system block lets compliant
     // gateways reuse tools + system + older history instead of re-reading
@@ -280,12 +285,13 @@ const userSafeSystem = String(system || '').trim() || IDENTITY_LINE;
       const compressedSystem = (await harnessCompressor.compressSystem(userSafeSystem)).text;
       let lastError = null;
       let requestKind = repair ? 'repair' : 'decision';
+      let toolsRejectedThisCall = false;
       for (let attempt = 1; attempt <= 2; attempt += 1) {
         // Recomputed per attempt: a 400 latch from attempt 1 must strip the
         // cache extension from attempt 2.
         const usePromptCache = isAnthropic && !this.promptCacheUnsupported && process.env.BROWSER_USE_PROMPT_CACHE !== 'off';
         const activeVisuals = (this.visualUnsupported || skipVisuals) ? [] : [visual, ...attachmentVisuals].filter(Boolean);
-        const activeTools = this.nativeToolsBroken ? [] : (isAnthropic ? anthropicToolSchemas(tools) : openAiToolSchemas(tools));
+        const activeTools = (this.nativeToolsBroken || toolsRejectedThisCall) ? [] : (isAnthropic ? anthropicToolSchemas(tools) : openAiToolSchemas(tools));
         const wireContext = activeTools.length ? { ...userContext, tools: undefined } : userContext;
         // GATEWAY-EXACT token refinement (xkiro only, owner-wired): inside the
         // compaction ambiguity zone the UTF-8 estimate decides whether a
@@ -312,7 +318,7 @@ const userSafeSystem = String(system || '').trim() || IDENTITY_LINE;
         await ledger.compact({ current: wireContext, system: compressedSystem, tools: activeTools, outputTokens: maxTokens,
           extraTokens: activeVisuals.length * 4096, signal, metrics: coordinator?.metrics, exactTokens,
           summarize: (system, input, signal) => summarizeConversation({ protocol: isAnthropic ? 'anthropic' : 'openai', model: this.model, endpoint, headers, fetchImpl: this.fetchImpl, coordinator, signal, system, input }) });
-        const prior = ledger.wireMessages({ format: isAnthropic ? 'anthropic' : this.nativeToolsBroken ? 'json' : 'openai', identity });
+        const prior = ledger.wireMessages({ format: isAnthropic ? 'anthropic' : (this.nativeToolsBroken || toolsRejectedThisCall) ? 'json' : 'openai', identity });
         const body = isAnthropic
           ? {
               model: this.model,
@@ -379,6 +385,11 @@ const userSafeSystem = String(system || '').trim() || IDENTITY_LINE;
         }
         if (response.ok) {
           ledger.observeUsage(payload?.usage, Buffer.byteLength(serializedBody));
+          // A successful native-tools request clears the strike counter: the
+          // latch below exists for CONSISTENTLY tool-hostile gateways, not
+          // for one transient 400 (which silently degraded whole sessions to
+          // the JSON-in-content protocol — the reasoning-degrading route).
+          if (activeTools.length) this.nativeToolsFailures = 0;
           emitCompletedReasoning(payload, isAnthropic, relayThought);
           if (activeVisuals.length && declaresVisualUnsupported(payload, isAnthropic) && (nativeImage || attempt < 2)) {
             // Native desktop image: the model explicitly said it cannot see —
@@ -414,11 +425,15 @@ const userSafeSystem = String(system || '').trim() || IDENTITY_LINE;
           lastError = error;
           continue;
         }
-        // Model gateways vary in native tool-calling support. Degrade to the
-        // JSON-in-content protocol instead of turning the capability mismatch
-        // into a hard failure.
+        // Model gateways vary in native tool-calling support. One 400 is a
+        // strike, not a verdict: retry this decision JSON-style, but only a
+        // CONSISTENTLY tool-hostile gateway (three strikes) latches the whole
+        // session into the JSON-in-content protocol — the reasoning-degrading
+        // route that silently degraded sessions on transient 400s.
         if (activeTools.length && Number(response.status) === 400 && attempt < 2) {
-          this.nativeToolsBroken = true;
+          this.nativeToolsFailures = (this.nativeToolsFailures || 0) + 1;
+          if (this.nativeToolsFailures >= 3) this.nativeToolsBroken = true;
+          toolsRejectedThisCall = true;
           requestKind = 'capability-fallback';
           lastError = error;
           continue;
