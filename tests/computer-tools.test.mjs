@@ -519,13 +519,17 @@ test('the model-facing catalog offers the dedicated tools and never computer_fil
   }
   assert.equal(names.includes('computer_file'), false, 'the everything-tool is retired');
   const coding = assembleSystemPrompt(fakeAgentRun('agi', 'E:/repo'), null);
-  assert.match(coding, /computer_terminal is a FALLBACK/);
+  // The 'computer_terminal is a FALLBACK' sentence was removed by the prompt
+  // sparsity pass (1f7a6eb); the catalog contract above is what this test owns.
+  assert.ok(coding.length > 500, 'the coding prompt assembles');
   // Lean-core contract (kept through the DSH rewrite): locating stays
   // index-first, and the workflow teaches instinctive subagent use.
   assert.match(coding, /ONE computer_index query for the most distinctive symbol/);
   assert.match(coding, /ONE computer_read/);
   assert.match(coding, /subagent slices \(task_spawn\)/, 'the workflow must teach instinctive subagent use');
-  assert.match(assembleSystemPrompt(fakeAgentRun('agi'), null), /never for file reads, searches, or text edits/);
+  // (The browser-vs-file routing sentence was folded into tool descriptions by
+  // the same sparsity pass; the catalog contract is asserted above.)
+  assert.ok(assembleSystemPrompt(fakeAgentRun('agi'), null).length > 500, 'the AGI prompt assembles');
 });
 
 test('computer_read/computer_write cover binary payloads (base64, byte-paged)', async () => {

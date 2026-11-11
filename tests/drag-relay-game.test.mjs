@@ -170,3 +170,18 @@ test('the harness discovers positioned visual objects on UNLABELED pages', () =>
   // The game ships an unlabeled mode so the real-world path is testable.
   assert.match(html, /const PLAIN = new URLSearchParams\(location\.search\)/, 'the game can strip every label');
 });
+
+test('browser_drag is a CORE tool; the desktop pointer is scoped to native surfaces', () => {
+  // The relay run never called browser_drag: it was DEFERRED out of the tool
+  // list, so the model reached for the desktop pointer and dragged at screen
+  // coordinates (even grabbing the app window). Dragging is a primary verb.
+  const catalog = fs.readFileSync(path.join(process.cwd(), 'desktop/agent/deferredToolCatalog.cjs'), 'utf8');
+  const coreStart = catalog.indexOf('const CORE_TOOLS');
+  const core = catalog.slice(coreStart, catalog.indexOf(']);', coreStart));
+  assert.match(core, /'browser_drag'/, 'dragging is core, never deferred');
+  assert.match(core, /'browser_click'/, 'clicking stays core');
+
+  const computer = fs.readFileSync(path.join(process.cwd(), 'desktop/computer/computerCatalog.cjs'), 'utf8');
+  assert.match(computer, /NEVER for page content: inside the browsing view use browser_click \/ browser_drag/,
+    'the desktop pointer must point page work back to the browser tools');
+});

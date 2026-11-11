@@ -22,7 +22,7 @@ const define = (name, description, properties = {}, required = []) => ({
 
 const COMPUTER_TOOLS = Object.freeze([
   define('computer_observe', 'Inspect displays, windows, and pointer. Coordinates are physical desktop pixels, not browser viewport.'),
-  define('computer_pointer', 'Real Windows pointer. Click: action,x,y. Drag: + endX,endY. Wheel: deltas. Polylines: computer_stroke. Omit/null unused fields, never dummy geometry. windowId must be focused and contain the point.', {
+  define('computer_pointer', 'Real Windows pointer for NATIVE OS surfaces only (system dialogs, other apps). NEVER for page content: inside the browsing view use browser_click / browser_drag — they act on the DOM and return evidence, while OS drags move windows and prove nothing. Click: action,x,y. Drag: + endX,endY. Wheel: deltas. Polylines: computer_stroke. Omit/null unused fields, never dummy geometry. windowId must be focused and contain the point.', {
     action: str('', ['move', 'down', 'up', 'click', 'drag', 'scroll']), x: num('x'), y: num('y'),
     endX: num('drag end x'), endY: num('drag end y'), button: str('default left', ['left', 'middle', 'right']),
     deltaX: num('positive scrolls right'), deltaY: num('positive scrolls down'), durationMs: num('drag ms, default 300'),

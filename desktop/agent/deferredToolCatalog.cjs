@@ -52,6 +52,10 @@ const CORE_TOOLS = new Set([
   'browser_done',
   'browser_execute',
   'browser_click',
+  // Dragging is a primary browser verb, as fundamental as clicking: deferring
+  // it left the model reaching for the DESKTOP pointer on page content (the
+  // drag-relay run dragged the app window at screen coordinates).
+  'browser_drag',
   'browser_navigate',
   'browser_fetch',
   'computer_read',
