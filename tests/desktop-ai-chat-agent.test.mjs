@@ -2388,6 +2388,27 @@ test('grounds coordinate actions against the explicitly targeted background tab'
   assert.deepEqual(click[2], { x: 1200, y: 800 });
 });
 
+test('an element:null beside valid coordinates is absent, not a bounce', async () => {
+  // Recovery log 2026-11-11 18:11: five bounced clicks in a row — the model
+  // sent `element: null` (the natural JSON "absent") beside the coordinates
+  // it aimed at, and the old check treated null as provided-and-invalid,
+  // turning every click into a recovery cycle while the model knew the move.
+  // Coordinates are authoritative; a null element is metadata.
+  const controller = createController();
+  const agent = new DesktopChatAgent({
+    controller, getSelectedTabId: () => 'tab-1', emit: () => {},
+    createProvider: () => createProvider([
+      { toolCalls: [{ name: 'browser_click', input: { element: null, x: 300, y: 300 } }] },
+      { toolCalls: [{ name: 'browser_done', input: { summary: 'Clicked the aimed point.' } }] }
+    ])
+  });
+  const run = await agent.start({ task: 'Click the aimed point', provider: { id: 'mock' } });
+  assert.equal(run.status, 'completed');
+  const click = controller.calls.find(([name]) => name === 'clickAt');
+  assert.ok(click, 'the coordinate click must execute instead of bouncing on element:null');
+  assert.deepEqual(click[2], { x: 300, y: 300 });
+});
+
 test('browser_focus_tab foregrounds a tab without rebinding this run', async () => {
   const controller = createController();
   const focused = [];

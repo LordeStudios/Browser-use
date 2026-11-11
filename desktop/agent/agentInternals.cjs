@@ -2323,9 +2323,13 @@ async function executeAction(controller, run, call) {
       // clicked the site logo instead of the board). The index remains useful
       // metadata for the model but never overrides an explicit point.
       if (coordinatorHasCoordinatePair(call.input)) {
-        if (call.input.element !== undefined && coerceElementIndex(call.input.element) === undefined) {
-          throw new Error('browser_click element index must be a non-negative integer when provided; omit it for pure coordinate clicks.');
-        }
+        // An element value beside valid coordinates is metadata, never a
+        // veto: models say "no element" as ""/-1/null-like values, and the
+        // old rejection bounced the click and forced a recovery cycle — the
+        // live chess run (recovery log 2026-11-11 18:11) shows five bounced
+        // clicks in a row on the same valid coordinate pair while the model
+        // knew the move. Drop the uncoercible value and click the point the
+        // model actually aimed at.
         const point = viewportPoint(run, call.input.x, call.input.y, 'browser_click', targetTabId, {
           coordinateSpace: call.input.coordinateSpace,
           screenshotId: call.input.screenshotId
