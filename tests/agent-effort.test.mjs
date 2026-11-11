@@ -228,3 +228,34 @@ test('a decision with a real mutation resets the speculation streak', async () =
   assert.equal(run.effortTier, 'advanced');
   assert.equal(run.effortTierDemotions || 0, 0);
 });
+
+test('a model-named thinking budget is consumed once; silence falls back to the rapid default', async () => {
+  // Lichess chess regression: the task matches isRapidTask (3s default), but
+  // ONE early named budget (e.g. 154000) rode every later decision and the run
+  // thought 96s+154s between single clicks. The effort prompt promises the
+  // budget holds only for decisions that re-state it; the loop now enforces
+  // that by consuming the named value once.
+  const { DesktopChatAgent } = require('../desktop/agent/desktopChatAgent.cjs');
+  const budgets = [];
+  let decision = 0;
+  const agent = new DesktopChatAgent({
+    controller: createDemotionController(),
+    getSelectedTabId: () => 'tab-1',
+    emit: () => {},
+    createProvider: () => ({
+      async complete(args) {
+        budgets.push(args.thinkingBudgetMs);
+        decision += 1;
+        if (decision === 1) return { toolCalls: [{ name: 'browser_click', input: { element: 0 } }], thinkingBudgetMs: 154_000 };
+        if (decision === 2) return { toolCalls: [{ name: 'browser_click', input: { element: 0 } }] };
+        return { done: { summary: 'Done.', success: true, verified: true } };
+      }
+    })
+  });
+  const run = await agent.start({ task: 'You play chess, you are playing white', settings: { effort: 'auto' }, provider: { id: 'mock' } });
+  assert.equal(run.status, 'completed');
+  assert.ok(budgets.length >= 3, `expected at least three decisions, got ${budgets.length}`);
+  assert.equal(budgets[0], 3_000, 'a rapid (chess) task starts at the 3s default');
+  assert.equal(budgets[1], 154_000, 'the named budget is honored exactly for the next decision');
+  assert.equal(budgets[2], 3_000, 'a decision that does not re-name the budget falls back to the default, not the ratchet');
+});

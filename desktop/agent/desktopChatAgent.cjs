@@ -808,10 +808,21 @@ class DesktopChatAgent {
               // loop's request-error policy; the reasoning budget rides as
               // provider config, not a parallel watchdog.
               const completed = await Promise.resolve((async () => {
-                const budgetMs = Number(run.thinkingBudgetMs) || (I.isRapidTask(run.task) ? 3_000 : 30_000);
+                // The model-named budget is CONSUMED ONCE, exactly as the
+                // effort prompt promises ("state it in the JSON every decision
+                // you want it to hold"). Persisting it turned one naming into
+                // a ratchet: a lichess chess run classified rapid (3s default)
+                // still thought 96s and 154s per decision because an early
+                // named budget rode every later decision. A decision that does
+                // not re-name falls back to the tier/rapid default.
+                const pendingNamed = run.thinkingBudgetMs;
+                const namedBudget = pendingNamed === null || pendingNamed === undefined ? NaN : Number(pendingNamed);
+                const fallbackBudget = I.isRapidTask(run.task) ? 3_000 : 30_000;
+                const budgetMs = Number.isFinite(namedBudget) && namedBudget >= 0 ? namedBudget : fallbackBudget;
                 const capBudget = Number(run.thinkingBudgetCapMs);
                 const effectiveBudget = Number.isFinite(capBudget) && capBudget >= 0 ? Math.min(budgetMs, capBudget) : budgetMs;
-                run.thinkingBudgetMs = effectiveBudget;
+                run.lastThinkingBudgetMs = effectiveBudget;
+                run.thinkingBudgetMs = undefined;
                 // DECISION WATCHDOG (kept): the provider call is wrapped in a
                 // dead-air guard — a call that never resolves and never
                 // streams is retried once inside the open step; a second hang
@@ -918,13 +929,13 @@ class DesktopChatAgent {
               const partial = reasoned ? extractEmbeddedDecision(reasoned) : null;
               if (partial && hasExecutableDecision(partial)) {
                 response = partial;
-                this.publish('agent.reasoningBudget', run, { budgetMs: run.thinkingBudgetMs, salvaged: true });
+                this.publish('agent.reasoningBudget', run, { budgetMs: run.lastThinkingBudgetMs, salvaged: true });
               } else {
                 run.reasoningBudgetCuts = (run.reasoningBudgetCuts || 0) + 1;
-                this.publish('agent.reasoningBudget', run, { budgetMs: run.thinkingBudgetMs, salvaged: false, cuts: run.reasoningBudgetCuts });
+                this.publish('agent.reasoningBudget', run, { budgetMs: run.lastThinkingBudgetMs, salvaged: false, cuts: run.reasoningBudgetCuts });
                 run.budgetCloseout = true;
                 if (run.settings?.effort === 'auto') {
-                  const cheaper = applyEffortEscalation({ mode: 'auto', tier: run.effortTier }, { thinkingBudgetMs: run.thinkingBudgetMs }).tier;
+                  const cheaper = applyEffortEscalation({ mode: 'auto', tier: run.effortTier }, { thinkingBudgetMs: run.lastThinkingBudgetMs }).tier;
                   if (cheaper && EFFORT_TIERS.indexOf(cheaper) < EFFORT_TIERS.indexOf(run.effortTier)) run.effortTier = cheaper;
                 }
                 this.scheduleRecovery(run, {

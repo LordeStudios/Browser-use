@@ -1359,8 +1359,13 @@ class BrowserViewController {
         )
       );
       return hit;
-    } catch {
-      return { hit: null, reason: 'hit-test-unavailable' };
+    } catch (error) {
+      // The blanket sentinel hid WHY the post-input read failed (3s timeout
+      // under load, a dead tab, a page-eval error), so neither the model nor
+      // the operator could tell a slow page from a broken one — the model just
+      // re-screenshotted to compensate. Surface the real reason; the sentinel
+      // shape stays for compatibility.
+      return { hit: null, reason: 'hit-test-unavailable', error: String(error?.message || error).slice(0, 200) };
     }
   }
 
