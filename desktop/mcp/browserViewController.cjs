@@ -1599,7 +1599,19 @@ class BrowserViewController {
           } catch { /* probing is best-effort */ }
           const probe = window.__bdsClickProbe || null;
           const el = document.elementFromPoint(${JSON.stringify(x)}, ${JSON.stringify(y)});
-          const text = String((document.body && document.body.innerText) || '');
+          // PAGE-TEXT THROTTLE: innerText forces a layout pass. Recomputing it
+          // on every click made a 48-click batch 48 reflows - the whole machine
+          // slowed down and clicks went stale. The tail is cached in the page
+          // for 500ms, which still gives every burst its post-action state.
+          let text = '';
+          try {
+            const cached = window.__bdsTextCache;
+            if (cached && Date.now() - cached.at < 500) text = cached.text;
+            else {
+              text = String((document.body && document.body.innerText) || '');
+              window.__bdsTextCache = { at: Date.now(), text };
+            }
+          } catch { text = ''; }
           const tail = text.replace(/\\s+/g, ' ').trim().slice(-240);
           if (!el) return { hit: false, tag: null, textLength: text.length, textTail: tail, ...(probe ? { pageClicks: probe.clicks.slice(-2), lastDown: probe.lastDown, lastUp: probe.lastUp } : {}) };
           const rect = el.getBoundingClientRect();

@@ -1012,7 +1012,9 @@ test('the overlay never hangs on paint frames and never hides on a single ack ti
   assert.match(overlay, /POINTER_ACK_TIMEOUT_MS = 250/, 'the ack window is short');
   // Occlusion freezes the cursor: an occluded window produces no frames, so the
   // overlay must own the topmost layer (the live "remains on the first click").
-  assert.match(overlay, /setAlwaysOnTop\(true, 'screen-saver'\)/, 'the overlay floats above the view');
+  // App-scoped: NEVER a global topmost window (the cursor escaped onto other
+  // applications), but always raised above the app's own surface.
+  assert.ok(!/\.setAlwaysOnTop\(/.test(overlay), 'the overlay never becomes a global topmost window');
   assert.match(overlay, /pointerWindow\.moveTop\(\)/, 're-raised on every geometry sync');
   // A cleanup release must land where the pointer is, never at (0,0): a (0,0)
   // release turns the click into a <body> click and the control never fires.

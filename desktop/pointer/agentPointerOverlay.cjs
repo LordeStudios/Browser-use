@@ -71,10 +71,10 @@ class AgentPointerOverlay {
     this.window = pointerWindow;
     pointerWindow.setMenuBarVisibility(false);
     pointerWindow.setIgnoreMouseEvents(true, { forward: true });
-    // Float above the BrowserView's native surface and above the parent's
-    // content. Occlusion is fatal for the animation (rAF stalls), so the
-    // overlay must own the topmost layer of the app window.
-    try { pointerWindow.setAlwaysOnTop(true, 'screen-saver'); } catch { /* platform level */ }
+    // Raise the overlay above the app's OWN native surface only. NEVER
+    // setAlwaysOnTop: a global topmost window draws the cursor over other
+    // applications (the reported escape). As a child of the main window it
+    // stays inside the app and moveTop keeps it above the browsing view.
     try { pointerWindow.moveTop(); } catch { /* best effort */ }
 
     pointerWindow.webContents.on('did-finish-load', () => {
