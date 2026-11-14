@@ -48,7 +48,7 @@ Windows 10 and 11, x64. The same page also carries the command line package.
 |---|---|---|
 | [Browser-use-0.4.1-setup.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/Browser-use-0.4.1-setup.exe) | 149,761,244 bytes (142.8 MB) | NSIS installer with desktop and start menu shortcuts |
 | [Browser-use-0.4.1-portable.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/Browser-use-0.4.1-portable.exe) | 149,538,051 bytes (142.6 MB) | Portable build, runs without installing |
-| [lorde-browser-use-0.4.1.tgz](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/lorde-browser-use-0.4.1.tgz) | 16,000,000 bytes (15.6 MB) | npm package with the command line and web interface |
+| [lorde-browser-use-0.4.1.tgz](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/lorde-browser-use-0.4.1.tgz) | 16,314,600 bytes (15.6 MB) | npm package with the command line and web interface |
 
 SHA-256 checksums (also in [`RELEASE-CHECKSUMS.txt`](RELEASE-CHECKSUMS.txt) and on the release page):
 
