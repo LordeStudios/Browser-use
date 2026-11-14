@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/LordeStudios/Browser-use/releases/latest"><img alt="Release" src="https://img.shields.io/badge/release-v0.4.0-2ea043" /></a>
+  <a href="https://github.com/LordeStudios/Browser-use/releases/latest"><img alt="Release" src="https://img.shields.io/badge/release-v0.4.3-2ea043" /></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-blue" />
   <img alt="License" src="https://img.shields.io/badge/license-Proprietary-lightgrey" />
 </p>
@@ -46,15 +46,15 @@ Windows 10 and 11, x64. The same page also carries the command line package.
 
 | Asset | Size | Type |
 |---|---|---|
-| [Browser-use-0.4.1-setup.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/Browser-use-0.4.1-setup.exe) | 149,761,179 bytes (142.8 MB) | NSIS installer with desktop and start menu shortcuts |
-| [Browser-use-0.4.1-portable.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/Browser-use-0.4.1-portable.exe) | 149,538,052 bytes (142.6 MB) | Portable build, runs without installing |
-| [lorde-browser-use-0.4.1.tgz](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/lorde-browser-use-0.4.1.tgz) | 16,317,405 bytes (15.6 MB) | npm package with the command line and web interface |
+| [Browser-use-0.4.3-setup.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.3/Browser-use-0.4.3-setup.exe) | 149,761,145 bytes (142.8 MB) | NSIS installer with desktop and start menu shortcuts |
+| [Browser-use-0.4.3-portable.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.3/Browser-use-0.4.3-portable.exe) | 149,537,953 bytes (142.6 MB) | Portable build, runs without installing |
+| [lorde-browser-use-0.4.3.tgz](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.3/lorde-browser-use-0.4.3.tgz) | 63,085,346 bytes (60.2 MB) | npm package with the command line, web interface and bundled browser runtime |
 
 SHA-256 checksums (also in [`RELEASE-CHECKSUMS.txt`](RELEASE-CHECKSUMS.txt) and on the release page):
 
 ```
-d7ae74eddf2f513efb577676db5da0de4c9201267bf4c79ed5966851b03d09d3  Browser-use-0.4.1-setup.exe
-00b81cb4d5e7c6a9f5f359d232bf953aa32f2ba9bf582008afa1da741dd11343  Browser-use-0.4.1-portable.exe
+bb387576d22509405bbc6fd59ef38dc1cbb3132d23a7996732f34e6f0d53c3ac  Browser-use-0.4.3-setup.exe
+4eed77d70c57af00d35fc93c6ee15e222afebe1731a1730b0cf7c60d82f4ccfc  Browser-use-0.4.3-portable.exe
 ```
 
 ## Features
