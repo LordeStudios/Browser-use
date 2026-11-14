@@ -1,7 +1,7 @@
-Browser-use 0.3.6 Windows release checksums
+# Browser-use 0.4.1 release checksums
 
-Browser-use-0.3.6-setup.exe
-SHA-256: f1fc2d3e45736e44f7c4eac5f8524301b43c5fef39607949931e7d299dd4314b
+f5fa05925ef51c8f45733542e7c0978a1c9d756e13bccf7faed59a8419b0d44c  Browser-use-0.4.1-setup.exe
+d3e45b84ab76eb31b2c12653472cc874c6ade630953db2bf6e2b783da33f314d  Browser-use-0.4.1-portable.exe
 
-Browser-use-0.3.6-portable.exe
-SHA-256: 7b9da81b9a47d40422640f8d150c076b925684688cb5b9875974c138b4f9e859
+Verify on Windows:
+certutil -hashfile Browser-use-0.4.1-setup.exe SHA256
