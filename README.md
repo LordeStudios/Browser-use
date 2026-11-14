@@ -42,18 +42,19 @@ Windows build.
 
 ## Download the desktop app
 
-The latest release is available on the [GitHub Releases page](https://github.com/LordeStudios/Browser-use/releases/latest).
+Windows 10 and 11, x64. The same page also carries the command line package.
 
 | Asset | Size | Type |
 |---|---|---|
-| [Browser-use-0.3.6-setup.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.3.6/Browser-use-0.3.6-setup.exe) | 149,245,801 bytes (142.3 MB) | NSIS installer with desktop and start menu shortcuts |
-| [Browser-use-0.3.6-portable.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.3.6/Browser-use-0.3.6-portable.exe) | 149,022,929 bytes (142.1 MB) | Portable build, runs without installing |
+| [Browser-use-0.4.1-setup.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/Browser-use-0.4.1-setup.exe) | 149,761,244 bytes (142.8 MB) | NSIS installer with desktop and start menu shortcuts |
+| [Browser-use-0.4.1-portable.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/Browser-use-0.4.1-portable.exe) | 149,538,051 bytes (142.6 MB) | Portable build, runs without installing |
+| [lorde-browser-use-0.4.1.tgz](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/lorde-browser-use-0.4.1.tgz) | 16,000,000 bytes (15.6 MB) | npm package with the command line and web interface |
 
-SHA-256 checksums for both artifacts (also in [`RELEASE-CHECKSUMS.txt`](RELEASE-CHECKSUMS.txt) and on the release page):
+SHA-256 checksums (also in [`RELEASE-CHECKSUMS.txt`](RELEASE-CHECKSUMS.txt) and on the release page):
 
 ```
-f1fc2d3e45736e44f7c4eac5f8524301b43c5fef39607949931e7d299dd4314b  Browser-use-0.3.6-setup.exe
-7b9da81b9a47d40422640f8d150c076b925684688cb5b9875974c138b4f9e859  Browser-use-0.3.6-portable.exe
+f5fa05925ef51c8f45733542e7c0978a1c9d756e13bccf7faed59a8419b0d44c  Browser-use-0.4.1-setup.exe
+d3e45b84ab76eb31b2c12653472cc874c6ade630953db2bf6e2b783da33f314d  Browser-use-0.4.1-portable.exe
 ```
 
 ## Features
