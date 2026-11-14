@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/LordeStudios/Browser-use/releases/latest"><img alt="Release" src="https://img.shields.io/badge/release-v0.3.6-2ea043" /></a>
+  <a href="https://github.com/LordeStudios/Browser-use/releases/latest"><img alt="Release" src="https://img.shields.io/badge/release-v0.4.0-2ea043" /></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-blue" />
   <img alt="License" src="https://img.shields.io/badge/license-Proprietary-lightgrey" />
 </p>
@@ -24,7 +24,23 @@ It is an Electron desktop application with a packaged Chromium runtime, a node t
 
 ![Browser-use main window](assets/screenshots/main-window.png)
 
-## Download
+## Install from npm
+
+The command line and the web interface ship as one npm package and work on Windows, macOS and Linux:
+
+```bash
+npm install -g lorde-browser-use
+
+browser-use              # terminal interface
+browser-use gui --open   # web interface at http://127.0.0.1:4200, no desktop app
+browser-use run "open example.com and summarise the page"
+browser-use doctor       # check node, browser and GUI status
+```
+
+The package is self-contained and does not install Electron. The desktop application below is a separate
+Windows build.
+
+## Download the desktop app
 
 The latest release is available on the [GitHub Releases page](https://github.com/LordeStudios/Browser-use/releases/latest).
 
