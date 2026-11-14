@@ -1,8 +1,8 @@
-# Browser-use 0.4.1 release checksums
+# Browser-use 0.4.3 release checksums
 
-d7ae74eddf2f513efb577676db5da0de4c9201267bf4c79ed5966851b03d09d3  Browser-use-0.4.1-setup.exe
-00b81cb4d5e7c6a9f5f359d232bf953aa32f2ba9bf582008afa1da741dd11343  Browser-use-0.4.1-portable.exe
-e9dad7762a054c57d4b029e899fda6ac9003114a7cef519ac3e89255dc30e142  lorde-browser-use-0.4.1.tgz
+bb387576d22509405bbc6fd59ef38dc1cbb3132d23a7996732f34e6f0d53c3ac  Browser-use-0.4.3-setup.exe
+4eed77d70c57af00d35fc93c6ee15e222afebe1731a1730b0cf7c60d82f4ccfc  Browser-use-0.4.3-portable.exe
+7fa486d36b7c9771b8b9e2032a122c3a33b70436c4075affa5975ff6ff5b003d  lorde-browser-use-0.4.3.tgz
 
 Verify on Windows:
-certutil -hashfile Browser-use-0.4.1-setup.exe SHA256
+certutil -hashfile Browser-use-0.4.3-setup.exe SHA256
