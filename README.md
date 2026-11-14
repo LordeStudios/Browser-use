@@ -46,15 +46,15 @@ Windows 10 and 11, x64. The same page also carries the command line package.
 
 | Asset | Size | Type |
 |---|---|---|
-| [Browser-use-0.4.1-setup.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/Browser-use-0.4.1-setup.exe) | 149,761,244 bytes (142.8 MB) | NSIS installer with desktop and start menu shortcuts |
-| [Browser-use-0.4.1-portable.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/Browser-use-0.4.1-portable.exe) | 149,538,051 bytes (142.6 MB) | Portable build, runs without installing |
-| [lorde-browser-use-0.4.1.tgz](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/lorde-browser-use-0.4.1.tgz) | 16,314,600 bytes (15.6 MB) | npm package with the command line and web interface |
+| [Browser-use-0.4.1-setup.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/Browser-use-0.4.1-setup.exe) | 149,761,179 bytes (142.8 MB) | NSIS installer with desktop and start menu shortcuts |
+| [Browser-use-0.4.1-portable.exe](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/Browser-use-0.4.1-portable.exe) | 149,538,052 bytes (142.6 MB) | Portable build, runs without installing |
+| [lorde-browser-use-0.4.1.tgz](https://github.com/LordeStudios/Browser-use/releases/download/v0.4.1/lorde-browser-use-0.4.1.tgz) | 16,317,405 bytes (15.6 MB) | npm package with the command line and web interface |
 
 SHA-256 checksums (also in [`RELEASE-CHECKSUMS.txt`](RELEASE-CHECKSUMS.txt) and on the release page):
 
 ```
-f5fa05925ef51c8f45733542e7c0978a1c9d756e13bccf7faed59a8419b0d44c  Browser-use-0.4.1-setup.exe
-d3e45b84ab76eb31b2c12653472cc874c6ade630953db2bf6e2b783da33f314d  Browser-use-0.4.1-portable.exe
+d7ae74eddf2f513efb577676db5da0de4c9201267bf4c79ed5966851b03d09d3  Browser-use-0.4.1-setup.exe
+00b81cb4d5e7c6a9f5f359d232bf953aa32f2ba9bf582008afa1da741dd11343  Browser-use-0.4.1-portable.exe
 ```
 
 ## Features
