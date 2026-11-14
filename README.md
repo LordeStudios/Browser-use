@@ -22,7 +22,22 @@ Browser-use gives you a real Chromium browser on your desktop with a full automa
 
 It is an Electron desktop application with a packaged Chromium runtime, a node terminal and an optional bridge to Android devices.
 
-![Browser-use main window](assets/screenshots/main-window.png)
+![Browser-use](assets/screenshots/hero-splash.jpg)
+
+## Screenshots
+
+| Secure MCP pairing | AI providers |
+|---|---|
+| ![Secure MCP pairing](assets/screenshots/settings-mcp.png) | ![AI providers](assets/screenshots/settings-providers.png) |
+| Bind a host and a browser tab, with every paired host listed | Save a connection, test it, and read back the models it serves |
+
+| Screen recorder | Android devices |
+|---|---|
+| ![Screen recorder](assets/screenshots/screen-recorder.png) | ![Android devices](assets/screenshots/android-devices.jpg) |
+| Record the browser window, the full screen or a web tab | Stream a real Android device over ADB and scrcpy |
+
+![Terminal with an agent session](assets/screenshots/terminal-agent.png)
+
 
 ## Install from npm
 
