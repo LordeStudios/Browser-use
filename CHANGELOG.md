@@ -2,17 +2,10 @@
 
 ## 0.4.0, 2026-11-14
 
-- Harness rewrite: prompt registry, fixed identity, runtime-context snapshots, turn/step inbox,
-  one loop policy replacing five recovery mechanisms, fixed tool pipeline, advisory sourced guards,
-  one tool DSL and structured error codes. desktopChatAgent.cjs 7,797 -> 3,207 lines.
-- Prompt diet: system prompt 10,865 -> 1,990 chars (browser 6,900 -> 1,532), largest block 4,466 -> 456,
-  identity ~999 -> 55, tool descriptions 29,405 -> 18,457.
-- Agent-owned file dialogs: CDP chooser interception, direct DOM attach fallback, re-arm after navigation,
-  Electron download routing and seven MCP tools on desktop, CLI and MCP.
-- Correctness: DPR screenshot coordinate mapping, truthful click replies, disabled-control click guard,
-  observation page text, selector queries that return non-interactive nodes.
-- npm CLI: lorde-browser-use 0.4.0 ships the agent CLI, TUI and a headless web GUI (browser-use gui)
-  with browser-use doctor and a bash installer.
+- Agent core rebuilt on a single control loop: one owner for prompt, memory, recovery, tool execution and errors. Shorter instructions, faster decisions, fewer stalls and less repeated work on long tasks.
+- File dialogs handled by the agent: attach files, cancel a picker and route downloads to a chosen directory, in the desktop app, the CLI and over MCP.
+- New npm package `lorde-browser-use` with the terminal interface and a web interface that runs without the desktop app (`browser-use gui`), plus `browser-use doctor` and a bash installer.
+- Accuracy fixes: screenshot coordinates at non-100% display scaling, click results that always report what happened, disabled controls refused with a reason, page text readable without dumping HTML, and selector queries that return non-interactive nodes.
 
 ## 0.3.6, 2026-11-08
 
