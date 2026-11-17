@@ -32,9 +32,22 @@ const COMPUTER_TOOLS = Object.freeze([
     windowId: str('focused window handle'), region, strokes, ...coordinates,
     button: str('default left', ['left', 'middle', 'right'])
   }, ['windowId', 'region', 'strokes']),
-  define('computer_keyboard', 'Send key chords or Unicode text to the focused desktop app.', {
-    action: str('', ['press', 'down', 'up', 'text']), key: str('e.g. Control+Shift+S, Enter, Win+D'), text: str('text for action=text')
-  }, ['action']),
+  define('computer_keyboard', 'Send key chords or Unicode text to the focused desktop app. For any multi-key action pass keys:[...] — ONE call, never one call per key.', {
+    action: str('', ['press', 'down', 'up', 'text']), key: str('e.g. Control+Shift+S, Enter, Win+D'), text: str('text for action=text'),
+    keys: { type: 'array', minItems: 1, maxItems: 200, items: { type: 'string' }, description: 'A run of keys in one call. Each entry is a chord ("S", "Shift+D", "Enter") or literal text ("0.35", "-0.2", "hello"). A Blender transform is ["S","X","0.35","Enter"], not four calls.' },
+    intervalMs: num('keys: ms between steps, default 25, max 2000'),
+    x: num('keys: pointer x before the run — apps like Blender route shortcuts to the area under the pointer. Omit with windowId and the window center is used'),
+    y: num('keys: pointer y, see x'),
+    windowId: str('keys: window to move the pointer inside, from computer_observe'),
+    // LORDE_KEY_DWELL_V1 — press holds the chord for this long before releasing.
+    // Apps that resolve modifiers on their own event queue (Blender, some
+    // Electron/OpenGL shells) need a real gap or they see a bare key.
+    holdMs: num('press: ms to hold the chord before releasing. Default 12, max 2000. Raise it for apps that queue keys before resolving modifiers.')
+    // No single field is mandatory: a batched run needs only keys, a single
+    // chord needs only key, and typing needs only text. Requiring action would
+    // force a redundant field on the exact calls this schema is meant to make
+    // cheap, and the worker rejects a call that names none of them.
+  }, []),
   define('computer_window', 'List windows or focus a handle from computer_observe. waitMs (list, 0..30000ms): returns as soon as a new window appears; heavy apps need 15-30s, so one call covers launch + verification.', {
     action: str('', ['list', 'focus']), windowId: str('handle from computer_observe'),
     waitMs: num('list: wait ms for a new window')
@@ -117,8 +130,9 @@ const COMPUTER_TOOLS = Object.freeze([
   define('computer_clipboard', 'Read or replace the system text clipboard.', {
     action: str('', ['read', 'write']), text: str('write text')
   }, ['action']),
-  define('computer_screenshot', 'Capture a real display with exact image-to-desktop mapping. Native app visual evidence, not browser_screenshot.', {
-    displayId: str('from computer_observe; default primary'), maxWidth: num('default 1600, max 4096')
+  define('computer_screenshot', 'Capture a real display with exact image-to-desktop mapping. Native app visual evidence, not browser_screenshot. Pass windowId to crop to one window — the returned origin/scale still map image pixels to desktop pixels, so a click derived from a window capture lands correctly.', {
+    displayId: str('from computer_observe; default primary'), maxWidth: num('default 1600, max 4096'),
+    windowId: str('crop to this window from computer_observe; omit for the whole display')
   ,
     display_text: str('optional label for this call; removed before execution, never reaches a native handler')
   }),
@@ -127,7 +141,14 @@ const COMPUTER_TOOLS = Object.freeze([
     fps: num('5..60, default 30 — YOUR choice by task: low for steady UI, high for animation/motion'), width: num('video width, 320..3840, default 1920'),
     frames: num('stop: decode this many evenly-spaced frames (1-30, default off; 6-12 covers most tasks); frames action: count (1-30, default 6)'),
     frameWidth: num('stop: decoded frame width for vision, 256..2048, default 1024'), count: num('frames action: count (1-30, default 6)'), outDir: str('frames action: output directory (default under agent-results/frames)')
-  }, ['action'])
+  }, ['action']),
+  // computer_resume was implemented in computerTools.restartTool and excluded
+  // from headless runs, but the catalog entry was missing — so validation
+  // rejected the tool as unknown and the agent could never restart itself.
+  define('computer_resume', 'Restart this app so edited source takes effect: call it ONCE per change set, then end the turn with browser_done. The app owns the decision (dev build, already scheduled, cooldown) and the result always says whether a restart was scheduled. Never re-run a shell restart command instead — it looks unfinished and queues duplicate restarts.', {
+    graceSeconds: num('seconds to wait before restarting, default 5'),
+    reason: str('why the restart is needed; recorded for the user')
+  })
 ]);
 // Keep the full export for compatibility and tests, but do not send the
 // specialized 3D/modeling playbook on ordinary browser/file tasks. Claude Code
@@ -334,6 +355,19 @@ function validateComputerInput(name, input) {
   }
   validateField(validationSchema(name), input, name);
   if (name === 'computer_stroke') validateStroke({ ...input, action: 'stroke' });
+  if (name === 'computer_keyboard') {
+    // action is optional because a keys[] run, a lone chord and a text blob each
+    // imply it. A call that names none of them would reach the OS layer and come
+    // back as an unknown-key error, so reject it here while the message can say
+    // what the caller forgot.
+    const hasRun = Array.isArray(input.keys) && input.keys.length > 0;
+    if (!hasRun && input.action === undefined && input.key === undefined && input.text === undefined) {
+      throw invalidInput(
+        'Invalid input for computer_keyboard: name one of keys (a run of chords/text), key (one chord), text (literal typing), or action. Allowed fields: action, key, text, keys, intervalMs, x, y, windowId, holdMs.',
+        { field: 'computer_keyboard', reason: 'missing_keys', allowed: ['keys', 'key', 'text', 'action'] }
+      );
+    }
+  }
   if (name === 'computer_pointer') {
     if (input.action === 'stroke') validateStroke(input);
     else if (input.strokes !== undefined) throw invalidInput(

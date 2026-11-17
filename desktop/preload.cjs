@@ -3,11 +3,21 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('browserUseDesktop', {
   state: () => ipcRenderer.invoke('browser-use:state'),
   rendererReady: () => ipcRenderer.send('browser-use:renderer-ready'),
+  // Always-on-top status orb (bottom-right) for when the app is minimised or
+  // unfocused. The renderer owns the mode machine; main owns the window.
+  agentBubble: (state) => ipcRenderer.send('browser-use:bubble-state', state),
+  // Dev resume: the main process hands the previous session (tabs + chat) to
+  // the renderer once it is ready, so the chat reopens on the exact
+  // conversation and can continue its unfinished run.
+  onDevResume: (listener) => ipcRenderer.on('browser-use:dev-resume', (_event, value) => listener(value)),
   agentState: () => ipcRenderer.invoke('browser-use:agent-state'),
   agentPreflight: (request) => ipcRenderer.invoke('browser-use:agent-preflight', request),
   agentStart: (request) => ipcRenderer.invoke('browser-use:agent-start', request),
   setDefaultWorkspace: (request) => ipcRenderer.invoke('browser-use:set-default-workspace', request),
   agentCancel: (runId) => ipcRenderer.invoke('browser-use:agent-cancel', { runId }),
+  // "+" hands the running conversation to the background and returns a fresh
+  // drawer agent, so starting another task never kills the current one.
+  agentHandoff: () => ipcRenderer.invoke('browser-use:agent-handoff'),
   subagentMessage: (payload) => ipcRenderer.invoke('browser-use:subagent-message', payload),
   subagentStop: (alias) => ipcRenderer.invoke('browser-use:subagent-stop', { alias }),
   subagentClose: (alias) => ipcRenderer.invoke('browser-use:subagent-close', { alias }),

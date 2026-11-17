@@ -144,7 +144,10 @@ test('repeated streamed reasoning arms a next-decision nudge without blocking it
           context.onThought?.(`${repeated} ${repeated}`);
           return { actions: [{ name: 'browser_screenshot', input: {} }] };
         }
-        return { done: { summary: 'Completed.', success: true, verified: true } };
+        // A real answer, not "Completed." — a status token is bounced once by
+        // the reply contract, which would add a provider call and make this
+        // test's call count measure the wrong thing.
+        return { done: { summary: 'The server is unreachable; the local setup was not changed.', success: true, verified: true } };
       }
     })
   });
@@ -2254,7 +2257,12 @@ test('surfaces an account-level provider block once instead of retrying the same
   assert.equal(calls, 1);
   assert.equal(run.result.reason, 'provider_external_block');
   assert.equal(run.result.success, false);
-  assert.match(run.result.summary, /provider account needs attention/i);
+  // The summary is what the user reads, so it must name the cause, quote the
+  // provider's own words, and say what to do — not just "failed".
+  assert.equal(run.result.failure.kind, 'billing');
+  assert.match(run.result.summary, /billing is settled/i);
+  assert.match(run.result.summary, /403 Forbidden — your subscription payment is past due\./, 'the provider sentence must survive verbatim');
+  assert.match(run.result.summary, /Top up or update billing/i, 'and the next step must be stated');
   assert.equal(run.history.filter((entry) => entry.tool === 'agent_recovery').length, 0);
 });
 
@@ -2346,8 +2354,13 @@ test('every tab-scoped browser action exposes a non-empty argument schema', () =
   // The empty-schema bug class: browser_select_tab once advertised zero
   // properties, so the model could not discover tabId and tab switching
   // failed with empty arguments on every attempt.
+  // Genuinely no-argument listings are exempt: browser_tabs takes nothing, and
+  // browser_downloads_list lists what the tab already tracked. A no-arg tool
+  // with an empty schema is honest; a tool that NEEDS an argument and hides it
+  // is the defect this guards.
+  const noArgumentTools = new Set(['browser_tabs', 'browser_downloads_list']);
   for (const [name] of Object.entries(ACTIONS)) {
-    if (!name.startsWith('browser_') || name === 'browser_tabs') continue;
+    if (!name.startsWith('browser_') || noArgumentTools.has(name)) continue;
     const tool = byName.get(name);
     assert.ok(tool, `${name} must be listed in the tool catalog`);
     const schema = toolInputSchema(tool.input, name);
@@ -2885,4 +2898,69 @@ test('a follow-up task clears the closed plan and marks the turn boundary', asyn
     true,
     'the turn boundary must name the new objective'
   );
+});
+
+// ---- Steering must not wait for the in-flight decision -------------------
+
+test('a steer INTERRUPTS the decision in flight instead of waiting for it to finish', async () => {
+  const controller = createController();
+  const contexts = [];
+  let decision = 0;
+  let abortedInFlight = 0;
+  const agent = new DesktopChatAgent({
+    controller, getSelectedTabId: () => 'tab-1', emit: () => {},
+    createProvider: () => ({ async complete({ signal, messages }) {
+      decision += 1;
+      contexts.push((messages || []).map((m) => String(m.content || '')));
+      if (decision === 1) {
+        // A long "thinking" call that only ends when the run interrupts it —
+        // exactly the state the user was in when the agent ignored them.
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(resolve, 10_000);
+          const onAbort = () => {
+            abortedInFlight += 1;
+            clearTimeout(timer);
+            reject(signal.reason instanceof Error ? signal.reason : new Error('agent-message-arrived'));
+          };
+          if (signal?.aborted) onAbort();
+          else signal?.addEventListener('abort', onAbort, { once: true });
+        });
+        return { done: { summary: 'unreachable', success: true } };
+      }
+      return { done: { summary: 'Followed the new instruction.', success: true } };
+    } })
+  });
+
+  const started = agent.start({ task: 'Original task', provider: { id: 'mock' } });
+  // Let the first decision reach the provider, then steer mid-flight.
+  for (let i = 0; i < 40 && decision === 0; i += 1) await new Promise((r) => setTimeout(r, 10));
+  const steered = agent.steer({ runId: agent.state().id, text: 'STOP and use the blue theme instead' });
+  assert.equal(steered.status, 'queued');
+  const run = await started;
+
+  assert.equal(abortedInFlight, 1, 'the open decision must be interrupted, not awaited to completion');
+  assert.equal(run.status, 'completed');
+  assert.ok(contexts.length >= 2, 'the interrupted decision is re-taken');
+  assert.equal(
+    contexts.slice(1).some((messages) => messages.some((text) => /blue theme/.test(text))),
+    true,
+    'the very NEXT decision receives the user instruction'
+  );
+});
+
+test('a steer during startup or recovery is QUEUED, never thrown into the end-of-run queue', () => {
+  const agent = new DesktopChatAgent({
+    controller: createController(), getSelectedTabId: () => 'tab-1', emit: () => {},
+    createProvider: () => createProvider([])
+  });
+  // 'starting' (the run is still assembling) and 'awaiting_recovery' (parked,
+  // auto-resuming) are NOT over. Refusing the message there threw, and the
+  // renderer's fallback held it until the whole run ended.
+  for (const status of ['starting', 'awaiting_recovery']) {
+    agent.run = { id: 'run-x', status, pendingUserMessages: [] };
+    const result = agent.steer({ runId: 'run-x', text: 'do this now' });
+    assert.equal(result.status, 'queued', `${status} must accept the steer`);
+    assert.equal(agent.run.pendingUserMessages.length, 1, `${status} keeps the message on the run`);
+    assert.match(agent.run.pendingUserMessages[0].content, /do this now/);
+  }
 });

@@ -36,7 +36,7 @@ class DebuggerLeaseManager {
     return tab;
   }
 
-  run(tabId, purpose, operation) {
+  run(tabId, purpose, operation, { queueBudgetMs = null } = {}) {
     const id = String(tabId);
     this.metrics.operations += 1;
     const previous = this.queues.get(id) || Promise.resolve();
@@ -61,19 +61,37 @@ class DebuggerLeaseManager {
       operationPromise.then(resolve, reject);
     });
     operationPromise.catch(() => undefined).finally(() => timer && clearTimeout(timer));
-    // The queue tail follows the GUARDED promise: on timeout it advances so a
-    // hung command can never hold the tab's serialization slot forever.
     const settled = guarded.catch(() => undefined);
-    const tail = settled.finally(() => {
+    let tail = null;
+    const advance = () => {
       if (this.queues.get(id) === tail) this.queues.delete(id);
-    });
+    };
+    if (Number(queueBudgetMs) > 0) {
+      // A command whose REPLY is slow must not hold the tab's serialization
+      // slot. Chromium can take seconds to acknowledge a synthetic mouse move
+      // even though the event was already forwarded to the renderer, and CDP
+      // processes commands in order on a session — so releasing the slot after
+      // the command has been ISSUED preserves ordering, and only the reply is
+      // late. The caller still receives the true outcome through `guarded`.
+      let budgetTimer = null;
+      const budget = new Promise((resolve) => {
+        budgetTimer = setTimeout(resolve, Math.max(1, Number(queueBudgetMs)));
+        if (typeof budgetTimer.unref === 'function') budgetTimer.unref();
+      });
+      tail = Promise.race([settled, budget]).then(() => {
+        if (budgetTimer) clearTimeout(budgetTimer);
+        advance();
+      });
+    } else {
+      tail = settled.then(advance);
+    }
     this.queues.set(id, tail);
     return guarded;
   }
 
-  async send(tabId, purpose, method, params = {}) {
+  async send(tabId, purpose, method, params = {}, options = {}) {
     this.metrics.commands += 1;
-    return this.run(tabId, purpose, (debuggerClient) => debuggerClient.sendCommand(method, params));
+    return this.run(tabId, purpose, (debuggerClient) => debuggerClient.sendCommand(method, params), options);
   }
 
   async sendBatch(tabId, purpose, commands = []) {

@@ -154,6 +154,43 @@ function decisionOutputBudgetError(previousBudget, raisedBudget) {
   return error;
 }
 
+// A provider can reject the SHAPE of an image part instead of claiming it
+// cannot see one: "messages[37].content[1].type has unsupported value
+// "image_url"". That is a definitive statement about the endpoint, and it has
+// to be recognised from the ERROR, before any retry is spent — because the
+// generic tool-schema fallback sits earlier in the chain, so a visual 400 used
+// to be misread as a tools problem, the single retry was spent removing tools,
+// and the image was re-sent unchanged until the run parked on the same 400
+// forever.
+// STRUCTURAL signatures only: the gateway is quoting the part it refused
+// ("messages[37].content[1].type has unsupported value \"image_url\""). That is
+// a statement about the endpoint's accepted schema, so it is definitive.
+//
+// Prose capability complaints ("image input is unsupported", "cannot process
+// images") deliberately do NOT match. Those stay on the strike path, because a
+// single vague complaint can be a delivery glitch and latching it would
+// permanently mislabel a vision-capable model as text-only.
+const VISUAL_REJECTION_PATTERN = new RegExp([
+  'image_url',
+  'input_image',
+  'unsupported value\\s*["\']?(?:image|image_url|input_image)'
+].join('|'), 'i');
+
+// A transient cause VETOES the classification, even when the body also quotes
+// our image part. Some gateways echo the offending fragment inside a busy /
+// quota / gateway-error response, and a model that can see perfectly well must
+// never be permanently blinded by one busy minute. Erring towards "not a
+// capability verdict" costs an honest failure; erring the other way costs the
+// user every future screenshot in the session.
+const TRANSIENT_CAUSE_PATTERN = /(?:rate[\s_-]?limit|too many requests|quota|overloaded|capacity|temporarily unavailable|try again|time-?out|timed out|socket hang ?up|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|network|gateway|bad gateway|service unavailable)/i;
+
+function looksLikeVisualRejection(message) {
+  const text = String(message || '');
+  if (!text) return false;
+  if (TRANSIENT_CAUSE_PATTERN.test(text)) return false;
+  return VISUAL_REJECTION_PATTERN.test(text);
+}
+
 function declaresVisualUnsupported(payload, isAnthropic) {
   // Only final user-facing content can establish a capability claim. Models
   // often mention vision limitations in hidden reasoning while still correctly
@@ -719,6 +756,7 @@ module.exports = {
   decisionBudgetCutOff,
   decisionOutputBudgetError,
   declaresVisualUnsupported,
+  looksLikeVisualRejection,
   mergeStreamText,
   mergeToolCallDelta,
   createStreamCollector,

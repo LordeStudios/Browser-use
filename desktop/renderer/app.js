@@ -388,6 +388,7 @@ function rebuildChatTimeline() {
     const dash = document.createElement('button');
     dash.type = 'button';
     dash.className = 'agent-timeline-dash is-user';
+    dash._timelineTarget = item;
     const excerpt = chatTimelineExcerpt(item);
     dash.title = `You: ${excerpt || '(empty)'}`;
     dash.setAttribute('aria-label', `Jump to your message: ${excerpt}`);
@@ -405,6 +406,25 @@ function rebuildChatTimeline() {
     row.addEventListener('click', (event) => { event.stopPropagation(); jumpToTimelineMessage(item); });
     return row;
   }));
+  updateNearestTimelineDash();
+}
+
+// The highlight follows the message NEAREST THE VIEWPORT, not the newest one:
+// whichever user message is closest to the middle of the visible feed gets
+// .is-nearest; every other dash stays grayed out and smaller.
+function updateNearestTimelineDash() {
+  const feed = chatFeed();
+  const viewMid = feed.scrollTop + feed.clientHeight / 2;
+  let best = null;
+  let bestDist = Infinity;
+  for (const dash of chatTimelineTrack.children) {
+    const item = dash._timelineTarget;
+    if (!item) continue;
+    const mid = item.offsetTop + item.offsetHeight / 2;
+    const dist = Math.abs(mid - viewMid);
+    if (dist < bestDist) { bestDist = dist; best = dash; }
+  }
+  for (const dash of chatTimelineTrack.children) dash.classList.toggle('is-nearest', dash === best);
 }
 
 function scheduleTimelineRefresh() {
@@ -422,6 +442,9 @@ function ensureChatTimelineObserver() {
   chatTimelineObserver?.disconnect();
   chatTimelineObserver = new MutationObserver(scheduleTimelineRefresh);
   chatTimelineObserver.observe(host, { childList: true });
+  // Re-evaluate which dash is nearest whenever the feed scrolls, so the
+  // highlight follows the viewport instead of staying locked to the newest.
+  host.addEventListener('scroll', updateNearestTimelineDash, { passive: true });
   chatTimelineObservedHost = host;
   scheduleTimelineRefresh();
 }
@@ -490,6 +513,27 @@ agentTranscript.addEventListener('scroll', () => {
   if (transcriptStickToBottom) transcriptUnseenCount = 0;
   updateTranscriptJumpButton();
 }, { passive: true });
+
+// EXPANDING A CARD OWNS THE VIEWPORT. A long thought/tool body used to open
+// wherever the card happened to sit, so older entries still filled the screen
+// ABOVE it and the body's lower half fell below the fold. Opening a card now
+// scrolls its head to the top of the transcript: the expanded body is read
+// from its first line, with nothing above it. `toggle` does not bubble, so it
+// is caught in the CAPTURE phase; collapsing never moves the view.
+agentTranscript.addEventListener('toggle', (event) => {
+  const details = event.target;
+  if (!details || details.tagName !== 'DETAILS' || !details.open) return;
+  const card = details.closest('.agent-message') || details;
+  if (!card.isConnected) return;
+  const host = chatFeed();
+  if (!host || !host.contains(card)) return;
+  const delta = card.getBoundingClientRect().top - host.getBoundingClientRect().top;
+  host.scrollTop = Math.max(0, host.scrollTop + delta - 8);
+  // The reader is now inside a card, not following the tail: stop auto-stick
+  // so the next streamed event does not yank the card away mid-read.
+  transcriptStickToBottom = false;
+  updateTranscriptJumpButton();
+}, true);
 
 // Messages that arrive while the user is scrolled away are counted on the
 // scroll-to-bottom badge, so the affordance says what it is worth.
@@ -2002,9 +2046,157 @@ function startMessageEdit(item, body, originalText, options = {}) {
   });
 }
 
+// ── FAILURE CARDS ───────────────────────────────────────────────────────────
+// One compact row for a tool failure, one full card for a run-level failure.
+// Both were previously invisible (see the note in renderChatMessage). The
+// provider's own words are always shown verbatim: a rate limit, a bad key and
+// an oversized context are indistinguishable once paraphrased.
+function appendFailureRow(title, detail = '', options = {}) {
+  const item = document.createElement('article');
+  item.className = 'agent-message is-failure is-failure-compact';
+  const header = document.createElement('header');
+  const mark = document.createElement('span'); mark.className = 'agent-failure-mark'; mark.append(icon('warning-circle'));
+  const label = document.createElement('strong'); label.textContent = String(title || 'Failed');
+  header.append(mark, label);
+  item.append(header);
+  const body = String(detail || '').replace(/\s+/g, ' ').trim();
+  if (body) {
+    const p = document.createElement('p'); p.textContent = body;
+    item.append(p);
+  }
+  if (options.failureKey && item.dataset) item.dataset.failureKey = options.failureKey;
+  withTranscriptStick(() => chatFeed().append(item));
+  updateTranscriptJumpButton();
+  return item;
+}
+
+function formatResumeDelay(ms) {
+  const value = Number(ms);
+  if (!Number.isFinite(value) || value <= 0) return '';
+  const seconds = Math.round(value / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.round(seconds / 60);
+  return `${minutes} min`;
+}
+
+// A run-level failure or park. `failure` is the classified report from
+// desktop/agent/failureReport.cjs: { kind, title, body, providerText,
+// nextStep, retryable, parked }.
+function renderRunFailure(failure, options = {}) {
+  const report = failure && typeof failure === 'object' ? failure : { title: 'Run stopped', body: String(failure || '').trim() };
+  const kind = String(report.kind || 'unknown');
+  const parked = report.parked === true || options.parked === true;
+  // Collapse a recovery storm: the same failure kind re-parking repeatedly
+  // updates ONE card (with an attempt count) instead of stacking duplicates.
+  const feed = chatFeed();
+  const last = feed?.lastElementChild;
+  const existing = last?.dataset?.failureCardKind === kind ? last : null;
+  if (existing) {
+    const counter = existing.querySelector('.agent-failure-attempts');
+    if (counter) counter.textContent = `Attempt ${Number(options.fires) || 2} — still parked`;
+    return existing;
+  }
+  const item = document.createElement('article');
+  item.className = `agent-message is-failure${parked ? ' is-parked' : ''}`;
+  if (item.dataset) item.dataset.failureCardKind = kind;
+  const header = document.createElement('header');
+  const mark = document.createElement('span');
+  mark.className = 'agent-failure-mark';
+  mark.append(icon(parked ? 'hourglass-medium' : 'warning-circle'));
+  const label = document.createElement('strong');
+  label.textContent = String(report.title || 'Run stopped');
+  header.append(mark, label);
+  item.append(header);
+
+  const bodyText = String(report.body || '').replace(/\s+/g, ' ').trim();
+  if (bodyText) {
+    const p = document.createElement('p'); p.textContent = bodyText;
+    item.append(p);
+  }
+  // The provider's own words, verbatim and copyable. Never omitted: this is the
+  // line that tells a rate limit apart from a bad key.
+  const providerText = String(report.providerText || '').replace(/\s+/g, ' ').trim();
+  if (providerText) {
+    const quote = document.createElement('blockquote');
+    quote.className = 'agent-failure-provider';
+    const caption = document.createElement('span'); caption.textContent = 'Provider said';
+    const code = document.createElement('code'); code.textContent = providerText;
+    quote.append(caption, code);
+    item.append(quote);
+  }
+  const nextStep = String(report.nextStep || '').replace(/\s+/g, ' ').trim();
+  if (nextStep) {
+    const p = document.createElement('p'); p.className = 'agent-failure-next'; p.textContent = nextStep;
+    item.append(p);
+  }
+  if (parked) {
+    const delay = formatResumeDelay(options.resumeInMs);
+    const p = document.createElement('p');
+    p.className = 'agent-failure-resume';
+    p.textContent = delay
+      ? `Not finished — parked with its state intact. Resuming automatically in about ${delay}; send a message to continue now.`
+      : 'Not finished — parked with its state intact. Send a message to continue now.';
+    item.append(p);
+  }
+  const attempts = document.createElement('p');
+  attempts.className = 'agent-failure-attempts';
+  attempts.hidden = true;
+  item.append(attempts);
+  appendMessageHoverActions(item, String(report.title || 'Failure'), {
+    copyText: [report.title, report.body, providerText ? `Provider said: ${providerText}` : null, report.nextStep].filter(Boolean).join('\n\n')
+  });
+  // The same failure can arrive twice: once as the durable assistant message
+  // (`ensureTerminalAssistantMessage`, replayed by the state fallback) and once
+  // as this card — the observed transcript showed the paragraph twice. When an
+  // existing assistant card already carries this text, REPLACE it so the richer
+  // card (provider quote + next step) wins instead of stacking a duplicate.
+  // Check both the run's tracked card and the feed tail, because the two
+  // deliveries can arrive in either order.
+  const runId = String(options.runId || '');
+  const anchor = bodyText.slice(0, 40);
+  const tracked = runId ? lastAssistantCardByRun.get(runId) : null;
+  const tail = chatFeed()?.lastElementChild;
+  const candidates = [];
+  if (tracked?.isConnected) candidates.push(tracked);
+  if (tail && tail !== tracked && tail.classList?.contains('is-assistant')) candidates.push(tail);
+  const prior = anchor ? candidates.find((card) => String(card.textContent || '').includes(anchor)) : null;
+  if (prior) {
+    prior.replaceWith(item);
+    if (tracked && prior === tracked) lastAssistantCardByRun.delete(runId);
+  } else {
+    withTranscriptStick(() => chatFeed().append(item));
+  }
+  updateTranscriptJumpButton();
+  return item;
+}
+
+function paintRunFailure(event) {
+  const failure = event?.result?.failure || event?.failure || null;
+  if (failure) return renderRunFailure(failure, { parked: false, runId: event?.run?.id });
+  return renderChatMessage('error', 'Agent run failed',
+    event?.result?.summary || event?.error || 'The agent stopped with an actionable provider or cancellation error.',
+    failureInspection(event));
+}
+
+// `parkRun` publishes BOTH run.escalated and run.parked with the same report;
+// renderRunFailure collapses the second into the first card.
+function paintRunPark(event) {
+  const failure = event?.failure || null;
+  if (failure) return renderRunFailure(failure, { parked: true, resumeInMs: event?.resumeInMs, fires: event?.fires, runId: event?.run?.id });
+  return renderChatMessage('error', 'Run parked',
+    String(event?.reason || 'The run is parked with its state intact; recovery resumes it automatically.'),
+    failureInspection(event));
+}
+
 function renderChatMessage(kind, text, detail = '', inspection = null, options = {}) {
-  // "Action needs adjustment" cards are suppressed before they are ever attached, so they cannot paint.
-  if (kind === 'error') { const ghost = document.createElement('article'); ghost.hidden = true; ghost.className = 'agent-message is-error'; return ghost; }
+  // A FAILURE MUST BE VISIBLE. This branch used to build a detached, `hidden`
+  // element and return it for EVERY 'error' call — so run failures and the
+  // non-recoverable tool failures the forensic pass added were constructed and
+  // then thrown away. The transcript showed a spinner that stopped and no
+  // reason, which is why a rate-limited provider looked like the agent
+  // ignoring the user. Call sites already collapse consecutive repeats
+  // (failureKey), so painting these is bounded.
+  if (kind === 'error') return appendFailureRow(text, detail, options);
   const item = document.createElement('article'); item.className = `agent-message is-${kind}`;
   const header = document.createElement('header');
   if (kind === 'tool') {
@@ -2233,7 +2425,11 @@ function renderChatMessage(kind, text, detail = '', inspection = null, options =
 function positionAgentPlan() {
   // The progress strip is a normal flex child of the drawer now: the chat
   // area (transcript, flex:1) shrinks to make room for the pills instead of
-  // them floating over the conversation. Nothing to compute here anymore.
+  // them floating over the conversation. Nothing to compute here anymore —
+  // but the orb still has to get out of the way, and the strip's top is final
+  // on the very first frame, so schedule the lift immediately instead of
+  // waiting for a ResizeObserver to notice the pill finishing its entrance.
+  scheduleOrbLift();
 }
 
 const agentProgressStrip = document.querySelector('#agent-progress-strip');
@@ -3100,37 +3296,210 @@ function truncateHistoryTitle(value, limit = 58) {
   return title.length > limit ? `${title.slice(0, limit - 3).trimEnd()}...` : title;
 }
 
+// ---- Agent lanes -----------------------------------------------------------
+// Three persistent slots. The selected lane decides which tab the NEXT task
+// lands in, which is what makes the history window's tabs meaningful: they are
+// not just filters over one list, they are where work goes.
+const AGENT_LANE_STORAGE_KEY = 'lu-active-agent-lane';
+// The lane module is a separate script tag; if it ever fails to load, the
+// drawer must still open (one lane, no tabs) instead of dying on init.
+const AgentLanes = window.AgentLanes || {
+  LANES: ['agent1', 'agent2', 'agent3'],
+  laneLabel: () => 'Chat 1',
+  normalizeLane: (value) => (String(value || '') === 'agent1' ? 'agent1' : null),
+  isActiveStatus: () => false,
+  rowMeta: () => '',
+  buildHistoryModel: () => ({ now: Date.now(), lanes: [], laneFor: () => ({ label: 'Chat 1', rows: [] }) })
+};
+function readStoredAgentLane() {
+  try { return AgentLanes.normalizeLane(localStorage.getItem(AGENT_LANE_STORAGE_KEY)); } catch { return null; }
+}
+let activeAgentLane = readStoredAgentLane() || AgentLanes.LANES[0];
+let historyLaneTabKey = '';
+// The last fetched history list. State pushes repaint from this instead of
+// re-reading the store on every poll.
+let historyEntriesCache = [];
+
+function setActiveAgentLane(lane) {
+  const next = AgentLanes.normalizeLane(lane) || AgentLanes.LANES[0];
+  if (next === activeAgentLane) return;
+  activeAgentLane = next;
+  try { localStorage.setItem(AGENT_LANE_STORAGE_KEY, next); } catch { /* storage unavailable */ }
+  renderLaneBadge();
+  if (!agentHistoryView.hidden) paintAgentHistory();
+}
+
+// A small badge beside the conversation title: the tabs live behind the
+// history screen, so without this the drawer gives no clue which agent the
+// next message will belong to.
+function renderLaneBadge() {
+  const badge = document.getElementById('agent-lane-badge');
+  if (!badge) return;
+  const lane = AgentLanes.normalizeLane(activeAgentLane) || AgentLanes.LANES[0];
+  badge.textContent = AgentLanes.laneLabel(lane);
+  badge.dataset.lane = lane;
+  badge.title = `Tasks you send now belong to ${AgentLanes.laneLabel(lane)}`;
+  badge.hidden = false;
+}
+
+// Builds the tab strip from the SAME model as the rows, so a tab's dot and the
+// rows under it can never disagree about whether that agent is working.
+function renderLaneTabs(model) {
+  const host = document.getElementById('agent-lane-tabs');
+  if (!host) return;
+  // The lane NAME belongs in the key: the agent renames a conversation as the
+  // chat evolves, and a cached tab would keep printing the old name forever.
+  const key = JSON.stringify(model.lanes.map((lane) => [lane.lane, lane.tabLabel, lane.activeCount, lane.rows.length, lane.hasOpen])) + `|${activeAgentLane}`;
+  if (key === historyLaneTabKey) return;
+  historyLaneTabKey = key;
+  const buttons = model.lanes.map((lane) => {
+    const isActive = lane.lane === activeAgentLane;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `agent-lane-tab${isActive ? ' is-active' : ''}${lane.hasActive ? ' has-work' : ''}`;
+    button.dataset.agentLane = lane.lane;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', String(isActive));
+    const openNote = lane.hasOpen && !isActive ? ' · holds the open task' : '';
+    const heading = lane.name ? `${lane.label} · ${lane.name}` : lane.label;
+    button.title = lane.hasActive
+      ? `${heading} · ${lane.activeCount} active task${lane.activeCount === 1 ? '' : 's'}${openNote}`
+      : `${heading} · ${lane.rows.length} task${lane.rows.length === 1 ? '' : 's'}${openNote}`;
+    const label = document.createElement('span');
+    label.className = 'agent-lane-tab-label';
+    // The AI's name for this lane's work, not a fixed slot number. The number
+    // stays in the tooltip and in the badge, so identity is never lost.
+    label.textContent = lane.tabLabel || lane.label;
+    button.append(label);
+    // "The task you have open is on this tab" — a hollow ring, so it can never
+    // be read as the solid dot that means "work is happening here".
+    if (lane.hasOpen && !isActive) {
+      const ring = document.createElement('span');
+      ring.className = 'agent-lane-open-ring';
+      ring.setAttribute('aria-hidden', 'true');
+      button.append(ring);
+    }
+    // The ACTIVE tab reports live work with a rotating ring at its end; an
+    // inactive tab only gets a dot, because a ring on an unselected tab would
+    // pull the eye away from the list the user is reading.
+    if (lane.hasActive && isActive) {
+      const spinner = document.createElement('span');
+      spinner.className = 'agent-lane-spinner';
+      spinner.setAttribute('aria-hidden', 'true');
+      button.append(spinner);
+    } else if (lane.hasActive) {
+      const dot = document.createElement('span');
+      dot.className = 'agent-lane-dot';
+      dot.setAttribute('aria-hidden', 'true');
+      button.append(dot);
+    }
+    return button;
+  });
+  host.replaceChildren(...buttons);
+}
+
+function historyRowButton(row, now) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  const classes = ['agent-history-item'];
+  if (row.active) classes.push('is-live');
+  // is-open is a different fact from is-live: a finished task can be the one
+  // you are reading, and a running one can be a task you are not looking at.
+  if (row.open) classes.push('is-open');
+  if (row.kind === 'subagent') classes.push('is-subagent');
+  if (row.depth) classes.push('is-child');
+  button.className = classes.join(' ');
+  button.dataset.runId = row.id;
+  if (row.alias) button.dataset.subagent = row.alias;
+  if (row.open) {
+    button.setAttribute('aria-current', 'true');
+    button.title = `Open in the transcript · ${row.title}`;
+  }
+
+  // A subagent's row must never be mistaken for a main-run entry: it carries
+  // the subagent's NAME as a chip before the task text.
+  if (row.alias) {
+    const chip = document.createElement('span');
+    chip.className = 'agent-history-subagent-chip';
+    chip.textContent = row.alias;
+    chip.title = `Subagent ${row.alias}`;
+    button.append(chip);
+  }
+  const title = document.createElement('strong');
+  title.textContent = truncateHistoryTitle(row.title);
+  button.append(title);
+  const meta = AgentLanes.rowMeta(row, now);
+  if (meta || row.open) {
+    const small = document.createElement('small');
+    small.className = 'agent-history-meta';
+    if (row.open) {
+      const open = document.createElement('span');
+      open.className = 'agent-history-open-pill';
+      open.textContent = 'OPEN';
+      small.append(open);
+    }
+    if (meta) small.append(document.createTextNode(meta));
+    button.append(small);
+  }
+  button.addEventListener('click', () => {
+    // A live subagent has its own drawer tab — open that instead of loading a
+    // saved transcript that would show a stale copy of the same work.
+    if (row.kind === 'subagent' && row.alias && subagentAliasSet.has(row.alias)) {
+      agentHistoryView.hidden = true;
+      syncAgentOverlayScreenState();
+      selectSubagentTab(row.alias);
+      return;
+    }
+    void openConversation(row.id).catch((error) => reportError(error, 'Could not open that task.'));
+  });
+  return button;
+}
+
 async function renderAgentHistory() {
+  const wasHidden = agentHistoryView.hidden;
   const entries = await window.browserUseDesktop.chatHistoryList();
+  historyEntriesCache = Array.isArray(entries) ? entries : [];
+  const model = buildHistoryModel();
+  // OPENING the window lands on the task you are already in. Browsing it later
+  // must not yank the tab out from under the user, hence wasHidden: a refresh
+  // while the screen is open keeps whatever tab they chose. Snapped before the
+  // screen is revealed so there is only ever one paint.
+  if (wasHidden && model.openLane && model.openLane !== activeAgentLane) setActiveAgentLane(model.openLane);
   agentHistoryView.hidden = false;
   syncAgentOverlayScreenState();
-  // ChatGPT-style live sessions first: conversations still running in the
-  // background as independent instances. Clicking one jumps into its live
-  // transcript (the persisted snapshot plus every event from now on).
-  const liveSessions = state.agent?.liveSessions || [];
-  const sections = [];
-  if (liveSessions.length) {
-    const head = Object.assign(document.createElement('p'), { className: 'agent-history-section-label', textContent: 'Live sessions' });
-    sections.push(head);
-    for (const session of liveSessions) {
-      const item = document.createElement('button'); item.type = 'button'; item.className = 'agent-history-item is-live';
-      const title = document.createElement('strong'); title.textContent = truncateHistoryTitle(session.title);
-      const status = document.createElement('small'); status.textContent = `running · step ${session.step || 0}`;
-      item.append(title, status);
-      item.addEventListener('click', () => { void openConversation(session.id); });
-      sections.push(item);
-    }
-    const divider = Object.assign(document.createElement('p'), { className: 'agent-history-section-label', textContent: 'History' });
-    sections.push(divider);
-  }
-  const savedItems = entries.length ? entries.map((entry) => {
-    const item = document.createElement('button'); item.type = 'button'; item.className = 'agent-history-item';
-    const title = document.createElement('strong'); title.textContent = truncateHistoryTitle(entry.title);
-    item.append(title);
-    item.addEventListener('click', () => { void openConversation(entry.id); });
-    return item;
-  }) : [Object.assign(document.createElement('p'), { className: 'agent-empty', textContent: 'No saved conversations yet.' })];
-  agentHistoryList.replaceChildren(...sections, ...savedItems);
+  paintAgentHistory(model);
+}
+
+// Repaint from the cached list. State pushes are frequent, and the tab dots,
+// spinners and "20min" stamps must move with them — refetching history on every
+// push would be an IPC storm for information that has not changed.
+function buildHistoryModel() {
+  return AgentLanes.buildHistoryModel({
+    conversations: historyEntriesCache,
+    liveSessions: state.agent?.liveSessions || [],
+    subagents: state.agent?.subagents || [],
+    // The task currently loaded in the transcript. Without it every row reads
+    // the same and the user cannot tell which task they are already in.
+    openId: visibleConversationId || '',
+    // ...unless a subagent tab is in front, in which case THAT is what is open.
+    openAlias: currentSubagentAlias(),
+    now: Date.now()
+  });
+}
+
+// `model` is optional so a caller that just built one (to read openLane) does
+// not build it twice.
+function paintAgentHistory(model) {
+  const built = model || buildHistoryModel();
+  renderLaneTabs(built);
+  const lane = built.laneFor(activeAgentLane);
+  const rows = lane.rows.length
+    ? lane.rows.map((row) => historyRowButton(row, built.now))
+    : [Object.assign(document.createElement('p'), {
+      className: 'agent-empty',
+      textContent: `No tasks for ${lane.label} yet. Send one and it will appear here.`
+    })];
+  agentHistoryList.replaceChildren(...rows);
 }
 
 // Opens a conversation (saved OR live) into the transcript: persisted
@@ -3143,6 +3512,10 @@ async function openConversation(conversationId) {
   // drawer to the Main tab so the rebuilt transcript is actually visible.
   if (activeSubagentTab !== 'main') selectSubagentTab('main');
   visibleConversationId = conversation.id;
+  // Re-opening a conversation that was handed to the background must make it
+  // LIVE again: its events are otherwise still filtered as "retired" and the
+  // transcript would sit frozen while the run keeps working.
+  retiredConversationIds.delete(conversation.id);
   chatSelectionRevision += 1;
   discardLiveThought();
   agentTranscript.replaceChildren(); transcriptStickToBottom = true;
@@ -3357,6 +3730,12 @@ function appendRunMetadataOnce(card, run) {
 function renderAssistantReply(text, runId = chatRun?.id, kind = 'assistant') {
   const reply = String(text || '').trim();
   if (!reply) return;
+  // The desktop bubble shows this on hover, so it is always the newest thing
+  // the agent actually said to the user.
+  latestAgentMessage = reply;
+  // A real answer means the work is over: the live working orb must go, or
+  // it sits under the reply claiming something is still running.
+  hideOrb();
   const conversationId = String(runId || '');
   // A run can deliver the same answer through assistant.message, browser_done,
   // run.completed, and the durable renderChatState fallback. The first real
@@ -3409,10 +3788,25 @@ function hideConnectionNotice() {
   clearInterval(connectionNoticeTimer);
 }
 
+// A thoughtId that has ALREADY been settled must never re-open a card.
+// At run end the agent's teardown can deliver a late 'assistant.thinking'
+// for the very decision whose 'assistant.thinking.completed' already
+// collapsed its card — updateLiveThought then saw no active card and built a
+// SECOND "Thinking…" card next to the settled one. That is the duplicated
+// thinking card users saw exactly when a run ended.
+const settledThoughtIds = new Set();
+function rememberSettledThought(id) {
+  const key = String(id || '');
+  if (!key) return;
+  settledThoughtIds.add(key);
+  if (settledThoughtIds.size > 200) settledThoughtIds.delete(settledThoughtIds.values().next().value);
+}
+
 function discardLiveThought() {
   if (activeThoughtTimer) clearInterval(activeThoughtTimer);
   activeThoughtTimer = null;
   activeThoughtMessage = null;
+  settledThoughtIds.clear();
 }
 
 const MAX_ELAPSED_DISPLAY_MS = 24 * 60 * 60_000; // 24h
@@ -3443,7 +3837,257 @@ function paintLiveThoughtElapsed(item, elapsedMs) {
 // LORDE_SUBAGENT_TABS_V366 (field fix) — card construction split from the
 // main feed's card lifecycle so a subagent feed can host its OWN live card
 // (one per run) instead of contending for the single global card.
+// ── AGENT ORB ───────────────────────────────────────────────────────────────
+// A bare, suspended particle orb centred just above the composer. No card, no
+// border, no background — it hangs there the way a voice assistant's sphere
+// does, and the SHAPE is the status:
+//
+//   sphere        thinking
+//   double shell  deep thinking (a long deliberation)
+//   lattice       planning (a plan is being set)
+//   cube          executing (a tool is running)
+//   ring          waiting for the user
+//   red shatter   failure (provider, network, tool)
+//
+// This replaces the sentence "Still working — this model is not streaming
+// reasoning text.", which was indistinguishable from a hang and was the only
+// thing a non-reasoning model left in the transcript.
+let orb = null;
+let orbStartedAt = 0;
+let orbTimer = null;
+let orbDeepTimer = null;
+let orbCaptionText = '';
+
+const ORB_DEEP_AFTER_MS = 7000;
+
+function ensureOrb() {
+  if (orb?.api) return orb;
+  const dock = document.getElementById('agent-orb-dock');
+  const canvas = document.getElementById('agent-orb-canvas');
+  if (!dock || !canvas || !window.AgentOrb) return null;
+  const api = window.AgentOrb.create(canvas, { size: 56, mode: 'thinking' });
+  orb = {
+    api,
+    dock,
+    canvas,
+    label: document.getElementById('agent-orb-label'),
+    elapsed: document.getElementById('agent-orb-elapsed')
+  };
+  orbStartedAt = Date.now();
+  orbTimer = setInterval(paintOrbElapsed, 1000);
+  observeOrbLift();
+  scheduleOrbLift();
+  return orb;
+}
+
+function paintOrbElapsed() {
+  if (!orb?.elapsed) return;
+  const seconds = Math.max(0, Math.round((Date.now() - orbStartedAt) / 1000));
+  orb.elapsed.textContent = seconds >= 60
+    ? `${Math.floor(seconds / 60)}m ${seconds % 60}s`
+    : `${seconds}s`;
+}
+
+function paintOrbCaption() {
+  if (!orb?.label) return;
+  const text = orbCaptionText;
+  orb.label.textContent = text;
+  // The caption only exists when there is something true to say. A permanent
+  // "Working" label would be the very filler this replaced.
+  orb.dock.classList.toggle('has-caption', Boolean(text));
+}
+
+// ── Desktop bubble mirror ───────────────────────────────────────────────────
+// When the app is minimised or behind another window, the in-drawer orb is not
+// visible. This pushes the same state to the always-on-top window, which shows
+// the orb in the bottom-right corner and the agent's latest message on hover.
+const ORB_TITLES = {
+  thinking: 'Working',
+  deep: 'Thinking deeply',
+  planning: 'Planning',
+  acting: 'Working',
+  waiting: 'Needs you',
+  error: 'Stopped',
+  done: 'Finished'
+};
+
+let latestAgentMessage = '';
+
+function publishBubble(mode, text = '', active = true) {
+  try {
+    window.browserUseDesktop?.agentBubble?.({
+      active: active === true,
+      mode: String(mode || 'thinking'),
+      title: ORB_TITLES[mode] || 'Working',
+      text: String(text || latestAgentMessage || '').replace(/\s+/g, ' ').slice(0, 300)
+    });
+  } catch { /* the desktop bubble is additive; it must never break a run */ }
+}
+
+// Show the orb in a mode. Idempotent: repeated calls in the same mode do not
+// restart the animation, so a burst of events cannot make it stutter.
+function showOrb(mode = 'thinking', caption = '') {
+  const instance = ensureOrb();
+  if (!instance) return null;
+  const wasHidden = instance.dock.hidden;
+  instance.dock.hidden = false;
+  instance.dock.dataset.mode = mode;
+  instance.api.setMode(mode);
+  if (wasHidden) {
+    orbStartedAt = Date.now();
+    paintOrbElapsed();
+  }
+  if (caption) orbCaptionText = caption;
+  paintOrbCaption();
+  // A plan or goal panel may have appeared while the orb was hidden.
+  scheduleOrbLift();
+  publishBubble(mode, caption || orbCaptionText, true);
+  // A long deliberation earns the deeper shape; a short one never flickers
+  // through it.
+  if (orbDeepTimer) { clearTimeout(orbDeepTimer); orbDeepTimer = null; }
+  if (mode === 'thinking') {
+    orbDeepTimer = setTimeout(() => {
+      orbDeepTimer = null;
+      if (orb?.dock?.hidden === false && orb.dock.dataset.mode === 'thinking') {
+        orb.dock.dataset.mode = 'deep';
+        orb.api.setMode('deep');
+      }
+    }, ORB_DEEP_AFTER_MS);
+  }
+  return instance;
+}
+
+function hideOrb() {
+  if (!orb) return;
+  if (orbTimer) { clearInterval(orbTimer); orbTimer = null; }
+  if (orbDeepTimer) { clearTimeout(orbDeepTimer); orbDeepTimer = null; }
+  orb.api.dispose();
+  orb.dock.hidden = true;
+  orbCaptionText = '';
+  orb = null;
+}
+
+// The action that is starting, in one human line — the narration a
+// non-reasoning model cannot produce for itself.
+function setOrbNarration(text) {
+  const line = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!line) return;
+  showOrb('acting', line);
+}
+
+function setOrbMode(mode, caption = '') {
+  if (!orb) { showOrb(mode, caption); return; }
+  orb.dock.dataset.mode = mode;
+  orb.api.setMode(mode);
+  if (caption) { orbCaptionText = caption; paintOrbCaption(); }
+  scheduleOrbLift();
+  publishBubble(mode, caption || orbCaptionText, true);
+}
+
+// A failure earns a red flash, then the orb leaves: the failure card is the
+// durable record, the orb is only the live signal.
+let orbFlashToken = 0;
+function flashOrbError(caption = '') {
+  showOrb('error', caption);
+  const token = (orbFlashToken += 1);
+  setTimeout(() => {
+    if (token !== orbFlashToken) return;
+    if (orb?.dock?.dataset.mode === 'error') hideOrb();
+  }, 1600);
+}
+
+// ── Pointer interaction ─────────────────────────────────────────────────────
+// The dock is pointer-events: none so it can never eat a click, which means the
+// orb never receives mouse events itself. The pointer is tracked on the panel
+// and mapped into canvas coordinates, so passing it through the orb parts the
+// particle field instead of the orb ignoring the user.
+function trackOrbPointer(event) {
+  const instance = orb;
+  if (!instance?.api?.setPointer) return;
+  const rect = instance.canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  // Only the neighbourhood of the orb reacts. Beyond that the orb ignores the
+  // pointer, so scrolling the transcript cannot make it twitch.
+  const reach = rect.width * 1.1;
+  if (x < -reach || y < -reach || x > rect.width + reach || y > rect.height + reach) {
+    instance.api.clearPointer();
+    return;
+  }
+  instance.api.setPointer(x, y);
+}
+
+// ── Keeping the orb clear of the plan and goal panels ───────────────────────
+// `.agent-plan` is absolutely positioned in the very band the orb floats in
+// (right: 15px; bottom: 154px) and is up to 310px wide — wider than the drawer
+// on a narrow window — so without this the orb is drawn straight on top of the
+// plan. The orb is lifted until its bottom edge clears whichever of the two
+// panels is visible.
+let orbLiftFrame = 0;
+let orbLiftObserver = null;
+
+function applyOrbLift() {
+  orbLiftFrame = 0;
+  const instance = orb;
+  if (!instance || !agentForm) return;
+  // Where the dock's bottom edge rests with no lift at all: `bottom: 100% + 4px`
+  // of the composer form.
+  const naturalBottom = agentForm.getBoundingClientRect().top - 4;
+  const GAP = 8;
+  const visible = ['agent-plan', 'agent-goal'].filter((id) => {
+    const panel = document.getElementById(id);
+    return panel && !panel.hidden;
+  });
+  let ceiling = Infinity;
+  // Measure the STRIP first, not the pills. The pills animate into place with a
+  // translate, so their own rects are still in flight when this runs — measured
+  // live, `planTop` reads 633 mid-animation and 622.4 once settled — and a
+  // ResizeObserver never fires again because a transform changes no box. That
+  // stale lift is exactly what left the orb 3px into the plan. The strip is
+  // bottom-anchored at a fixed offset, is flex-end aligned, so its top is
+  // already the settled top of the tallest pill.
+  const strip = document.getElementById('agent-progress-strip');
+  if (strip && visible.length) {
+    const rect = strip.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) ceiling = Math.min(ceiling, rect.top);
+  }
+  // Panels can only make the ceiling stricter, never looser: during the
+  // entrance animation they read too low, which is why they cannot be the
+  // primary source.
+  for (const id of visible) {
+    const rect = document.getElementById(id).getBoundingClientRect();
+    if (rect.height > 0 && rect.width > 0) ceiling = Math.min(ceiling, rect.top);
+  }
+  // Starting from zero matters: with nothing visible the orb must hang where it
+  // always did, not drift upward by the gap.
+  const lift = ceiling === Infinity ? 0 : Math.max(0, Math.round(naturalBottom - (ceiling - GAP)));
+  instance.dock.style.setProperty('--orb-lift', `${lift}px`);
+}
+
+function scheduleOrbLift() {
+  if (orbLiftFrame) return;
+  orbLiftFrame = requestAnimationFrame(applyOrbLift);
+}
+
+function observeOrbLift() {
+  if (orbLiftObserver || typeof ResizeObserver !== 'function') return;
+  // A panel appearing, expanding or collapsing all change the ceiling. The
+  // strip is observed too because it is the measured box: a pill growing or
+  // shrinking moves the strip's top, and that is the edge the orb clears.
+  orbLiftObserver = new ResizeObserver(() => scheduleOrbLift());
+  for (const id of ['agent-progress-strip', 'agent-plan', 'agent-goal']) {
+    const panel = document.getElementById(id);
+    if (panel) orbLiftObserver.observe(panel);
+  }
+}
+
+agentPanel?.addEventListener('mousemove', trackOrbPointer, { passive: true });
+agentPanel?.addEventListener('mouseleave', () => orb?.api?.clearPointer?.());
+window.addEventListener('resize', scheduleOrbLift, { passive: true });
+
 function buildLiveThoughtCard(elapsedMs = 0, thoughtId = '') {
+
   const item = document.createElement('article');
   item.className = 'agent-message is-assistant is-thinking';
   if (thoughtId) item.dataset.thoughtId = String(thoughtId);
@@ -3472,6 +4116,10 @@ function updateLiveThought(text, elapsedMs, thoughtId = '') {
   // so a user who scrolled up is never dragged back down mid-stream.
   const stick = transcriptNearBottom();
   if (activeThoughtMessage && !activeThoughtMessage.isConnected) discardLiveThought();
+  // A LATE re-delivery for a decision that already closed must not re-open a
+  // card (the duplicate "Thinking…" card at run end). Ignore it: its settled
+  // card is already in the transcript.
+  if (!activeThoughtMessage && thoughtId && settledThoughtIds.has(String(thoughtId))) return;
   if (activeThoughtMessage && thoughtId && activeThoughtMessage.dataset.thoughtId && activeThoughtMessage.dataset.thoughtId !== thoughtId) settleLiveThought();
   if (!activeThoughtMessage) activeThoughtMessage = liveThoughtCard(elapsedMs, thoughtId);
   const body = activeThoughtMessage.querySelector('.agent-thinking-content');
@@ -3497,12 +4145,10 @@ function settleLiveThought(thinkingMs) {
     emptyThoughtCardStreak += 1;
     activeThoughtMessage.remove();
     activeThoughtMessage = null;
-    // Some local/non-reasoning models emit no visible thought at all. Keep the
-    // user informed without manufacturing an empty "Thought for Ns" card.
-    if (emptyThoughtCardStreak >= 4) {
-      renderChatMessage('assistant', 'Still working — this model is not streaming reasoning text.');
-      emptyThoughtCardStreak = 0;
-    }
+    // A model that streams no reasoning text is not "still working" — it is
+    // working invisibly. Show the live particle field (plus the action in
+    // flight) instead of a sentence that is indistinguishable from a hang.
+    if (emptyThoughtCardStreak >= 2) showOrb('thinking');
     return;
   }
   const measuredMs = liveThoughtElapsed(activeThoughtMessage, thinkingMs);
@@ -3512,6 +4158,7 @@ function settleLiveThought(thinkingMs) {
   details.open = false;
   summary.textContent = `Thought for ${seconds}s`;
   activeThoughtMessage.classList.remove('is-thinking');
+  rememberSettledThought(activeThoughtMessage.dataset.thoughtId);
   activeThoughtMessage = null;
 }
 
@@ -3529,6 +4176,12 @@ const subagentRunIdAlias = new Map(); // roster runId -> alias (event claim fall
 const subagentTaskSeeded = new Set();
 let mainRunIdentity = '';            // agentIdentity carried by the coordinating run
 let activeSubagentTab = 'main';
+// The alias whose feed is on screen, or '' when the main conversation is.
+// Read through a function because the history model is built higher up the file
+// and must not depend on this declaration's position.
+function currentSubagentAlias() {
+  return activeSubagentTab && activeSubagentTab !== 'main' ? String(activeSubagentTab) : '';
+}
 let subagentTabStrip = null;
 let subagentFeedHost = null;
 let subagentTabsKey = '';
@@ -4034,7 +4687,15 @@ function renderSubagentEvent(alias, event) {
     }
     case 'run.failed':
       settleSubagentThought(alias);
-      renderChatMessage('error', 'Agent run failed', event.result?.summary || event.error || 'The agent stopped with an actionable provider or cancellation error.', failureInspection(event));
+      paintRunFailure(event);
+      return;
+    case 'run.escalated':
+    case 'run.parked':
+      // A park is NOT a failure and NOT the end: recovery resumes it. It used
+      // to be published and never rendered, which is exactly how a
+      // rate-limited provider came to look like the agent going silent.
+      settleSubagentThought(alias);
+      paintRunPark(event);
       return;
     case 'run.completed': {
       settleSubagentThought(alias);
@@ -4132,6 +4793,12 @@ function handleAgentEvent(event) {
     const alias = eventSubagentAlias(event);
     const viewing = activeSubagentTab === 'main' ? !alias : alias === activeSubagentTab;
     if (viewing) showWaitCard(event);
+    return;
+  }
+  // Planning is its own shape: a plan is being laid out, which is not the same
+  // thing as work executing.
+  if (event.type === 'tool.started' && (event.tool === 'update_plan' || event.tool === 'create_plan')) {
+    setOrbMode('planning', 'Planning the steps');
     return;
   }
   // TOOL HEARTBEAT: any tool running >4s keeps the run visibly alive.
@@ -4242,10 +4909,14 @@ function handleAgentEvent(event) {
     // begin a new decision without an intervening tool result, so preserve and
     // settle any prior live card instead of letting the new stream replace it.
     if (Number(event.elapsedMs) === 0 && activeThoughtMessage) settleLiveThought();
+    showOrb('thinking');
     updateLiveThought('', event.elapsedMs, event.thoughtId);
     return;
   }
   if (event.type === 'assistant.thought') { hideConnectionNotice(); updateLiveThought(event.text, event.elapsedMs, event.thoughtId); return; }
+  // The action that is starting, in one human line. This is the narration a
+  // non-reasoning model cannot produce for itself.
+  if (event.type === 'assistant.narration') { hideConnectionNotice(); setOrbNarration(event.text); return; }
   if (event.type === 'user.message.delivered') {
     // A BADGED delivery is content from another producer (a research brief,
     // a subagent's findings), not something the user typed. It renders as a
@@ -4264,7 +4935,15 @@ function handleAgentEvent(event) {
     renderChatMessage('assistant', String(event.text || 'Still working…'));
     return;
   }
-  if (event.type === 'user.input.required') { hideConnectionNotice(); settleLiveThought(); renderPendingQuestion(event); return; }
+  if (event.type === 'user.input.required') {
+    hideConnectionNotice();
+    settleLiveThought();
+    // The agent is blocked on the human: the orb becomes a ring that pulses
+    // outward, which reads as "your turn" without a word of text.
+    setOrbMode('waiting', 'Waiting for your answer');
+    renderPendingQuestion(event);
+    return;
+  }
   if (event.type === 'user.input.received') { settlePendingQuestion(event); return; }
   if (event.type === 'assistant.thought.stamp') {
     if (event.run?.telemetryDetailed === false) return;
@@ -4347,16 +5026,37 @@ function handleAgentEvent(event) {
   // through the normal state merge so awaiting_recovery becomes resumable.
   if (event.type === 'run.failed') {
     settleLiveThought();
-    renderChatMessage('error', 'Agent run failed', event.result?.summary || event.error || 'The agent stopped with an actionable provider or cancellation error.', failureInspection(event));
+    paintRunFailure(event);
+    // Red, brief: the card is the record, the orb is the alarm. `active:false`
+    // makes the desktop bubble a transient notice, not a permanent indicator.
+    const detail = String(event.result?.failure?.body || event.result?.summary || '').trim();
+    flashOrbError('Stopped');
+    publishBubble('error', detail, false);
+  }
+  if (event.type === 'run.escalated' || event.type === 'run.parked') {
+    settleLiveThought();
+    paintRunPark(event);
+    flashOrbError('Waiting on the provider');
+    publishBubble('error', String(event.failure?.body || event.reason || '').trim(), false);
   }
   if (event.type === 'run.completed') {
     settleLiveThought();
+    hideOrb();
+    publishBubble('done', String(event.result?.summary || '').trim(), false);
     if (event.result?.summary) renderAssistantReply(event.result.summary, event.run?.id);
     // LORDE_RUN_META_FOOTER_V364 — time/tokens/requests render once on the
     // reply card, even when completion and state fallback arrive together.
     if (event.run?.telemetryDetailed !== false) appendRunMetadataOnce(lastAssistantCardByRun.get(event.run?.id || chatRun?.id), event.run);
   }
-  if (event.type === 'run.cancelled') settleLiveThought();
+  if (event.type === 'run.cancelled') {
+    settleLiveThought();
+    hideOrb();
+    // A stop must leave a mark. Previously only the thinking card settled, so
+    // the last thought hung there as if work were still in flight.
+    const detail = String(event.detail || '').trim();
+    if (detail) renderChatMessage('assistant', detail);
+    publishBubble('done', detail || 'Stopped.', false);
+  }
   renderChatApproval(event.approval || event.run?.pendingApproval);
 }
 
@@ -4573,6 +5273,10 @@ function render(nextState) {
   if (!nextState) return;
   state = nextState;
   window.browserUseDesktopState = state;
+  // Lane tabs must move with live state: a task starting under Agent 2 has to
+  // light that tab the moment it starts, not when the history screen is
+  // reopened. Repainting from cache costs no IPC.
+  if (!agentHistoryView?.hidden) paintAgentHistory();
   renderRecording(state.recording);
   const isEditingAddress = document.activeElement === address;
   renderTabStrip();
@@ -4992,7 +5696,20 @@ agentPin?.addEventListener('click', () => { void (async () => {
   agentPin.setAttribute('aria-label', next ? 'Unpin chat' : 'Pin chat');
  })().catch(error => reportError(error, 'Could not change chat docking.')); });
 agentHistory?.addEventListener('click', () => { void renderAgentHistory().catch((error) => reportError(error, 'Could not load chat history.')); });
-agentCopyChat?.addEventListener('click', () => { copyWholeChat().then(() => flashCopyIcon(agentCopyChat)).catch((error) => reportError(error, 'Could not copy the chat.')); });
+// Lane tabs are a delegation target: the strip is rebuilt from the model, so
+// per-button listeners would be rebound on every state poll.
+document.getElementById('agent-lane-tabs')?.addEventListener('click', (event) => {
+  const tab = event.target.closest('[data-agent-lane]');
+  if (tab) setActiveAgentLane(tab.dataset.agentLane);
+});
+renderLaneBadge();
+// "20min" has to keep counting while the window is open; one slow tick is
+// enough and only runs when there is something on screen to update.
+setInterval(() => { if (!agentHistoryView?.hidden) paintAgentHistory(); }, 20_000);
+// COPY WHOLE CHAT goes through the shared feedback path like every other
+// copy control: the icon alone cannot acknowledge a copy (the badge carries
+// the "Copied" label), so a stale button used to read as a broken one.
+agentCopyChat?.addEventListener('click', () => { copyWholeChat().then(() => showCopyFeedback(agentCopyChat)).catch((error) => reportError(error, 'Could not copy the chat.')); });
 let savedAgentDrawerWidth = NaN;
 try {
   savedAgentDrawerWidth = Number(localStorage.getItem('browser-use:agent-drawer-width'));
@@ -5714,19 +6431,34 @@ agentNewChat?.addEventListener('click', () => { void (async () => {
   agentNewChat.disabled = true;
   try {
     const activeRun = await resolveActiveChatRun();
-    if (activeRun?.id) {
-      const retiringId = activeRun.id;
-      const cancelled = await window.browserUseDesktop.agentCancel(retiringId);
-      settleLiveThought();
-      renderChatState(cancelled);
-      retiredConversationIds.add(retiringId);
-      renderChatApproval(null);
-    } else if (activeRun) {
-      throw new Error('The agent is still starting. Please try New chat again in a moment.');
+    const stillRunning = Boolean(activeRun && isActiveAgentRun(activeRun));
+    // "+" ADDS an instance. A running conversation is handed to the background
+    // (main keeps it alive with its own tab and tools) instead of being
+    // cancelled — starting more work must never destroy work already running.
+    // The hand-off is also what lets the history window show it as a live row
+    // under this agent's tab straight away.
+    let handedOff = null;
+    if (stillRunning && typeof window.browserUseDesktop.agentHandoff === 'function') {
+      try { handedOff = await window.browserUseDesktop.agentHandoff(); }
+      catch (error) { reportError(error, 'The running task could not be moved to the background; it is still running.'); }
     }
-    if (visibleConversationId) {
+    if (activeRun?.id) retiredConversationIds.add(activeRun.id);
+    // Ownership is released ONLY for a finished conversation. Releasing a live
+    // run's computer owner would detach the tools it is still using.
+    if (!stillRunning && visibleConversationId) {
       retiredConversationIds.add(visibleConversationId);
       await window.browserUseDesktop.agentRetire(visibleConversationId);
+    }
+    settleLiveThought();
+    if (handedOff?.handedOff) {
+      // The handed-off run belongs to the background now: clearing the drawer
+      // state must not cancel it or re-claim its events.
+      activeChatRun = null;
+      chatRun = null;
+      renderChatControls();
+      renderChatApproval(null);
+    } else if (activeRun && !stillRunning) {
+      renderChatState(null);
     }
     visibleConversationId = null;
     chatSelectionRevision += 1;
@@ -5740,9 +6472,14 @@ agentNewChat?.addEventListener('click', () => { void (async () => {
     discardLiveThought();
     agentTranscript.replaceChildren(); transcriptStickToBottom = true;
     renderPlan([]);
+    renderGoals([]);
     renderChatApproval(null);
     if (agentConversationTitle) agentConversationTitle.textContent = 'New conversation';
     renderChatState(null);
+    renderLaneBadge();
+    if (stillRunning) showToast(handedOff?.handedOff
+      ? `${AgentLanes.laneLabel(activeAgentLane)} kept working in the background.`
+      : 'The running task keeps working in the background.', 3200);
     agentTask.focus();
   } catch (error) {
     reportError(error, 'Could not start a new chat.');
@@ -6976,6 +7713,10 @@ agentForm.addEventListener('submit', async (event) => {
       continuation,
       conversationId,
       tabId: state.selectedTabId,
+      // The lane the drawer is on decides which agent's tab this task lands
+      // in. Without it every task piled into Agent 1 and the history tabs
+      // were decoration.
+      agentLane: activeAgentLane,
       provider: { id: publicSettings.aiChatProvider || 'ollama', connectionId: publicSettings.aiChatConnectionId || '', model: selectedAgentModel || activeConnection()?.model || '' },
       settings: { approvalMode: agentPermission?.value || 'unattended', effort: agentEffort?.value || 'auto', controlMode: agentControlMode?.value || publicSettings.agentControlMode || 'browser', layaBrain: normalizeSystemOneBrain(publicSettings.layaBrain || (publicSettings.layaEnabled ? 'laya' : 'off')), layaEnabled: Boolean(publicSettings.layaEnabled), jevBaseUrl: publicSettings.jevBaseUrl, jevModelId: publicSettings.jevModelId }
     });
@@ -7337,6 +8078,104 @@ terminalResize.addEventListener('pointerdown', (event) => {
 });
 
 window.browserUseDesktop.onChatDockGeometry(applyChatDockGeometry);
+// ── DEV RESUME ────────────────────────────────────────────────────────────
+// "npm run desktop:dev_resume" relaunches the dev build at the exact point it
+// left. The main process restores the tabs and hands this handler the last
+// chat: the drawer opens on the SAME conversation and, when its run was cut
+// off, that run continues instead of the transcript being merely displayed.
+// Statuses that mean "the process died mid-work" — the ones a resume
+// continues instead of merely re-displaying. Mirrors RESUMABLE_STATUSES in
+// desktop/devSession.cjs. Deliberately EXCLUDES 'paused' and
+// 'awaiting_approval': those are waiting on a PERSON, and continuing them
+// would skip the decision they are waiting for.
+const RESUME_CONTINUE_STATUSES = new Set(['running', 'starting agent', 'interrupted']);
+
+async function applyDevResume(payload) {
+  if (!payload || typeof payload !== 'object') return;
+  const conversationId = String(payload.conversationId || '');
+  const root = document.documentElement;
+  try {
+    if (payload.drawerOpen !== false) await requestDrawer('agent');
+    // The RESUME CARD — the main process built it from the restart marker and
+    // the session file, so it knows whether the restart really happened. It is
+    // shown to the user as a card (they can see that the app came back, and
+    // exactly when, and whether anything was restored) and handed to the agent
+    // below as the opening notice. It renders even when nothing was restored:
+    // a FAILED restart is exactly what the user must be able to trust.
+    const resumeCard = payload.resumeCard || null;
+    const drawResumeCard = () => {
+      if (resumeCard) {
+        renderChatMessage('agent-message', 'App resumed', String(resumeCard.displayContent || resumeCard.content || ''), null, { badge: 'app restart' });
+      }
+    };
+    if (!conversationId) { drawResumeCard(); root.dataset.devResume = 'restored'; return; }
+    await openConversation(conversationId);
+    drawResumeCard();
+    // The STORED conversation is the authority, not the session file: startup
+    // runs recoverInterrupted(), which turns a run cut off by the kill into
+    // 'interrupted' — exactly the run this resume has to continue.
+    const conversation = await window.browserUseDesktop.chatHistoryGet(conversationId);
+    const status = String(conversation?.status || payload.status || '');
+    const shouldContinue = payload.resumeRun === true || RESUME_CONTINUE_STATUSES.has(status);
+    showToast(`Resumed ${payload.title ? `"${payload.title}"` : 'the last chat'}${shouldContinue ? ' — continuing where it stopped' : ''}.`);
+    agentTask?.focus();
+    if (!shouldContinue) { root.dataset.devResume = 'restored'; return; }
+    // A restored snapshot of an interrupted run is NOT a live run. Bailing on
+    // any chatRun made the resume sit idle until the user typed "continue";
+    // only a genuinely active run owns the chat.
+    if (chatRun && isActiveAgentRun(chatRun)) { root.dataset.devResume = 'active-run'; return; }
+    const task = String(conversation?.task || payload.task || '').trim();
+    if (!task) { root.dataset.devResume = 'restored'; return; }
+    // The resume event arrives right after renderer-ready, before the first
+    // state push may have landed; read the live state rather than starting a
+    // run against an empty selection.
+    const liveState = state?.selectedTabId ? state : await window.browserUseDesktop.state();
+    const currentSettings = publicSettings || await window.browserUseDesktop.settings();
+    // The resumed run must know the restart ALREADY happened: without this
+    // it replans "restart myself", schedules another restart, and the app
+    // restarts forever. The card carries that notice, with the timestamp and
+    // whether the restart is confirmed.
+    const resumeNotice = resumeCard ? [{
+      from: 'app',
+      fromLabel: 'app restart',
+      text: resumeCard.content,
+      reply: false
+    }] : [];
+    const started = await window.browserUseDesktop.agentStart({
+      task,
+      attachments: [],
+      continuation: true,
+      conversationId,
+      tabId: liveState?.selectedTabId,
+      agentLane: activeAgentLane,
+      initialAgentMessages: resumeNotice,
+      // The card itself, so the agent puts it in its CONVERSATION: it then
+      // stays in context for every decision of this run and is saved with
+      // the conversation, instead of being heard once and forgotten.
+      resumeCard,
+      provider: {
+        id: currentSettings.aiChatProvider || 'ollama',
+        connectionId: currentSettings.aiChatConnectionId || '',
+        model: selectedAgentModel || activeConnection()?.model || ''
+      },
+      settings: {
+        approvalMode: agentPermission?.value || 'unattended',
+        effort: agentEffort?.value || 'auto',
+        controlMode: agentControlMode?.value || currentSettings.agentControlMode || 'browser',
+        layaBrain: normalizeSystemOneBrain(currentSettings.layaBrain || (currentSettings.layaEnabled ? 'laya' : 'off')),
+        layaEnabled: Boolean(currentSettings.layaEnabled),
+        jevBaseUrl: currentSettings.jevBaseUrl,
+        jevModelId: currentSettings.jevModelId
+      }
+    });
+    if (started?.id && !retiredConversationIds.has(started.id)) renderChatState(started, { select: true });
+    root.dataset.devResume = started?.id ? 'continuing' : 'restored';
+  } catch (error) {
+    root.dataset.devResume = 'failed';
+    reportError(error, 'Could not resume the previous session.');
+  }
+}
+window.browserUseDesktop.onDevResume?.((payload) => { void applyDevResume(payload); });
 window.browserUseDesktop.onState((nextState) => { render(nextState); renderChatSnapshot(nextState.agent?.chat); });
 window.browserUseDesktop.onAgentEvent(handleAgentEvent);
 window.browserUseDesktop.onConsole(renderConsole);

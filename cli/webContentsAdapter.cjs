@@ -58,6 +58,14 @@ async function freePort(start) {
 
 async function findChrome() {
   if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
+  // The browser this package provisions for itself: a stripped headless shell
+  // with exactly what CDP and rendering need. It outranks any system browser so
+  // behaviour is identical on a clean machine, on arm64 Linux and on Android.
+  try {
+    const { findProvisionedBrowser } = await import('./browserProvisioner.mjs');
+    const provisioned = findProvisionedBrowser();
+    if (provisioned && provisioned.path) return provisioned.path;
+  } catch { /* provisioner unavailable: fall through to system browsers */ }
   // Playwright's bundled Chromium first: a real Chromium binary with zero
   // system dependencies, already present wherever playwright-core is used.
   try {
@@ -120,6 +128,12 @@ async function launchHeadlessChrome({ startPort = 9333, url = 'about:blank', pro
     `--remote-debugging-port=${port}`,
     `--user-data-dir=${profile}`,
     `--window-size=${width},${height}`,
+    // Containers, Android and most CI images cannot create the user namespace
+    // Chromium's sandbox needs. Without these the process starts and never opens
+    // the CDP port, which surfaced as "Timed out waiting for CDP".
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
     '--no-first-run',
     '--no-default-browser-check',
     '--disable-default-apps',
@@ -140,8 +154,36 @@ async function launchHeadlessChrome({ startPort = 9333, url = 'about:blank', pro
   ];
   const stderrLog = path.join(profile, 'chrome-stderr.log');
   const stderrFd = fs.openSync(stderrLog, 'w');
-  const child = spawn(bin, args, { stdio: ['ignore', 'ignore', stderrFd], detached: false });
-  const deadline = Date.now() + 20_000;
+  // Bundled runtime libraries. A stripped container (Android, minimal Linux)
+  // has no NSS/NSPR/ATK/GBM, so the packaged Chromium cannot load. When the
+  // package ships a lib directory for this platform, point the loader at it.
+  const bundledLibDir = path.join(__dirname, '..', 'browser-runtime', `${process.platform}-${process.arch}`, 'lib');
+  const childEnv = { ...process.env };
+  if (fs.existsSync(bundledLibDir)) {
+    // Debian libraries carry a real file plus SONAME symlinks (libatk-1.0.so.0 ->
+    // libatk-1.0.so.0.24609.1). A tarball keeps only the real files, so the
+    // loader reports the library as missing. Recreate the aliases here.
+    if (process.platform !== 'win32') {
+      try {
+        for (const name of fs.readdirSync(bundledLibDir)) {
+          const match = name.match(/^(lib.+?\.so)(?:\.(\d+))?(\..+)?$/);
+          if (!match) continue;
+          const [, stem, major] = match;
+          for (const alias of [stem, major ? `${stem}.${major}` : null]) {
+            if (!alias || alias === name) continue;
+            const target = path.join(bundledLibDir, alias);
+            if (!fs.existsSync(target)) {
+              try { fs.symlinkSync(name, target); } catch { /* best effort */ }
+            }
+          }
+        }
+      } catch { /* read-only cache: the aliases may already exist */ }
+    }
+    const existing = childEnv.LD_LIBRARY_PATH ? `:${childEnv.LD_LIBRARY_PATH}` : '';
+    childEnv.LD_LIBRARY_PATH = `${bundledLibDir}${existing}`;
+  }
+  const child = spawn(bin, args, { stdio: ['ignore', 'ignore', stderrFd], detached: false, env: childEnv });
+  const deadline = Date.now() + 30_000;
   for (;;) {
     if (child.exitCode !== null) {
       let stderrTail = '';
@@ -458,6 +500,16 @@ class WebContentsAdapter extends EventEmitter {
         if (typeof method !== 'string') throw new Error('debugger.sendCommand requires a CDP method string.');
         return adapter.client.send(method, params);
       },
+      // FILE DIALOGS: the bridge needs CDP events (Page.fileChooserOpened,
+      // Browser.downloadWillBegin/Progress). chrome-remote-interface subscribes
+      // per method; return an unsubscribe so the bridge can release it.
+      subscribe(method, handler) {
+        if (typeof adapter.client.on !== 'function') {
+          throw new Error('This CDP client cannot subscribe to events.');
+        }
+        adapter.client.on(method, handler);
+        return () => { try { adapter.client.removeListener?.(method, handler); } catch { /* ignore */ } };
+      },
       detach() { adapter._debuggerAttached = false; }
     };
   }
@@ -498,4 +550,4 @@ async function connectTab({ host = '127.0.0.1', port, targetId = null } = {}) {
   return { tab: { id, webContents: adapter }, adapter, root, targetId: id };
 }
 
-module.exports = { WebContentsAdapter, launchHeadlessChrome, killChromeTree, connectTab };
+module.exports = { WebContentsAdapter, launchHeadlessChrome, killChromeTree, connectTab, findChromePath: findChrome };

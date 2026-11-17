@@ -20,3 +20,8 @@ output/
 cli-runs/
 *.exe
 sea-prep.blob
+
+# Local build outputs kept out of history
+desktop-release-*/
+*.tgz
+browser-runtime/

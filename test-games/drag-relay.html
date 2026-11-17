@@ -128,7 +128,7 @@
   let lastActionAt = 0;
   let hasAction = false;
   let maxGapMs = 0;
-  let drag = null;              // { token, value, dx, dy, originX, originY }
+  let drag = null;              // { token, value, left, top, lastX, lastY, originX, originY }
   const log = [];
   const placed = new Set();
   const armed = new Set();
@@ -243,6 +243,7 @@
 
   // ── Drag mechanics (synthetic mouse events: mousedown/mousemove/mouseup) ──
   function slotAt(x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
     for (const slot of slotsHost.children) {
       const rect = slot.getBoundingClientRect();
       if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return Number(slot.dataset.value);
@@ -250,10 +251,31 @@
     return null;
   }
 
+  // The token is positioned INSIDE the field, so its left/top are
+  // field-relative, while pointer coordinates are viewport-relative. Writing
+  // pointer coordinates into a field-relative box offset the circle by the
+  // field's own origin (the field sits ~165px down the page), so the circle
+  // NEVER followed the pointer. Moving it by the pointer's DELTA keeps both
+  // spaces consistent and survives a page scroll mid-drag.
   function onMove(event) {
     if (!drag) return;
-    drag.token.style.left = `${event.clientX - drag.dx}px`;
-    drag.token.style.top = `${event.clientY - drag.dy}px`;
+    const x = Number.isFinite(event.clientX) ? event.clientX : drag.lastX;
+    const y = Number.isFinite(event.clientY) ? event.clientY : drag.lastY;
+    drag.left += x - drag.lastX;
+    drag.top += y - drag.lastY;
+    drag.lastX = x;
+    drag.lastY = y;
+    drag.token.style.left = `${drag.left}px`;
+    drag.token.style.top = `${drag.top}px`;
+  }
+
+  // The dropped object is the CIRCLE, so the circle's own center decides
+  // where it landed. Judging the raw pointer instead failed a correct drop
+  // whenever the grab was off-center, and the pointer can be released
+  // anywhere.
+  function tokenCenter(state) {
+    const rect = state.token.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
   }
 
   function onUp(event) {
@@ -263,7 +285,10 @@
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     current.token.classList.remove('dragging');
-    const slotValue = slotAt(event.clientX, event.clientY);
+    const pointerX = Number.isFinite(event.clientX) ? event.clientX : current.lastX;
+    const pointerY = Number.isFinite(event.clientY) ? event.clientY : current.lastY;
+    const center = tokenCenter(current);
+    const slotValue = slotAt(center.x, center.y) ?? slotAt(pointerX, pointerY);
     if (slotValue === null) {
       // Missed the slots: return the token to its origin (costs time, not a fail).
       current.token.style.left = `${current.originX}px`;
@@ -290,8 +315,12 @@
       drag = {
         token,
         value: Number(token.dataset.value),
-        dx: event.clientX - rect.left,
-        dy: event.clientY - rect.top,
+        // The token's own field-relative position, and the pointer position
+        // the drag started from: every later move is a delta from here.
+        left: Number.parseFloat(token.style.left) || 0,
+        top: Number.parseFloat(token.style.top) || 0,
+        lastX: event.clientX,
+        lastY: event.clientY,
         originX: Number(token.dataset.originX),
         originY: Number(token.dataset.originY)
       };

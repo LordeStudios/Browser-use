@@ -60,9 +60,11 @@ import { fileURLToPath } from 'node:url';
 
 export const BUILTIN_DEFAULTS = Object.freeze({
   providerId: 'xkiro',
-  model: 'z-ai/glm-5.3-flash',
+  // No built-in model. A phantom default silently overrode the model the user
+  // picked, and every run then used a model their provider may not serve.
+  model: '',
   baseUrl: 'https://api.xkiro.com/v1',
-  models: Object.freeze(['z-ai/glm-5.3-flash', 'qwen/qwen3.7-plus:free']),
+  models: Object.freeze([]),
   controlMode: 'browser'
 });
 
@@ -367,13 +369,27 @@ export function resolveProviderConfig({ appSettings = null, appSecrets = null, c
     steps.push('api key <- env BROWSER_USE_API_KEY (explicit export)');
   }
 
-  // Model: app active connection > builtin (the session can still /model over it).
+  // Model: app active connection > CLI config file > builtin.
   let model = BUILTIN_DEFAULTS.model;
   let modelSource = 'builtin default';
   if (connection?.model) {
     model = connection.model;
     modelSource = `app-store connection "${connection.name || connection.id}"`;
     steps.push(`model <- ${modelSource}`);
+  }
+  // The web interface and `browser-use gui` write the chosen model here. Without
+  // this branch a provider onboarded in the browser never reached the terminal,
+  // and every message ran against the built-in default model instead.
+  if (cliConfig?.model) {
+    model = String(cliConfig.model);
+    modelSource = 'CLI config file (web interface or /model)';
+    steps.push(`model <- ${modelSource}`);
+  }
+
+  // Provider id: the same config file carries the provider the user chose.
+  let providerId = String(connection?.provider || cliConfig?.providerId || 'xkiro');
+  if (cliConfig?.providerId && cliConfig.providerId !== connection?.provider) {
+    steps.push('provider <- CLI config file');
   }
 
   // Control mode: app shared agent setting > builtin.
@@ -382,7 +398,7 @@ export function resolveProviderConfig({ appSettings = null, appSecrets = null, c
     : BUILTIN_DEFAULTS.controlMode;
   if (appSettings?.agentControlMode) steps.push(`control mode <- app-store agentControlMode (${controlMode})`);
 
-  return { connection, apiKey, apiKeySource, baseUrl, baseUrlSource, model, modelSource, controlMode, resolution: steps };
+  return { connection, providerId, apiKey, apiKeySource, baseUrl, baseUrlSource, model, modelSource, controlMode, resolution: steps };
 }
 
 /**

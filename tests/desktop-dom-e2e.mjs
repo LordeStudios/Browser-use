@@ -123,8 +123,14 @@ try {
 
   // A stale index must fail closed after the snapshot changes.
   const stale = await rpc(configuration.endpoint, capability, 'tools/call', { name: 'browser_click_element', arguments: { index: 9999 } });
-  assert.equal(stale.error.code, -32000);
-  assert.match(stale.error.message, /stale|snapshot|index/i);
+  // A stale element is a TOOL failure, not a broken exchange. MCP wants it as a
+  // successful JSON-RPC reply carrying isError:true, so the client hands the
+  // message to the model to recover from instead of treating the transport as
+  // dead and retrying or dropping the server. A JSON-RPC error here would make
+  // the most ordinary recoverable state look like a protocol fault.
+  assert.equal(stale.error, undefined, `a recoverable tool failure must not be a JSON-RPC error: ${JSON.stringify(stale)}`);
+  assert.equal(stale.result?.isError, true, `a stale index must be reported as a tool error: ${JSON.stringify(stale)}`);
+  assert.match(stale.result.content[0].text, /stale|snapshot|index/i);
 
   console.log(JSON.stringify({
     ok: true,

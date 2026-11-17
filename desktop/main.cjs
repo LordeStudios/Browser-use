@@ -1,4 +1,12 @@
-﻿const { app, BrowserWindow, BrowserView, ipcMain, session, clipboard, nativeImage, Menu, safeStorage, Tray, powerSaveBlocker, shell, screen, dialog } = require('electron');
+﻿const { app, BrowserWindow, BrowserView, ipcMain, session, clipboard, nativeImage, Menu, safeStorage, Tray, powerSaveBlocker, shell, screen, dialog, Notification } = require('electron');
+// ── BROWSER IDENTITY ────────────────────────────────────────────────────────
+// Applied at module scope, before any BrowserView exists: `userAgentFallback` is
+// read when a webContents is CREATED, so a later assignment would leave the
+// restored startup tab — and any early navigation — advertising the app-name
+// token that makes WhatsApp Web refuse a Chromium 150 engine. See
+// desktop/browserIdentity.cjs for the measurements behind this.
+const browserIdentity = require('./browserIdentity.cjs');
+browserIdentity.applyGlobal(app);
 // ── IPC REPLY CONTRACT ──────────────────────────────────────────────────────
 // Electron serializes a handler's RETURN VALUE; any live value a module
 // attached to a state record (a callback, a BigInt, a non-plain instance)
@@ -66,6 +74,7 @@ const { DeviceEmulator } = require('./mcp/deviceEmulator.cjs');
 const { AndroidDeviceManager } = require('./android/androidDeviceManager.cjs');
 const nativeAndroidWindow = require('./android/windowsNativeWindow.cjs');
 const { DebuggerLeaseManager } = require('./mcp/debuggerLeaseManager.cjs');
+const { FileDialogBridge } = require('./mcp/fileDialogBridge.cjs');
 const { TerminalBrokerClient } = require('./terminal/terminalBrokerClient.cjs');
 const { listDeviceProfiles, DESKTOP_ID } = require('../src/browser/deviceProfiles.cjs');
 const { buildElementPickerExpression } = require('../src/browser/elementPicker.cjs');
@@ -73,6 +82,7 @@ const { buildTouchOverlayExpression } = require('../src/browser/touchOverlay.cjs
 const { DesktopChatAgent, defaultResearchAgent } = require('./agent/desktopChatAgent.cjs');
 const { HcuSession } = require('./agent/hcuSession.cjs');
 const { AgentPool, DesktopLease, leaseComputerTools, leaseHandoffNotices } = require('./agent/agentPool.cjs');
+const { WorkingBubble } = require('./bubble/workingBubbleWindow.cjs');
 const { computeIdleSubagentCloses, computeIdleEmptyTabCloses } = require('./agent/idleSweeps.cjs');
 const { Scheduler } = require('./schedule/scheduler.cjs');
 const { SchedulerStore } = require('./schedule/schedulerStore.cjs');
@@ -87,6 +97,9 @@ const { compactModelEntry, catalogResponse } = require('./agent/modelCatalog.cjs
 const { probeModelsForCapability, loadProbeCache, probeCacheKey } = require('./agent/modelCapabilityProbe.cjs');
 const { createVisionDescriber } = require('./agent/visionDelegate.cjs');
 const { ChatHistoryStore } = require('./store/chatHistoryStore.cjs');
+const { DevSessionStore, devResumeRequested } = require('./devSession.cjs');
+const { buildResumeCardFrom } = require('./devResumeCard.cjs');
+const { createDevRestartScheduler } = require('./devRestart.cjs');
 const { SkillStore } = require('./record/skills.cjs');
 const { Recorder } = require('./record/recorder.cjs');
 const { isSafeStaticHtml } = require('./agent/reportFilePolicy.cjs');
@@ -304,7 +317,7 @@ function nextSubagentAlias() {
 // fight over the hash guard; every worker owns a private copy and commits to
 // its branch. Graceful fallback: no git repo or git unavailable -> the shared
 // tree, exactly as before.
-const { execFile } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 function gitExec(args, cwd) {
   return new Promise((resolve, reject) => {
     execFile('git', args, { cwd, windowsHide: true, timeout: 30000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
@@ -704,6 +717,7 @@ function getComputerTools() {
   if (!computerTools) {
     const { ComputerTools } = require('./computer/computerTools.cjs');
     computerTools = new ComputerTools({
+      restartApp: scheduleDevRestart,
       terminal: terminalManager,
       clipboard,
       capture: getDesktopCapture(),
@@ -1089,9 +1103,18 @@ function createChatAgent({ computerTools: injectedTools = null, targetWindow = n
       digest: (entry) => mergedSkillsApi().digest(entry)
     },
     onTerminal: () => computerCleanup(chatHistoryStore?.flush()),
-    onCheckpoint: (run) => chatHistoryStore?.checkpoint({
+    onCheckpoint: (run) => {
+      // Resolved once: the lane lookup walks the spawn registry.
+      const laneInfo = resolveRunLane(run);
+      return chatHistoryStore?.checkpoint({
       id: run.id,
       title: run.title || run.task,
+      // Lane + subagent identity: the history window groups by lane and
+      // labels a subagent's rows with its name, so both must be durable.
+      agentIdentity: laneInfo.lane,
+      subagentAlias: laneInfo.subagentAlias,
+      parentRunId: laneInfo.parentRunId,
+      finishedAt: run.completedAt || undefined,
       // The turn text and turn clock must survive checkpoints: a continuation
       // restored without `task` could not classify turn boundaries, so the
       // pinned objective and TURN BOUNDARY notice went stale (the model
@@ -1139,7 +1162,8 @@ function createChatAgent({ computerTools: injectedTools = null, targetWindow = n
         ...(entry.media ? { media: entry.media } : {}),
         output: entry.output
       })) || []
-    })
+      });
+    }
   });
 }
 
@@ -1501,7 +1525,12 @@ ipcMain.handle('browser-use:download-media', async (_event, request) => {
 // name. No native save dialog: an unattended agent run must never block on a
 // modal, and the renderer panel offers Open / Show in folder afterwards.
 function reserveDownloadPath(filename) {
-  const directory = app.getPath('downloads');
+  // LORDE_FILE_DIALOG_SAVE: an agent-directed directory (browser_downloads_set_path)
+  // wins over the OS default. Electron handles downloads through will-download,
+  // so the CDP Browser.setDownloadBehavior call never applied here — this is the
+  // path that actually decides where a Save lands.
+  const requested = fileDialogBridge?.downloadPath;
+  const directory = requested || app.getPath('downloads');
   fs.mkdirSync(directory, { recursive: true });
   const extension = path.extname(filename);
   const stem = path.basename(filename, extension).slice(0, 100) || 'browser-use-file';
@@ -1553,6 +1582,7 @@ function trackDownload(item) {
     lastPushAt: 0
   };
   downloadItems.set(id, entry);
+  fileDialogBridge?.noteDownload(entry);
   while (downloadItems.size > 30) downloadItems.delete(downloadItems.keys().next().value);
   addConsoleEntry({ kind: 'download', message: `Download started: ${entry.filename}` });
   publishState();
@@ -1569,6 +1599,7 @@ function trackDownload(item) {
   item.once('done', (_event, state) => {
     entry.receivedBytes = item.getReceivedBytes();
     entry.state = state === 'completed' ? 'completed' : 'interrupted';
+    fileDialogBridge?.noteDownload(entry);
     addConsoleEntry({ kind: 'download', level: entry.state === 'completed' ? 'info' : 'error', message: entry.state === 'completed' ? `Download complete: ${entry.filename}` : `Download failed: ${entry.filename}` });
     publishState();
   });
@@ -1652,6 +1683,8 @@ let androidStreamWindow = null;
 let androidStreamBounds = null;
 let debuggerLeaseManager = null;
 let agentPointerOverlay = null;
+// Always-on-top status orb for when the app is minimised or unfocused.
+let workingBubble = null;
 let terminalManager = null;
 let desktopChatAgent = null;
 // ChatGPT-style live sessions: conversations that keep RUNNING after the chat
@@ -1659,6 +1692,39 @@ let desktopChatAgent = null;
 // drawer agent is handed off here (not killed) when a new chat starts.
 const chatSessions = new Map();
 const CHAT_SESSION_LIMIT = 12;
+// ── Agent lanes ────────────────────────────────────────────────────────────
+// Three persistent agent slots. The drawer runs one conversation at a time,
+// but every run is tagged with the lane it was started from, and the history
+// window is tabbed per lane. A subagent runs under its own alias as identity,
+// so its lane is inherited from the parent run that spawned it — that is the
+// only way its row can appear under the right agent's tab.
+const AGENT_LANES = ['agent1', 'agent2', 'agent3'];
+const LANE_BY_RUN_LIMIT = 400;
+const laneByRunId = new Map();
+function normalizeAgentLane(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return AGENT_LANES.includes(key) ? key : null;
+}
+function rememberRunLane(runId, lane) {
+  const id = String(runId || '').trim();
+  const key = normalizeAgentLane(lane);
+  if (!id || !key) return;
+  laneByRunId.set(id, key);
+  while (laneByRunId.size > LANE_BY_RUN_LIMIT) laneByRunId.delete(laneByRunId.keys().next().value);
+}
+// Resolve the lane + subagent identity for a checkpointed run. A run whose
+// identity IS a lane is a drawer/chat-window run; anything else is a pool
+// subagent, which inherits its spawning run's lane.
+function resolveRunLane(run) {
+  const identity = String(run?.agentIdentity || '').trim();
+  const direct = normalizeAgentLane(identity);
+  if (direct) return { lane: direct, subagentAlias: '', parentRunId: '' };
+  const record = [...spawnRegistry.values()].find((item) => String(item.runId || '') === String(run?.id || ''));
+  const parentRunId = String(record?.parentRunId || '');
+  const inherited = normalizeAgentLane(laneByRunId.get(parentRunId));
+  return { lane: inherited || 'agent1', subagentAlias: String(record?.alias || identity || ''), parentRunId };
+}
+
 function pruneChatSessions() {
   for (const [id, instance] of chatSessions) {
     const snapshot = instance?.state?.();
@@ -1933,6 +1999,9 @@ let historyStore = null;
 // entries are kept for the session so the panel can offer Open / Show in
 // folder; nothing is persisted to disk.
 const downloadItems = new Map();
+// LORDE_FILE_DIALOG_SAVE: module-scope handle so reserveDownloadPath and
+// trackDownload can consult the agent-directed download directory.
+let fileDialogBridge = null;
 let downloadCounter = 0;
 // sessionId -> last output timestamp; drives the terminal busy dot. A five
 // minute window: shorter would flicker off during silent stretches of a
@@ -2443,7 +2512,24 @@ async function startDesktopMcp() {
       scheduleZoomPersist(zooms);
     }
   });
+  fileDialogBridge = new FileDialogBridge({
+      logger: (scope, event) => console.log(`[${scope}] ${event.type}`, JSON.stringify(event).slice(0, 300)),
+      // Tell a RUNNING agent the picker is waiting, so it answers the dialog
+      // instead of hunting for the OS window.
+      onEvent: (event) => {
+        if (event.type !== 'fileChooser.opened') return;
+        try {
+          if (desktopChatAgent && typeof desktopChatAgent.steer === 'function') {
+            desktopChatAgent.steer({
+              text: 'A native file chooser is open on the tab. Call browser_file_dialog_state to read it, then browser_file_dialog_accept with absolute paths (or browser_file_dialog_cancel). Do not operate the OS dialog.'
+            });
+          }
+        }
+      catch { /* no active run: browser_file_dialog_state polling still works */ }
+    }
+  });
   browserViewController = new BrowserViewController({
+    fileDialogBridge,
     getTabs: () => [...tabs.values()],
     getSelectedTabId: () => selectedTabId,
     getConsoleEntries: () => [...consoleEntries],
@@ -2455,6 +2541,24 @@ async function startDesktopMcp() {
       if (selectedTabId !== tabId) return isTabBackgroundReady(tabId);
       syncBrowserViewVisibility();
       return isTabPaintable(tabId);
+    },
+    // Chromium stops delivering pointer input to a renderer it considers hidden,
+    // and a merely OCCLUDED window is enough — the agent's own chat window in
+    // front hides the whole browsing view. moveTop() raises the window above
+    // whatever covers it without taking keyboard focus away from the user's app,
+    // which is the minimum needed for the next wheel or click to land at all.
+    raiseForInput: () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return false;
+      try { if (mainWindow.isMinimized()) mainWindow.restore(); } catch { /* ignore */ }
+      try { mainWindow.show(); } catch { /* ignore */ }
+      try { mainWindow.moveTop(); } catch { /* ignore */ }
+      return true;
+    },
+    // Binding a tab that is not on screen binds a renderer that can never receive
+    // pointer input, so binding selects it — the same thing a human does before
+    // driving a tab.
+    selectTab: (tabId) => {
+      try { showTab(String(tabId)); } catch { /* the tab may be gone */ }
     },
     deviceEmulator,
     debuggerLeaseManager,
@@ -2653,7 +2757,7 @@ function currentState(agentOverride = desktopChatAgent, chatWindowId = '') {
       // ChatGPT-style live sessions: handed-off conversations still running.
       liveSessions: [
         ...[...chatSessions.values()].map(instance => liveRunSnapshot(instance)).filter(Boolean),
-        ...[...chatAgentWindows.entries()].map(([id, entry], index) => ({ id, title: entry.label || `Chat ${index + 2}`, status: entry.minimized ? 'minimized' : entry.pinned ? 'docked' : entry.window.isMinimized() ? 'minimized' : 'visible', pinned: entry.pinned === true, step: 0, tabId: null }))
+        ...[...chatAgentWindows.entries()].map(([id, entry], index) => ({ id, title: entry.label || `Chat ${index + 2}`, status: entry.minimized ? 'minimized' : entry.pinned ? 'docked' : entry.window.isMinimized() ? 'minimized' : 'visible', pinned: entry.pinned === true, step: 0, tabId: null, agentIdentity: `agent${chatAgentNumber(entry) || index + 2}` }))
       ],
       backgroundRuns: (agentPool?.activeRuns || []).map((entry) => ({
         id: entry.instance?.state?.()?.id || null,
@@ -2664,7 +2768,11 @@ function currentState(agentOverride = desktopChatAgent, chatWindowId = '') {
       residentRuns: [...spawnRegistry.values()].filter(record => record.status === 'resident').map(record => ({ alias: record.alias, label: record.label, task: String(record.task || '').slice(0, 140), tabId: record.tabId, runId: record.runId })),
       // LORDE_SUBAGENT_TABS_V366 â€” the drawer renders one tab per subagent;
       // the roster drives the tab strip and the per-tab status dot.
-      subagents: [...spawnRegistry.values()].filter(record => record.status !== 'closed').map(record => ({ alias: record.alias, status: record.status, task: String(record.task || '').slice(0, 140), tabId: record.tabId || null, runId: record.runId || null, model: record.provider?.model || null })),
+      // Lanes: a subagent belongs to the agent that spawned it, so its history
+      // row can appear under that agent's tab instead of as a stray main-run
+      // entry. `parentRunId` is what the row nests under; `finishedAt` is what
+      // the row's "20min" stamp is measured from.
+      subagents: [...spawnRegistry.values()].filter(record => record.status !== 'closed').map(record => ({ alias: record.alias, status: record.status, task: String(record.task || '').slice(0, 140), tabId: record.tabId || null, runId: record.runId || null, model: record.provider?.model || null, parentRunId: record.parentRunId || null, lane: normalizeAgentLane(laneByRunId.get(String(record.parentRunId || ''))) || 'agent1', finishedAt: ['resident', 'failed', 'completed'].includes(record.status) ? (record.lastActivityAt || null) : null })),
       queuedRuns: agentPool ? agentPool.queue.length : 0,
       schedules: scheduler ? { jobs: scheduler.status().jobs.length, running: scheduler.status().inFlight.length } : null
     },
@@ -2741,7 +2849,76 @@ function safeIpcSend(contents, channel, payload) {
   try { contents.send(channel, safeIpcValue(payload)); } catch (_) { /* drop frame */ }
 }
 
+// ── DEV SESSION RESUME ──────────────────────────────────────────────────
+// "npm run desktop:dev_resume" relaunches the dev build at the exact point it
+// left: same tabs, same chat, same model, chat open, unfinished run continued.
+// The record is written while the app runs (throttled) and read only when the
+// launcher sets BROWSER_USE_DEV_RESUME=1.
+let devSession = null;
+let devSessionSignature = '';
+let devSessionWrittenAt = 0;
+let pendingDevResume = null;
+const DEV_SESSION_MIN_WRITE_MS = 1500;
+
+// ── SELF-RESTART (computer_resume) ─────────────────────────────────────
+// The agent used to restart itself by shelling out to the launcher. That
+// command looked "still running" in its terminal, so it retried, and every
+// retry queued another restart: an infinite restart loop. computer_resume is
+// the one supported way — the app schedules a SINGLE external timer and
+// refuses a second call during a cooldown that survives the restart.
+// (The scheduling rules live in desktop/devRestart.cjs, where they are tested.)
+let devRestart = null;
+
+// The restart scheduler is also the READER of the restart marker: the marker
+// is written before the app dies and read again after it comes back, so the
+// resume card can prove a restart really happened (and count the chain).
+function ensureDevRestart() {
+  if (!devRestart) {
+    devRestart = createDevRestartScheduler({
+      isPackaged: app.isPackaged,
+      userDataDir: app.getPath('userData'),
+      timerScript: path.join(__dirname, '..', 'scripts', 'dev-resume-deferred.bat'),
+      repoRoot: path.join(__dirname, '..'),
+      spawn,
+      log: (message) => addConsoleEntry({ kind: 'agent', level: 'info', message })
+    });
+  }
+  return devRestart;
+}
+
+function scheduleDevRestart(input = {}) {
+  const result = ensureDevRestart().schedule(input);
+  if (result?.ok) captureDevSession({ force: true });
+  return result;
+}
+
+function captureDevSession({ force = false } = {}) {
+  if (!devSession) return;
+  try {
+    const now = Date.now();
+    if (!force && now - devSessionWrittenAt < DEV_SESSION_MIN_WRITE_MS) return;
+    const liveChat = desktopChatAgent?.state?.() || null;
+    const record = devSession.capture({
+      tabs: [...tabs.values()]
+        .filter((tab) => tab && tab.webContents && !tab.webContents.isDestroyed())
+        .map((tab) => ({ url: tab.webContents.getURL(), title: tab.title || '', active: tab.id === selectedTabId })),
+      chat: liveChat
+        ? { conversationId: liveChat.id, title: liveChat.title, task: liveChat.task, status: liveChat.status }
+        : null,
+      drawer: activeDrawer,
+      provider: (() => { try { return activeProviderConfig?.() || null; } catch { return null; } })()
+    });
+    if (!record) return;
+    const signature = devSession.signature(record);
+    if (!force && signature === devSessionSignature) return;
+    devSessionSignature = signature;
+    devSessionWrittenAt = now;
+    devSession.save(record);
+  } catch { /* a resume hint must never break the app */ }
+}
+
 function publishState() {
+  captureDevSession();
   const state = currentState();
   const safeSend = safeIpcSend;
   if (mainWindow && !mainWindow.isDestroyed()) safeSend(mainWindow.webContents, 'browser-use:state', state);
@@ -3604,6 +3781,28 @@ function wireTab(tab) {
     // retry …) and the polished error page was never reached.
     const committed = tab.webContents.getURL() || '';
     if (!committed.startsWith('chrome-error://')) tab.navigationRetries = 0;
+    // BROWSER GATE WATCH — a site that refuses this engine renders a short
+    // "update your browser" page, which is indistinguishable from an empty tab.
+    // Naming it in the console is the difference between "this app is broken"
+    // and "this site wants a newer engine than we ship". Only small documents
+    // are inspected: a gate page is always short, and skipping large ones keeps
+    // the cost off real applications.
+    void (async () => {
+      try {
+        if (!/^https?:/i.test(committed) || tab.webContents.isDestroyed()) return;
+        const text = await tab.webContents.executeJavaScript(
+          `(() => { const body = document.body; if (!body) return ''; const text = String(body.innerText || ''); return text.length > 4000 ? '' : text.slice(0, 1200); })()`, true);
+        const phrase = browserIdentity.detectGate(text);
+        if (!phrase) return;
+        addConsoleEntry({
+          kind: 'compatibility',
+          level: 'warning',
+          message: `This site refused the browser engine ("${phrase}"). The identity layer already strips non-Chrome tokens, so this is a real version requirement, not a false positive: the site wants newer than Chromium ${browserIdentity.realChromeVersion() || 'unknown'}. Raising BROWSER_USE_UA_FLOOR buys time; the fix is an Electron bump.`,
+          url: committed,
+          tabId: tab.id
+        });
+      } catch { /* observation must never affect navigation */ }
+    })();
   });
   tab.webContents.setWindowOpenHandler(({ url, disposition }) => {
     // OAuth callbacks use window.opener/postMessage. Turning the consent popup
@@ -4456,7 +4655,50 @@ function createWindow() {
   // drawer with no selected tab for several seconds on a cold Electron start.
   // Bootstrap the neutral/home tab as soon as the native window exists so
   // agent actions always have a live target when the renderer accepts input.
-  createTab(isHomeUrl(settings.homepage) ? homeUrlWithVersion() : settings.homepage, true);
+  // Resume (dev only): the launcher sets BROWSER_USE_DEV_RESUME=1, so the
+  // previous session's tabs come back and the chat continues where it stopped.
+  // Without the flag this is exactly the old single home tab.
+  {
+    const resumeRecord = devSession ? (devResumeRequested() ? devSession.load() : null) : null;
+    const resumeRequested = devResumeRequested();
+    const resumeTabs = Array.isArray(resumeRecord?.tabs) ? resumeRecord.tabs : [];
+    // The RESUME CARD — the proof that this process really is the one that
+    // came back after a restart, with the timestamp.
+    //
+    // It rides on the payload the renderer already receives, and the agent
+    // injects it into the conversation it resumes. Without it the resumed
+    // run cannot tell a restart from a no-op: it re-plans "restart the app",
+    // restarts again, and the app restarts forever (nine times in one
+    // session before this card existed).
+    //
+    // It is built from the restart marker (which survives the restart) and
+    // the session record (captured as part of that restart), so it can say
+    // whether the restart is CONFIRMED or merely claimed — and whether
+    // anything was restored at all (the failed-restart case: the app came
+    // back but there was no conversation to resume).
+    const resumeCard = resumeRequested
+      ? buildResumeCardFrom({
+        record: resumeRecord,
+        marker: ensureDevRestart()?.readMarkerRecord?.() || null,
+        now: Date.now()
+      })
+      : null;
+    if (resumeTabs.length) {
+      const activeTab = resumeTabs.find((tab) => tab.active) || resumeTabs[0];
+      createTab(activeTab.url || (isHomeUrl(settings.homepage) ? homeUrlWithVersion() : settings.homepage), true);
+      for (const tab of resumeTabs) {
+        if (tab === activeTab || !tab.url) continue;
+        try { createTab(tab.url, false); } catch { /* a dead tab must not block the restore */ }
+      }
+      pendingDevResume = resumeRecord.chat ? { ...resumeRecord.chat, ...(resumeCard ? { resumeCard } : {}) } : (resumeCard ? { resumeCard } : null);
+    } else {
+      createTab(isHomeUrl(settings.homepage) ? homeUrlWithVersion() : settings.homepage, true);
+      // A restart with NOTHING restored is still a restart: the user (and the
+      // next agent run) must see that it happened, and that nothing was
+      // restored — the failed-restart case.
+      if (resumeCard) pendingDevResume = { resumeCard };
+    }
+  }
   agentPointerOverlay = new AgentPointerOverlay({
     BrowserWindow,
     ipcMain,
@@ -4468,6 +4710,33 @@ function createWindow() {
   });
   agentPointerOverlay.create();
   agentPointerOverlay.setSelectedTab(selectedTabId);
+  // The run must stay visible when the app is minimised or behind other
+  // windows: a bottom-right orb that shows the latest message on hover and
+  // restores the app on click. State arrives from the main renderer, which owns
+  // the mode machine (thinking / planning / acting / waiting / error).
+  workingBubble = new WorkingBubble({
+    BrowserWindow,
+    ipcMain,
+    Notification,
+    screen,
+    parentWindow: mainWindow,
+    htmlPath: path.join(__dirname, 'bubble', 'workingBubble.html'),
+    preloadPath: path.join(__dirname, 'bubble', 'workingBubblePreload.cjs'),
+    onActivate: () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+  ipcMain.on('browser-use:bubble-state', (_event, state) => {
+    try { workingBubble?.update(state); } catch { /* the bubble must never break a run */ }
+  });
+  // Visibility depends on focus: leaving the app raises the orb, returning to
+  // it drops the orb (the in-app orb above the composer takes over).
+  for (const focusEvent of ['focus', 'blur', 'minimize', 'restore', 'show', 'hide']) {
+    mainWindow.on(focusEvent, () => { try { workingBubble?.evaluateVisibility(); } catch { /* best effort */ } });
+  }
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   for (const geometryEvent of ['resize', 'resized', 'move', 'moved', 'show', 'hide', 'minimize', 'maximize', 'unmaximize', 'restore', 'enter-full-screen', 'leave-full-screen']) {
     mainWindow.on(geometryEvent, () => {
@@ -4593,6 +4862,10 @@ app.whenReady().then(async () => {
   // chrome. Keep the partition durable for normal sessions and log cache errors
   // rather than allowing stale browser state to present as a broken web app.
   const browserSession = session.fromPartition(BROWSER_PARTITION);
+  // Belt and braces beside the global fallback: an explicit session UA survives
+  // a future Electron change to fallback semantics, and it is what the partition
+  // reports for tabs created from here on.
+  browserIdentity.applyToSession(browserSession);
   browserSession.on('will-download', (_event, item) => trackDownload(item));
   const networkEntry = (details, failed = false) => {
     const tab = [...tabs.values()].find(item => item.webContents.id === details.webContentsId);
@@ -4619,6 +4892,10 @@ app.whenReady().then(async () => {
   credentialStore = new CredentialStore({ safeStorage, filePath: path.join(app.getPath('userData'), 'browser-use-secrets.json') });
   chatHistoryStore = new ChatHistoryStore({ filePath: path.join(app.getPath('userData'), 'browser-use-chat-history.json'), onError: error => addConsoleEntry({ kind: 'history', level: 'error', message: `Could not save chat progress: ${error.message}` }) });
   chatHistoryStore.recoverInterrupted();
+  devSession = new DevSessionStore({
+    filePath: path.join(app.getPath('userData'), 'dev-session.json'),
+    onError: (error) => addConsoleEntry({ kind: 'startup', level: 'warning', message: `Could not save the dev resume session: ${error.message}` })
+  });
   settings = loadSettings();
   saveSettings(settings);
   // Startup Laya check, not deferred to the settings tab: the app learns
@@ -4690,6 +4967,11 @@ app.whenReady().then(async () => {
     if (event.sender !== mainWindow?.webContents) return;
     mainRendererReady = true;
     revealMainWindow('renderer-ready');
+    if (pendingDevResume) {
+      const payload = pendingDevResume;
+      pendingDevResume = null;
+      safeIpcSend(event.sender, 'browser-use:dev-resume', payload);
+    }
   });
   ipcMain.handle('browser-use:state', (event) => { const context = chatWindowEntryForContents(event.sender); return safeIpcValue(currentState(context?.entry?.instance || desktopChatAgent, context?.id || '')); });
   ipcMain.handle('browser-use:agent-state', (event) => safeIpcValue(chatWindowEntryForContents(event.sender)?.entry?.instance?.state() || desktopChatAgent?.state() || null));
@@ -4887,9 +5169,22 @@ app.whenReady().then(async () => {
       continuation,
       conversationId,
       conversation,
+      // Which of the three agent slots this task belongs to. A continuation
+      // inherits the LANE OF THE CONVERSATION it continues — opening an Agent 2
+      // conversation while Agent 1 is selected must not fork its history.
+      agentLane: normalizeAgentLane(conversation?.agentIdentity) || normalizeAgentLane(request?.agentLane) || 'agent1',
       tabId: targetTabId,
       ownedTabIds: [...runOwnedTabIds],
       workspace: request?.workspace || resolveWorkspaceContract(request?.task),
+      // The opening notices the caller sent with this run (the resume card,
+      // a coordination message). They were DROPPED here, so the resumed run
+      // never heard that the app had restarted and kept replanning the
+      // restart: the app restarted nine times in a row before this was fixed.
+      initialAgentMessages: Array.isArray(request?.initialAgentMessages) ? request.initialAgentMessages : undefined,
+      // The resume card itself, so the agent can put it in its CONVERSATION
+      // (where it stays in context for every decision and survives the next
+      // restart) instead of only hearing it once.
+      resumeCard: request?.resumeCard || null,
       settings: {
         ...(request?.settings || {}),
         controlMode: request?.settings?.controlMode === 'browser' || request?.settings?.controlMode === 'agi'
@@ -4914,12 +5209,25 @@ app.whenReady().then(async () => {
     // and History while the completion continues through normal agent events.
     const beginAgentRun = (agentRequest) => {
       const queuedMessages = windowEntry?.entry?.pendingMessages || [];
-      const identity = windowEntry ? `agent${chatAgentNumber(windowEntry.entry) || 2}` : 'agent1';
-      const requestWithMessages = { ...agentRequest, agentIdentity: identity, ...(queuedMessages.length ? { initialAgentMessages: queuedMessages } : {}) };
+      // A chat window IS its own agent slot; the drawer uses whichever lane
+      // the history window has selected. This identity is what the history
+      // tab, the coordination hub and the tab-ownership policy all read.
+      const identity = windowEntry
+        ? `agent${chatAgentNumber(windowEntry.entry) || 2}`
+        : (normalizeAgentLane(agentRequest?.agentLane) || 'agent1');
+      // The opening notices and the window's queued messages are MERGED, not
+      // substituted: overwriting dropped the resume card on the exact run that
+      // needed it, so the agent woke up blind to the restart it had just done.
+      const openingMessages = Array.isArray(agentRequest?.initialAgentMessages) ? agentRequest.initialAgentMessages : [];
+      const mergedMessages = [...openingMessages, ...queuedMessages];
+      const requestWithMessages = { ...agentRequest, agentIdentity: identity, ...(mergedMessages.length ? { initialAgentMessages: mergedMessages } : {}) };
       const previous = hostAgent.state();
       const completion = hostAgent.start(requestWithMessages);
       if (queuedMessages.length && windowEntry?.entry) windowEntry.entry.pendingMessages = [];
       const started = hostAgent.state();
+      // Only a NEW run claims a lane; a continuation of the live run must not
+      // be re-tagged by whichever tab happens to be selected now.
+      if (started?.id && started.id !== previous?.id) rememberRunLane(started.id, identity);
       const alreadyRunning = ['running', 'awaiting_approval', 'paused', 'awaiting_recovery'].includes(previous?.status);
       if (!started || alreadyRunning || !['running', 'awaiting_approval', 'paused', 'awaiting_recovery'].includes(started.status)) return completion;
       void completion.catch((error) => {
@@ -4992,6 +5300,32 @@ app.whenReady().then(async () => {
       // chat run." on every late Stop click.
       return { status: 'idle', cancelled: false, note: 'No live run to cancel.' };
     }
+  });
+  // "+" ADDS an instance; it never destroys work. The running drawer
+  // conversation is moved into the live-session registry (it keeps its own tab,
+  // tools and clock) and a fresh agent takes the drawer immediately, so the
+  // new chat is usable at once instead of waiting for the next send to trigger
+  // the hand-off. Cancelling here — what New chat used to do — turned the
+  // button into a destructive action disguised as navigation.
+  ipcMain.handle('browser-use:agent-handoff', async (event) => {
+    const windowEntry = chatWindowEntryForContents(event.sender);
+    const hostAgent = windowEntry?.entry?.instance || desktopChatAgent;
+    const snapshot = hostAgent?.state?.() || null;
+    const live = ['running', 'awaiting_approval', 'paused', 'awaiting_recovery'];
+    if (!hostAgent || !snapshot?.id || !live.includes(snapshot.status)) {
+      return { handedOff: false, status: snapshot?.status || 'idle', agentIdentity: snapshot?.agentIdentity || 'agent1' };
+    }
+    rememberRunLane(snapshot.id, snapshot.agentIdentity);
+    chatSessions.set(String(snapshot.id), hostAgent);
+    pruneChatSessions();
+    // A chat WINDOW owns its instance: handing it off would orphan the window.
+    // The drawer is the only surface that gets a replacement agent.
+    if (!windowEntry) {
+      desktopChatAgent = createChatAgent();
+      addConsoleEntry({ kind: 'agent', level: 'info', message: `[Sessions] "${String(snapshot.title || 'Untitled').slice(0, 60)}" continues in the background; the new chat is ready.` });
+    }
+    publishState();
+    return { handedOff: true, sessionId: snapshot.id, agentIdentity: snapshot.agentIdentity || 'agent1' };
   });
   ipcMain.handle('browser-use:agent-retire', async (_event, conversationId) => {
     const id = String(conversationId || '').trim();
@@ -5863,6 +6197,7 @@ app.whenReady().then(async () => {
 let computerShutdown = null;
 let computerShutdownReady = false;
 app.on('before-quit', (event) => {
+  captureDevSession({ force: true });
   closeSplashWindow();
   if ((computerTools || chatHistoryStore) && !computerShutdownReady) {
     event.preventDefault();

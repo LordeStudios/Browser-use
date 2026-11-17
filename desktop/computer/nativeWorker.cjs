@@ -15,6 +15,12 @@ const windowFromPoint = api('uintptr_t __stdcall WindowFromPoint(ComputerPoint p
 const getAncestor = api('uintptr_t __stdcall GetAncestor(uintptr_t window, uint32_t flags)');
 const getWindow = api('uintptr_t __stdcall GetWindow(uintptr_t window, uint32_t command)');
 const keyState = api('int16_t __stdcall GetAsyncKeyState(int key)');
+// LORDE_KEY_SCANCODE_V1 — resolves a virtual key to the scan code Windows would
+// have generated for the physical key. MAPVK_VK_TO_VSC = 0.
+const mapVirtualKey = api('uint32_t __stdcall MapVirtualKeyW(uint32_t code, uint32_t mapType)');
+// LORDE_KEY_TEXT_V1 — maps a character to the virtual key and modifier state
+// the active layout needs to produce it. Returns -1 when it cannot.
+const vkKeyScan = api('int16_t __stdcall VkKeyScanW(uint16_t character)');
 const isWindow = api('bool __stdcall IsWindow(uintptr_t window)');
 const isVisible = api('bool __stdcall IsWindowVisible(uintptr_t window)');
 const getText = api('int __stdcall GetWindowTextW(uintptr_t window, void *text, int length)');
@@ -74,6 +80,9 @@ const unionOffset = process.arch === 'ia32' ? 4 : 8;
 const generations = new Map();
 const heldKeys = new Map();
 const heldButtons = new Map();
+// LORDE_KEY_TARGET_V1 — the window each session explicitly focused, so a key
+// press can refuse to fire when another app has since taken the foreground.
+const focusedTargets = new Map();
 let queue = Promise.resolve();
 let queued = 0;
 const generation = owner => generations.get(owner) || 0;
@@ -119,13 +128,36 @@ function keyCode(name) {
   if (/^numpad\d$/.test(k)) return 96 + Number(k.at(-1));
   throw new Error(`Unknown key ${name}; use action=text for arbitrary Unicode text.`);
 }
+// A batched key run has to decide, per entry, whether it is a KEY or literal
+// TEXT. It uses the same validator the press path uses, so the two can never
+// disagree: "Enter" and "Shift+D" press, "0.35" and "-0.2" type.
+function isKnownKeyName(value) {
+  try { keyCode(value); return true; } catch { return false; }
+}
+function normalizeKeyStep(entry) {
+  if (entry && typeof entry === 'object') {
+    if (typeof entry.text === 'string') return { action: 'text', text: entry.text };
+    if (typeof entry.key === 'string') return { action: 'press', key: entry.key };
+    return null;
+  }
+  const value = String(entry ?? '');
+  if (!value) return null;
+  const parts = value.split('+');
+  const isChord = parts.length > 1 && parts.every(isKnownKeyName);
+  if (isChord || isKnownKeyName(value)) return { action: 'press', key: value };
+  return { action: 'text', text: value };
+}
 function key(owner, vk, down) {
   const holder = heldKeys.get(vk);
   if (holder && holder !== owner) throw new Error('Another computer session holds this key.');
   if (down && holder === owner || !down && !holder) return;
   if (down && !holder && (keyState(vk) & 0x8000)) throw new Error('This key is already held outside the computer session.');
   const extended = [33, 34, 35, 36, 37, 38, 39, 40, 45, 46, 91, 92].includes(vk) ? 1 : 0;
-  send([input(1, { vk, flags: extended | (down ? 0 : 2) })]);
+  // LORDE_KEY_SCANCODE_V1 — sending wScan=0 makes Windows invent a scan code,
+  // and an app that identifies the physical key (left vs right modifier,
+  // layout-dependent keys) can then drop the event. Send the real one.
+  const scan = mapVirtualKey(vk, 0) & 0xFF;
+  send([input(1, { vk, scan, flags: extended | (down ? 0 : 2) })]);
   if (down) heldKeys.set(vk, owner); else heldKeys.delete(vk);
 }
 function release(owner) {
@@ -135,6 +167,11 @@ function release(owner) {
   for (const [name, holder] of heldButtons) if (holder === owner) { try { button(owner, name, false); } catch (e) { errors.push(e.message); } }
   if (errors.length) throw new Error(errors.join('; '));
   return { released: true };
+}
+function processId(handle) {
+  const pid = Buffer.alloc(4);
+  getPid(handle, pid);
+  return pid.readUInt32LE(0);
 }
 function windowInfo(handle) {
   const text = Buffer.alloc(1024), rect = Buffer.alloc(16), pid = Buffer.alloc(4), cls = Buffer.alloc(512);
@@ -204,9 +241,57 @@ async function execute(name, args, owner, epoch) {
       await new Promise(resolve => setTimeout(resolve, 30)); current(owner, epoch);
     }
     if (String(getForeground()) !== String(handle)) throw new Error('Windows did not grant foreground focus to this window. Use a visible native click to focus it or check OS permissions.');
+    focusedTargets.set(owner, { handle: String(handle), pid: processId(handle) });
     return { focused: true, window: windowInfo(handle) };
   }
+  if (name === 'computer_keyboard' && Array.isArray(args.keys) && args.keys.length) {
+    // ONE call for a whole keystroke run. Driving a real app means dozens of
+    // tiny presses — a single Blender transform is S, X, 0.35, Enter — and a
+    // transport hop per key was the dominant cost of modelling through MCP
+    // (19 round trips for one wheel). Each step still re-runs the foreground
+    // checks, so a focus change mid-run fails loudly instead of typing into
+    // whatever stole focus.
+    const steps = args.keys.map(normalizeKeyStep).filter(Boolean);
+    if (!steps.length) throw new Error('keys must contain at least one key chord or text string.');
+    if (steps.length > 200) throw new Error('keys supports at most 200 steps in one call.');
+    const intervalMs = Number.isFinite(Number(args.intervalMs)) ? Math.min(2000, Math.max(0, Number(args.intervalMs))) : 25;
+    // Blender (and most CAD/3D apps) route shortcuts to the area UNDER THE
+    // POINTER, so a caller that never positions the cursor types into whatever
+    // panel it happens to be over. Placing it here removes that whole class of
+    // "the key went somewhere else". A caller that named a window but no point
+    // means "this app": its center is the one spot that is never a menu, a
+    // scrollbar, or a panel header, so no call has to carry coordinates just to
+    // satisfy the routing rule.
+    let point = { x: args.x, y: args.y };
+    if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+      const target = args.windowId ? windowInfo(BigInt(String(args.windowId))) : null;
+      if (target?.bounds) {
+        point = {
+          x: Math.round(target.bounds.x + target.bounds.width / 2),
+          y: Math.round(target.bounds.y + target.bounds.height / 2)
+        };
+      }
+    }
+    if (Number.isFinite(point.x) && Number.isFinite(point.y)) {
+      await execute('computer_pointer', { action: 'move', x: point.x, y: point.y, ...(args.windowId ? { windowId: args.windowId } : {}) }, owner, epoch);
+    }
+    for (const step of steps) {
+      current(owner, epoch);
+      await execute('computer_keyboard', { ...step, ...(args.holdMs !== undefined ? { holdMs: args.holdMs } : {}) }, owner, epoch);
+      if (intervalMs > 0) await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
+    return { dispatched: true, steps: steps.length, intervalMs, sequence: args.keys };
+  }
   if (name === 'computer_keyboard') {
+    // action is optional: a run of keys needs only keys, a single chord needs
+    // only key, and typing needs only text. Infer the intent instead of forcing
+    // a redundant field on every call, and reject a call that names nothing so
+    // the failure is a sentence rather than an unknown-key error.
+    if (!args.action && !(Array.isArray(args.keys) && args.keys.length)) {
+      if (typeof args.text === 'string') args.action = 'text';
+      else if (typeof args.key === 'string') args.action = 'press';
+      else throw new Error('computer_keyboard needs keys (a run of chords/text), key (one chord), or text (literal typing).');
+    }
     // A key press goes to the FOREGROUND window. If that window is the
     // harness itself, the app reads the key as its own: Escape stops the
     // active run, and typing lands in the agent's own composer. That is not
@@ -218,20 +303,56 @@ async function execute(name, args, owner, epoch) {
         throw new Error(`The foreground window${title ? ` ("${title}")` : ''} is the Browser-use harness itself. Keys sent there are read by the harness (Escape stops the run). Focus the app you mean first with computer_window, then send the key.`);
       }
     }
+    // LORDE_KEY_TARGET_V1 — keys go to whatever is foreground. When this session
+    // has explicitly focused a window, a different foreground process means the
+    // keys land somewhere the caller never meant. Fail loudly instead of
+    // returning dispatched:true for input that went to another app. A window
+    // from the same process (a dialog) is still a valid target.
+    {
+      const target = focusedTargets.get(owner);
+      if (target && processId(getForeground()) !== target.pid) {
+        const front = windowInfo(getForeground());
+        const want = windowInfo(BigInt(target.handle));
+        throw new Error(`Keys would go to the foreground window${front && front.title ? ` ("${front.title}")` : ''}, but this session last focused${want && want.title ? ` ("${want.title}")` : ` ${target.handle}`}. Focus the intended app again with computer_window, then send the key.`);
+      }
+    }
     if (args.action === 'text') {
       if (typeof args.text !== 'string') throw new Error('Text is required.');
-      for (let offset = 0; offset < args.text.length; offset += 128) {
+      // LORDE_KEY_TEXT_V1 — type real keystrokes for characters the active layout
+      // can produce, and use KEYEVENTF_UNICODE only for the rest. Apps that build
+      // their text from WM_KEYDOWN/WM_CHAR pairs (Blender's console among them)
+      // ignore pure unicode injection, so a unicode-only path reports success
+      // while typing nothing.
+      for (const ch of args.text) {
         current(owner, epoch);
-        const events = [];
-        for (let i = offset; i < Math.min(args.text.length, offset + 128); i++) {
-          const scan = args.text.charCodeAt(i); events.push(input(1, { scan, flags: 4 }), input(1, { scan, flags: 6 }));
+        const code = ch.codePointAt(0);
+        const mapped = code > 0xFFFF ? -1 : vkKeyScan(code);
+        const state = mapped === -1 ? 0 : (mapped >> 8) & 0xFF;
+        const typable = mapped !== -1 && (mapped & 0xFF) !== 0xFF && (state & 6) === 0;
+        if (!typable) {
+          send([input(1, { scan: code & 0xFFFF, flags: 4 }), input(1, { scan: code & 0xFFFF, flags: 6 })]);
+        } else {
+          const vk = mapped & 0xFF;
+          const shifted = (state & 1) === 1;
+          const scan = mapVirtualKey(vk, 0) & 0xFF;
+          const shiftScan = mapVirtualKey(16, 0) & 0xFF;
+          if (shifted) send([input(1, { vk: 16, scan: shiftScan, flags: 0 })]);
+          send([input(1, { vk, scan, flags: 0 }), input(1, { vk, scan, flags: 2 })]);
+          if (shifted) send([input(1, { vk: 16, scan: shiftScan, flags: 2 })]);
         }
-        send(events); await new Promise(r => setImmediate(r));
+        await new Promise(resolve => setTimeout(resolve, 2));
       }
       return { insertedCharacters: args.text.length };
     }
     const codes = String(args.key || '').split('+').map(keyCode);
     if (codes.length > 8) throw new Error('A key chord supports at most eight keys.');
+    // LORDE_KEY_DWELL_V1 — press used to release the whole chord in the same
+    // tick it went down. An app that handles the chord inside its own WM_KEYDOWN
+    // (Notepad++) still reads the modifier as held, but an app that queues keys
+    // and resolves modifiers later (Blender's GHOST, several Electron/OpenGL
+    // shells) processes the modifier-up first and sees a bare key. Hold the
+    // chord long enough for the target to read it, and let the caller extend it.
+    const holdMs = Number.isFinite(Number(args.holdMs)) ? Math.min(2000, Math.max(0, Number(args.holdMs))) : 12;
     const acquired = [];
     try {
       for (const vk of args.action === 'up' ? [...codes].reverse() : codes) {
@@ -243,7 +364,13 @@ async function execute(name, args, owner, epoch) {
       for (const vk of acquired.reverse()) { try { key(owner, vk, false); } catch {} }
       throw error;
     } finally {
-      if (args.action === 'press') for (const vk of acquired.reverse()) key(owner, vk, false);
+      if (args.action === 'press') {
+        if (holdMs > 0) await new Promise(resolve => setTimeout(resolve, holdMs));
+        for (const vk of acquired.reverse()) {
+          key(owner, vk, false);
+          if (holdMs > 0) await new Promise(resolve => setTimeout(resolve, 4));
+        }
+      }
     }
     return { dispatched: true, action: args.action };
   }
@@ -303,3 +430,7 @@ process.on('disconnect', () => {
   for (const owner of new Set([...heldKeys.values(), ...heldButtons.values()])) { try { release(owner); } catch {} }
   process.exit(0);
 });
+
+// Exported for tests only: the key-vs-text classification is the one piece of a
+// batched key run that can be verified without sending real input anywhere.
+module.exports = { normalizeKeyStep };

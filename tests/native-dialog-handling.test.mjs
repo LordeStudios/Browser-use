@@ -22,7 +22,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { DesktopChatAgent } = require('../desktop/agent/desktopChatAgent.cjs');
+const { DesktopChatAgent, expectNativeDialog } = require('../desktop/agent/desktopChatAgent.cjs');
 
 const final = { done: { summary: 'Fixture finished.', success: true, verified: true } };
 
@@ -62,13 +62,23 @@ function stubAgent() {
   });
 }
 
-function stubRun(windows) {
-  return {
+function stubRun(windows, { demand = true } = {}) {
+  const run = {
     id: 'native-dialog-test', status: 'running', history: [], messages: [],
     settings: { controlMode: 'agi' },
     getComputerTools: () => ({ execute: async () => ({ windows }) }),
     remoteExecution: false, observationDomain: 'browser', computerOwner: null
   };
+  // RE-PINNED (owner directive, 2026-11-12): a native dialog is detected
+  // ONLY after the agent asked for one (open as admin, open file, save
+  // file, a file picker). The detection rules below are unchanged - any
+  // pid, own pid in a browser-domain run, no duplicate nudges, minimized
+  // windows are not dialogs - but the detector now runs only against a
+  // DEMAND. Without one it never scans, because an unrelated window on the
+  // desktop is not a blocker: a live run read a background browser window
+  // as "the dialog", left the task, and pressed Escape in an unrelated app.
+  if (demand) expectNativeDialog(run, 'the agent asked for a native dialog');
+  return run;
 }
 
 // ---------- (1a) the Upload click switches the observation domain ----------
@@ -130,6 +140,20 @@ test('browser_click on an ordinary element keeps the run on the browser domain',
 });
 
 // ---------- (1b/1c/1d) any-PID detection + the notice text ----------
+
+test('without a demand the detector never runs: an unrelated window is not a blocker', async () => {
+  // RE-PINNED (owner directive): the window list is not even read unless the
+  // agent asked for a native dialog. A live run chased a background browser
+  // window as "the dialog that blocks the work" and pressed Escape in it.
+  const agent = stubAgent();
+  let scans = 0;
+  const run = stubRun([], { demand: false });
+  run.getComputerTools = () => ({ execute: async () => { scans += 1; return { windows: [{ id: '77', title: 'Open', pid: 999999, className: '#32770', minimized: false }] }; } });
+  await agent.deliverNativeSurfaceNotice(run);
+  assert.equal(scans, 0, 'the window list is not read without a demand');
+  assert.equal(NOTICES(run).length, 0, 'no dialog is announced without a demand');
+  assert.equal(run.observationDomain, 'browser', 'the run stays on the browser domain');
+});
 
 test('a dialog from ANY pid is detected and surfaced — the same-PID filter is gone on purpose', async () => {
   const agent = stubAgent();
@@ -229,6 +253,8 @@ test('nativeSurfaceSeen serializes as an array and survives a continuation: noti
     settings: { controlMode: 'agi' }, getComputerTools: () => backend,
     remoteExecution: false, observationDomain: 'browser', computerOwner: null
   };
+  // RE-PINNED (owner directive): the detector runs against a DEMAND.
+  expectNativeDialog(agent.run, 'the agent asked for a native dialog');
 
   // Baseline records W1 and D1 as "predating the run"; then D1 is announced by
   // making it fresh — the point is that both ids end up in the seen ledger.

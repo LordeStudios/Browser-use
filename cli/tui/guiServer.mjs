@@ -80,6 +80,11 @@ function serveFile(res, filePath) {
     if (String(filePath).toLowerCase().endsWith('.html')) {
       let html = String(data);
       if (!html.includes('/web-shell.js')) {
+        // The desktop menu bar (File / Edit / View / Window) drives native Electron
+        // menus. Served over HTTP those buttons do nothing, so the web shell hides
+        // them instead of offering dead controls.
+        html = html.replace(/<head>/i, '<head><style id="web-shell-css">.chrome-menu{display:none !important}</style>');
+        html = html.replace(/<body([^>]*)>/i, '<body$1 data-shell="web">');
         html = html.replace(/<\/body>/i, '<script src="/web-shell.js"></script></body>');
       }
       res.writeHead(200, { 'Content-Type': getContentType(filePath), 'Cache-Control': 'no-store' });

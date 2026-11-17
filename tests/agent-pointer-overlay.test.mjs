@@ -101,11 +101,24 @@ test('an active pointer hides and recovers when its renderer stops acknowledging
   });
   overlay.setSelectedTab('tab-a');
 
-  const result = await overlay.move('tab-a', { x: 300, y: 240 });
-
-  assert.equal(result.timedOut, true);
+  // A single unconfirmed frame is a hitch, not a dead renderer: hiding on the
+  // first timeout makes the cursor flicker off on a slow frame. Three strikes
+  // is the policy that keeps the pointer honest without flickering.
+  const first = await overlay.move('tab-a', { x: 300, y: 240 });
+  assert.equal(first.timedOut, true);
+  assert.equal(overlay.window.isVisible(), true, 'one unconfirmed frame must not hide the pointer');
+  const second = await overlay.move('tab-a', { x: 310, y: 250 });
+  assert.equal(second.timedOut, true);
+  assert.equal(overlay.window.isVisible(), true, 'two unconfirmed frames still leave the pointer on screen');
+  const third = await overlay.move('tab-a', { x: 320, y: 260 });
+  assert.equal(third.timedOut, true);
   assert.equal(overlay.window.isVisible(), false, 'a renderer that cannot confirm movement must not leave a frozen pointer frame visible');
   assert.equal(overlay.surfaceAvailable, false);
+
+  // The next action must rebuild the surface instead of staying dark forever.
+  const recovered = await overlay.move('tab-a', { x: 330, y: 270 });
+  assert.equal(overlay.window.isVisible(), true, 'a later action must bring a fresh pointer surface back');
+  assert.ok(recovered, 'the recovering move must answer');
   overlay.dispose();
 });
 

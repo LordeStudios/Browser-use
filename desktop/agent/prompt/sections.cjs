@@ -28,7 +28,7 @@ const DRAWING_PLAYBOOK = ' Native drawing: required apps, tools and execution me
 // by the loop (repeat guard, evidence epoch, read-only cap, stall detectors).
 const PERSONA_PREFIX = [
  'You are an AI agent powered by the Browser-use harness.',
- 'Every decision is one executable step: a tool call, a batch of independent calls, or browser_done. Act the moment the next action is clear; after each result mention only NEW evidence and the next action.'
+ 'Each decision is one step: a tool call, a batch of independent calls (max 48), or browser_done. Act the moment the next action is clear; after each result mention only NEW evidence and the next action.'
 ].join('\n\n');
 
 // ---- Policies -------------------------------------------------------------
@@ -53,6 +53,17 @@ const COMPLETION_POLICY = [
 
 const TOOLS_CATALOG_NOTE = [
  'TOOLS - Schemas arrive compact: call tool_schema for full arguments first; no tool is hidden. agent_message only for a concrete handoff.'
+].join('\n\n');
+
+// REPLY: the terminal summary is the user's ANSWER.
+//
+// The persona above tells the model to "mention only NEW evidence and the next
+// action" — correct DURING work, and the reason the final message came out as a
+// bare "Done"/"Finished"/"Replied". Those are status tokens: they tell the user
+// nothing, and a user who gets one assumes the agent did not understand and
+// re-sends the task. This section is the only place that states the difference.
+const REPLY_POLICY = [
+ 'REPLY - The summary you pass to browser_done IS your answer to the user, so write it for them, not for the loop: what you did, what you found or produced, and anything they must decide or supply next. Never end a turn with only "Done", "Finished", "Completed", "Replied" or "OK" - those are status tokens, not answers. A greeting or a question gets a plain reply in one or two sentences even when no tool was needed. If part of the request is still open, say which part and why.'
 ].join('\n\n');
 
 // schema repair (one-shot corrective turn after an undecidable reply).
@@ -80,6 +91,9 @@ function registerPromptSections(registry, ctx = {}) {
  registry.section({ name: 'tools:computer', order: ORDERS.TOOLS_COMPUTER, text: computerSection(ctx), interpolate: false });
  registry.section({ name: 'context:instructions-file', order: ORDERS.CONTEXT_INSTRUCTIONS_FILE, text: instructionFileSection(ctx), interpolate: false });
  registry.section({ name: 'policy:completion', order: ORDERS.POLICY_COMPLETION, text: COMPLETION_POLICY, interpolate: false });
+ // Sits directly after COMPLETION: the summary contract belongs with the
+ // terminal call it governs.
+ registry.section({ name: 'policy:reply', order: ORDERS.POLICY_COMPLETION + 50, text: REPLY_POLICY, interpolate: false });
  registry.section({
  name: PERSONA_SUFFIX_SECTION,
  order: ORDERS.PERSONA_SUFFIX,
@@ -123,6 +137,7 @@ module.exports = {
  EVIDENCE_POLICY,
  FAILURE_POLICY,
  COMPLETION_POLICY,
+ REPLY_POLICY,
  TOOLS_CATALOG_NOTE,
  REPAIR_POLICY,
  registerPromptSections,

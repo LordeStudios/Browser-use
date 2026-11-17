@@ -24,7 +24,7 @@
 // observer-cancelled run (external budget clock) holds the queue.
 //
 // Example:
-//   node cli/agent-cli.mjs --task-file task.txt --model z-ai/glm-5.3-flash \
+//   node cli/agent-cli.mjs --task-file task.txt --model <provider-model-id> \
 //     --max-seconds 240 --system-file variant1.md \
 //     --out-dir scratch/harness-campaign/runs/run001
 
@@ -40,6 +40,32 @@ import { createRequire } from 'node:module';
 import { createMessageQueue, parseControlLine, runWithQueue } from './agentRunQueue.mjs';
 
 const require = createRequire(import.meta.url);
+
+// The config file shared by the web interface, the TUI and this runner.
+// Mirrors appConfig.mjs so all three resolve the same path on every platform.
+function cliConfigPath() {
+  const home = os.homedir();
+  if (process.platform === 'win32') {
+    return path.join(process.env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'browser-use-cli', 'config.json');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(home, 'Library', 'Application Support', 'browser-use-cli', 'config.json');
+  }
+  return path.join(process.env.XDG_CONFIG_HOME || path.join(home, '.config'), 'browser-use-cli', 'config.json');
+}
+
+function cliConfigPathForMessage() {
+  return cliConfigPath();
+}
+
+function readCliConfigFile() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(cliConfigPath(), 'utf8'));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
 const { launchHeadlessChrome, killChromeTree, connectTab } = require('./webContentsAdapter.cjs');
 // GEN9 (desktop/skills_mcp_plan.md): the CLI agent gets the SAME merged
 // skillsApi the desktop uses — learned skills plus INSTALLED skill packages
@@ -233,23 +259,39 @@ async function main() {
   if (!task) throw new Error('A task is required: pass --task "..." or --task-file <path>.');
 
   const providerId = String(args['provider-id'] || 'xkiro');
-  const model = String(args.model || 'z-ai/glm-5.3-flash');
+  // SHARED PROVIDER CONFIG. The web interface and the TUI write the provider,
+  // model, base URL and key into the CLI config file. This runner used to read
+  // only flags, env and ~/.claude/settings.json, so a provider onboarded in the
+  // interface was invisible here and every run failed with "No provider API key".
+  const cliConfig = readCliConfigFile();
+  const model = String(args.model || cliConfig.model || '');
   const claudeSettings = readClaudeSettingsCredentials();
   // Credential priority per the harness contract: explicit --api-key and
   // XKIRO_API_KEY override; the ~/.claude/settings.json token is the base.
   // A shell-inherited ANTHROPIC_AUTH_TOKEN (possibly stale, e.g. from a
   // harness wrapper) is the LAST fallback, never preferred over the file.
-  const apiKey = String(args['api-key'] || process.env.XKIRO_API_KEY || claudeSettings.apiKey || process.env.ANTHROPIC_AUTH_TOKEN || '');
+  const apiKey = String(args['api-key'] || process.env.XKIRO_API_KEY || claudeSettings.apiKey || process.env.ANTHROPIC_AUTH_TOKEN || cliConfig.apiKey || '');
   // Default base URL: ANTHROPIC_BASE_URL carries the bare gateway host. The
   // provider's Anthropic route builds /v1/messages itself, but its OpenAI
   // route appends only /chat/completions — so the default (and any override
   // lacking /v1 unless the caller passed it verbatim) gets /v1 appended.
   // providerEndpoint() collapses a double /v1 for the Anthropic route, so one
   // default serves both protocols. An explicit --base-url is used verbatim.
-  const rawBaseUrl = String(args['base-url'] || process.env.XKIRO_BASE_URL || claudeSettings.baseUrl || 'https://api.xkiro.com');
+  const rawBaseUrl = String(args['base-url'] || process.env.XKIRO_BASE_URL || claudeSettings.baseUrl || cliConfig.baseUrl || 'https://api.xkiro.com');
   const trimmedBaseUrl = rawBaseUrl.replace(/\/+$/, '');
   const baseUrl = args['base-url'] ? trimmedBaseUrl : (trimmedBaseUrl.endsWith('/v1') ? trimmedBaseUrl : `${trimmedBaseUrl}/v1`);
-  if (!apiKey) throw new Error('No provider API key: pass --api-key, set XKIRO_API_KEY, or configure ~/.claude/settings.json env.ANTHROPIC_AUTH_TOKEN.');
+  if (!model) {
+    throw new Error(
+      'No model selected. Choose one in the web interface or the TUI, pass --model <id>, '
+      + 'or set "model" in the CLI config. There is no built-in default on purpose.'
+    );
+  }
+  if (!apiKey) {
+    throw new Error(
+      'No provider API key. Add a provider in the web interface (browser-use gui), or pass --api-key, '
+      + `set XKIRO_API_KEY, or configure ~/.claude/settings.json. Looked in: ${cliConfigPathForMessage()}`
+    );
+  }
 
   const maxSeconds = parseNumber(args['max-seconds'], 'max-seconds');
   const maxSteps = parseNumber(args['max-steps'], 'max-steps');
@@ -404,7 +446,41 @@ async function main() {
   // chrome spawn behind them for nothing. Timings land in the trace
   // (harness.boot.*) so the startup path stays measurable.
   const bootT0 = performance.now();
-  bootLaunch = launchHeadlessChrome({ startPort: 9333, profileDir: args['profile-dir'] ? path.resolve(String(args['profile-dir'])) : null, headed });
+  // ATTACH INSTEAD OF LAUNCH. On Android (Lorde OS) there is no Chromium binary
+  // to start, but the system Chrome exposes a DevTools socket that adb can
+  // forward. --connect / BROWSER_USE_CDP points the run at an existing browser.
+  const connectTarget = String(args.connect || process.env.BROWSER_USE_CDP || '').trim();
+  // First run on a clean machine: fetch the browser this package carries.
+  if (!args['no-browser'] && !connectTarget) {
+    try {
+      const provisioner = await import('./browserProvisioner.mjs');
+      if (!provisioner.findProvisionedBrowser()) {
+        process.stderr.write('Provisioning the bundled browser (one time, about 120 MB)\n');
+        await provisioner.ensureProvisionedBrowser({
+          onLine: (line) => {
+            const pct = line.match(/(\d{1,3})%/);
+            if (pct) process.stderr.write(`\r  ${pct[1]}% downloaded`);
+          }
+        });
+        process.stderr.write('\n  browser ready\n');
+      }
+    } catch (error) {
+      process.stderr.write(`\n  browser provisioning failed: ${String(error?.message || error)}\n`);
+    }
+  }
+  if (args['no-browser']) {
+    bootLaunch = Promise.resolve(null);
+  } else if (connectTarget) {
+    const cleaned = connectTarget.replace(/^[a-z]+:\/\//i, '');
+    const [hostPart, portPart] = cleaned.split(':');
+    bootLaunch = Promise.resolve({
+      host: hostPart || '127.0.0.1',
+      port: Number(portPart || 9222),
+      external: true
+    });
+  } else {
+    bootLaunch = launchHeadlessChrome({ startPort: 9333, profileDir: args['profile-dir'] ? path.resolve(String(args['profile-dir'])) : null, headed });
+  }
   bootLaunch.catch(() => {}); // never unhandled if a require below throws first
 
   // PROMPT OVERRIDE: --system-file no longer monkey-patches a prompt
@@ -418,6 +494,9 @@ async function main() {
   const { createOpenAiCompatibleProvider } = require('../desktop/agent/openAiCompatibleProvider.cjs');
   const { DesktopChatAgent } = require('../desktop/agent/desktopChatAgent.cjs');
   const { BrowserViewController } = require('../desktop/mcp/browserViewController.cjs');
+  // CLI PARITY: the file-dialog bridge ships to both surfaces, so the CLI agent
+  // can answer Open/Save dialogs exactly like the desktop app.
+  const { FileDialogBridge } = require('../desktop/mcp/fileDialogBridge.cjs');
   const { createVisionDescriber } = require('../desktop/agent/visionDelegate.cjs');
   // CLI PARITY (project rule: agent improvements ship to both surfaces):
   // media generation (imagePath/saveTo) + the model_catalog backend with the
@@ -427,28 +506,117 @@ const { createCliAndroidApi } = require('./cliAndroidApi.cjs');
   writeTrace({ type: 'harness.boot', phase: 'modules', ms: Math.round(performance.now() - bootT0) });
 
   // --- headless browser ----------------------------------------------------
-  const launch = await bootLaunch;
+  // A MISSING BROWSER MUST NOT KILL THE RUN. File, shell, research and computer
+  // tools do not need one, and on Android (Lorde OS) there is no Chromium to
+  // launch at all. The run continues with zero tabs; browser tools report the
+  // reason per call instead of the whole agent dying at boot.
+  let launch = null;
+  let browserError = null;
+  try {
+    launch = await bootLaunch;
+  } catch (error) {
+    browserError = String(error?.message || error);
+    writeTrace({ type: 'harness.boot', phase: 'browser-unavailable', error: browserError });
+  }
   writeTrace({ type: 'harness.boot', phase: 'chrome', ms: Math.round(performance.now() - bootT0) });
   const tabs = new Map();
   let selectedTabId = null;
 
   const openTab = async (url) => {
-    const { tab, adapter } = await connectTab({ host: '127.0.0.1', port: launch.port, targetId: null });
+    // No browser: hand back a placeholder tab. Creating a tab must never abort
+    // a run, because non-browser tools still need the session to exist.
+    if (!launch) {
+      const stub = stubTab();
+      stub.url = typeof url === 'string' && url ? url : 'about:blank';
+      tabs.set(stub.id, { tab: stub, adapter: stub.adapter });
+      return stub;
+    }
+    const { tab, adapter } = await connectTab({ host: launch.host || '127.0.0.1', port: launch.port, targetId: null });
     tabs.set(tab.id, { tab, adapter });
     selectedTabId = tab.id;
     if (url && url !== 'about:blank') await adapter.loadURL(url).catch(() => {});
     return tab;
   };
-  const initialTab = await openTab('about:blank');
+  // A placeholder tab keeps the agent's session shape valid when no browser
+  // exists. Every browser operation on it raises the real reason, so file,
+  // shell, research and computer tools still run.
+  const browserUnavailable = () => {
+    const reason = browserError || 'no browser launched';
+    return new Error(`No browser available (${reason}).`);
+  };
+  // A 1x1 transparent PNG, so screenshot calls degrade instead of throwing.
+  const EMPTY_PNG = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+    'base64'
+  );
+  const stubTab = () => ({
+    id: 'no-browser',
+    title: 'No browser',
+    url: 'about:blank',
+    webContents: {
+      getURL: () => 'about:blank',
+      getTitle: () => 'No browser',
+      isLoading: () => false,
+      isDestroyed: () => false,
+      // Reads and no-ops: the harness inspects the tab while building a prompt,
+      // and a throw there killed the run before the model was ever called.
+      loadURL: async () => {},
+      executeJavaScript: async () => '',
+      capturePage: async () => ({ toPNG: () => EMPTY_PNG, isEmpty: () => true }),
+      sendInputEvent: () => {},
+      insertCSS: async () => 'no-browser',
+      getZoomFactor: () => 1,
+      // Read-only chrome state: the controller asks for it while building the
+      // session view, so it must answer instead of throwing.
+      navigationHistory: {
+        canGoBack: () => false,
+        canGoForward: () => false,
+        goBack: () => { throw browserUnavailable(); },
+        goForward: () => { throw browserUnavailable(); },
+        getActiveIndex: () => 0,
+        length: () => 0
+      },
+      reload: () => { throw browserUnavailable(); },
+      stop: () => {},
+      setZoomFactor: () => {},
+      getZoomFactor: () => 1
+    },
+    adapter: {
+      loadURL: async () => {},
+      close: async () => {},
+      getConsoleEntries: () => [],
+      screenshot: async () => EMPTY_PNG,
+      evaluate: async () => ''
+    }
+  });
+
+  let initialTab = null;
+  if (!launch) {
+    const stub = stubTab();
+    tabs.set(stub.id, { tab: stub, adapter: stub.adapter });
+    selectedTabId = stub.id;
+    writeTrace({ type: 'harness.boot', phase: 'tab-stub', error: browserError || 'no browser' });
+  }
+  if (launch) {
+    try {
+      initialTab = await openTab('about:blank');
+    } catch (error) {
+      browserError = browserError || String(error?.message || error);
+      writeTrace({ type: 'harness.boot', phase: 'tab-unavailable', error: browserError });
+    }
+  }
   writeTrace({ type: 'harness.boot', phase: 'tab', ms: Math.round(performance.now() - bootT0) });
   // --url pre-opens the task's page in the selected tab, mirroring the desktop
   // app where the user already has the relevant page open before starting.
   const startUrl = args.url ? String(args.url) : null;
-  if (startUrl) await initialTab.webContents.loadURL(startUrl).catch((error) => {
+  if (startUrl && initialTab) await initialTab.webContents.loadURL(startUrl).catch((error) => {
     writeTrace({ type: 'harness.start-url.load-failed', url: startUrl, error: String(error?.message || error) });
   });
 
   const controller = new BrowserViewController({
+    fileDialogBridge: new FileDialogBridge({
+      logger: (scope, event) => process.stderr.write(`[${scope}] ${event.type}\n`)
+    }),
     getTabs: () => [...tabs.values()].map((entry) => entry.tab),
     getSelectedTabId: () => selectedTabId,
     getConsoleEntries: () => [...tabs.values()].flatMap((entry) => entry.adapter.getConsoleEntries()),
@@ -501,7 +669,7 @@ const { createCliAndroidApi } = require('./cliAndroidApi.cjs');
     getSelectedTabId: () => selectedTabId,
     setSelectedTabId: (tabId) => { if (tabs.has(String(tabId))) selectedTabId = String(tabId); },
     openSubagentTab: async (url) => {
-      const { tab, adapter } = await connectTab({ host: '127.0.0.1', port: launch.port, targetId: null });
+      const { tab, adapter } = await connectTab({ host: launch.host || '127.0.0.1', port: launch.port, targetId: null });
       tabs.set(tab.id, { tab, adapter });
       if (url && url !== 'about:blank') await tab.webContents.loadURL(url).catch(() => {});
       return { id: String(tab.id) };
@@ -636,7 +804,7 @@ const { createCliAndroidApi } = require('./cliAndroidApi.cjs');
 
   // Launch-time fields attach to the meta base declared above (defect 3a —
   // the exit hook can run before this point and still needs a valid meta).
-  meta.chromeProfile = launch.profile;
+  meta.chromeProfile = launch?.profile || null;
   meta.systemFile = promptOverride?.file || null;
   meta.systemMode = promptOverride ? systemMode : null;
   meta.systemPromptChars = promptOverride?.chars || null;
@@ -685,12 +853,12 @@ const { createCliAndroidApi } = require('./cliAndroidApi.cjs');
         try {
           traceStream.end(() => {
             writeFinalStateFileSync({ status: 'cancelled', exitCode: 2, stopReasonExtra: (stopReason || '') + ' [force-exit]' });
-            try { killChromeTree(launch); } catch { /* best effort */ }
+            if (launch && !launch.external) { try { killChromeTree(launch); } catch { /* best effort */ } }
             process.exit(2);
           });
         } catch {
           writeFinalStateFileSync({ status: 'cancelled', exitCode: 2, stopReasonExtra: (stopReason || '') + ' [force-exit]' });
-          try { killChromeTree(launch); } catch { /* best effort */ }
+          if (launch && !launch.external) { try { killChromeTree(launch); } catch { /* best effort */ } }
           process.exit(2);
         }
       }, 20_000);
@@ -710,7 +878,7 @@ const { createCliAndroidApi } = require('./cliAndroidApi.cjs');
       forceExitTimer = setTimeout(() => {
         try { writeTrace({ type: 'harness.signal.force-exit', reason: `terminal path did not settle 20s after ${signal}` }); } catch { /* trace may be closed */ }
         writeFinalStateFileSync({ status: 'cancelled', exitCode: 2, stopReasonExtra: `${signal}: terminal path did not settle within 20s [force-exit]` });
-        try { killChromeTree(launch); } catch { /* best effort */ }
+        if (launch && !launch.external) { try { killChromeTree(launch); } catch { /* best effort */ } }
         process.exit(2);
       }, 20_000);
       if (typeof forceExitTimer.unref === 'function') forceExitTimer.unref();
@@ -724,7 +892,7 @@ const { createCliAndroidApi } = require('./cliAndroidApi.cjs');
     // honest failed final-state.json, then exit 1 (never a silent death).
     writeFinalStateFileSync({ status: 'failed', exitCode: 1, stopReasonExtra: `uncaughtException: ${String(error?.message || error)}` });
     try { void subagentRuntime.cancelAll('parent uncaughtException'); } catch { /* best effort */ }
-    try { killChromeTree(launch); } catch { /* best effort */ }
+    if (launch && !launch.external) { try { killChromeTree(launch); } catch { /* best effort */ } }
     process.exit(1);
   });
   process.on('unhandledRejection', (error) => {
@@ -900,9 +1068,9 @@ const { createCliAndroidApi } = require('./cliAndroidApi.cjs');
     await root.close().catch(() => {});
   } catch { /* browser may already be gone */ }
   for (const [, entry] of tabs) await entry.adapter.close().catch(() => {});
-  killChromeTree(launch);
+  if (launch && !launch.external) killChromeTree(launch);
   if (!process.env.BROWSER_USE_CLI_KEEP_PROFILE) {
-    try { fs.rmSync(launch.profile, { recursive: true, force: true }); } catch { /* best effort */ }
+    if (launch?.profile) { try { fs.rmSync(launch.profile, { recursive: true, force: true }); } catch { /* best effort */ } }
   }
   process.exit(finalState.meta.exitCode);
 }
@@ -963,7 +1131,7 @@ function exitCodeFor(state, startError, timedOut) {
 function printUsage() {
   console.log(`Usage: node cli/agent-cli.mjs --task "..." | --task-file <path> [options]
 
-  --model <id>          provider model (default z-ai/glm-5.3-flash)
+  --model <id>          provider model (required unless one is configured)
   --provider-id <id>    xkiro | anthropic | openai | ... (default xkiro)
   --base-url <url>      provider base URL override
   --api-key <key>       provider API key override (else XKIRO_API_KEY /

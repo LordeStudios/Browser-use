@@ -685,8 +685,11 @@ test('a long low-step drag is divided into continuously active visual segments',
   }, 'session-a');
 
   assert.equal(result.input, 'mouse');
-  const dragSegments = moveCalls.slice(2, -1);
+  // Two moves precede the drag (the approach move and the press), and the drag
+  // itself ends ON the drop point, so there is no separate release move to skip.
+  const dragSegments = moveCalls.slice(2);
   assert.equal(dragSegments.length, 4, 'the requested one-step drag must be normalized below the renderer motion ceiling');
+  assert.deepEqual(dragSegments.at(-1).point, { x: 420, y: 320 }, 'the last segment must paint the drop point the release lands on');
   assert.ok(dragSegments.every((entry) => entry.options.durationMs === 250));
   const gaps = dragSegments.slice(1).map((entry, index) => entry.at - dragSegments[index].at);
   assert.ok(gaps.every((gap) => gap <= 340), `no segment may leave enough idle time for the pointer to fade: ${JSON.stringify(gaps)}`);

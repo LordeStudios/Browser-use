@@ -75,7 +75,16 @@ const ALWAYS_FULL_TOOLS = new Set([
   'computer_index',
   'browser_observe',
   'computer_observe',
-  'computer_screenshot'
+  'computer_screenshot',
+  // File dialogs: paths are the whole argument and a compact schema loses the
+  // distinction between attach (accept), dismiss (cancel) and arm.
+  'browser_file_dialog_arm',
+  'browser_file_dialog_state',
+  'browser_file_dialog_accept',
+  'browser_file_dialog_cancel',
+  'browser_downloads_set_path',
+  'browser_downloads_list',
+  'browser_save_file'
 ]);
 
 // Strips the prose from a schema, keeping every structural fact: types,

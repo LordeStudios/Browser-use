@@ -100,8 +100,13 @@ test('OpenAI-compatible provider falls back to the same DOM context when a model
     history: [], messages: [], coordinator: {}, plan: [], tools: []
   });
   assert.equal(requests.length, 3);
-  assert.equal(typeof requests[2].messages.at(-1).content, 'string');
-  assert.match(requests[2].messages.at(-1).content, /Next visible state/);
+  // ONE rejection is a STRIKE, not a verdict about the model: the next
+  // decision retries the image (a transient 400, a size-gated gateway, or a
+  // format quirk must not permanently label a vision-capable model as
+  // text-only — that mislabel is what told users their capable model could
+  // not see images). The DOM text rides along in the same multimodal body.
+  assert.equal(Array.isArray(requests[2].messages.at(-1).content), true, 'the image is retried on the next decision');
+  assert.match(JSON.stringify(requests[2].messages.at(-1).content), /Next visible state/);
 });
 
 test('OpenAI-compatible provider treats an explicit no-vision response as capability evidence and retries with DOM', async () => {
@@ -433,6 +438,104 @@ test('a consistently tool-hostile gateway latches after three strikes', async ()
   await provider.complete({ ...STRIKE_ARGS, tools: TOOL_CATALOG, effort: 'advanced' });
   assert.equal(provider.nativeToolsBroken, true, 'the session latches after three strikes');
   assert.equal(bodies.at(-1).tools, undefined, 'latched sessions stop shipping tool schemas');
+});
+
+test('a structural image-part rejection drops the IMAGE on the retry, not the tools', async () => {
+  // The parking loop from the transcript: "messages[37].content[1].type has
+  // unsupported value \"image_url\"" is a 400. The tool-schema fallback sat
+  // earlier in the retry chain and also claimed a 400, so the single retry was
+  // spent REMOVING TOOLS while the image was re-sent byte-identical. Attempt 2
+  // failed the same way, no attempts were left, and the run parked — every
+  // time, with the provider's own words buried in a request log.
+  const bodies = [];
+  const provider = createOpenAiCompatibleProvider({
+    providerId: 'openai', baseUrl: 'https://fixture.invalid/v1', model: 'agent-model', apiKey: 'key',
+    fetchImpl: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      bodies.push(body);
+      if (bodies.length === 1) {
+        return fixtureResponse({ error: { message: 'messages[37].content[1].type has unsupported value "image_url"' } }, 400);
+      }
+      return fixtureResponse({ choices: [{ message: { content: DONE_DECISION } }] });
+    }
+  });
+
+  const result = await provider.complete({
+    ...STRIKE_ARGS,
+    observation: { navigation: {}, dom: { title: 'TikTok Business Suite', elements: [] }, screenshot: { mimeType: 'image/png', data: 'cG5n' } },
+    tools: TOOL_CATALOG, effort: 'advanced'
+  });
+
+  assert.equal(bodies.length, 2, 'one retry, not a parking loop');
+  assert.match(JSON.stringify(bodies[0].messages), /image_url/, 'the first attempt carries the screenshot');
+  assert.ok(bodies[0].tools?.length, 'and the tool schemas');
+  assert.doesNotMatch(JSON.stringify(bodies[1].messages), /image_url/, 'the retry drops the rejected part');
+  assert.ok(bodies[1].tools?.length, 'the tools were never the problem, so they stay');
+  assert.equal(result.done.summary, 'ok', 'the run continues instead of parking');
+});
+
+test('a rate-limited request keeps its image: one 429 is never a vision verdict', async () => {
+  // The failure this guards against is worse than a failed run: a 429 whose
+  // body happens to echo the part name ("Rate limit exceeded for image_url")
+  // being read as "this model cannot see", which blinds a perfectly capable
+  // model for the rest of the session. A busy minute must cost a retry, never
+  // a capability.
+  const bodies = [];
+  const provider = createOpenAiCompatibleProvider({
+    providerId: 'openai', baseUrl: 'https://fixture.invalid/v1', model: 'vision-model', apiKey: 'key',
+    fetchImpl: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      bodies.push(body);
+      if (bodies.length === 1) {
+        return fixtureResponse({ error: { message: 'Rate limit exceeded for image_url requests' } }, 429);
+      }
+      return fixtureResponse({ choices: [{ message: { content: DONE_DECISION } }] });
+    }
+  });
+
+  const result = await provider.complete({
+    ...STRIKE_ARGS,
+    observation: { navigation: {}, dom: { elements: [] }, screenshot: { mimeType: 'image/png', data: 'cG5n' } },
+    tools: TOOL_CATALOG, effort: 'advanced'
+  });
+
+  assert.equal(bodies.length, 2, 'the rate limit is retried');
+  assert.match(JSON.stringify(bodies[1].messages), /image_url/, 'and the image is retried with it');
+  assert.equal(provider.visualUnsupported, false, 'a busy minute does not become a capability verdict');
+  assert.equal(provider.visualHardFailures, 0, 'nor even a strike');
+  assert.equal(result.done.summary, 'ok');
+});
+
+test('two structural image rejections latch the session text-only', async () => {
+  const bodies = [];
+  const provider = createOpenAiCompatibleProvider({
+    providerId: 'openai', baseUrl: 'https://fixture.invalid/v1', model: 'agent-model', apiKey: 'key',
+    fetchImpl: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      bodies.push(body);
+      if (JSON.stringify(body.messages).includes('image_url')) {
+        return fixtureResponse({ error: { message: 'messages[1].content[1].type has unsupported value "image_url"' } }, 400);
+      }
+      return fixtureResponse({ choices: [{ message: { content: DONE_DECISION } }] });
+    }
+  });
+  const args = {
+    ...STRIKE_ARGS,
+    observation: { navigation: {}, dom: { elements: [] }, screenshot: { mimeType: 'image/png', data: 'cG5n' } },
+    tools: TOOL_CATALOG, effort: 'advanced'
+  };
+
+  await provider.complete(args);
+  assert.equal(provider.visualUnsupported, false, 'one refusal is a strike, not a verdict');
+  assert.equal(provider.visualHardFailures, 1);
+
+  await provider.complete(args);
+  assert.equal(provider.visualUnsupported, true, 'two independent refusals latch it');
+
+  const before = bodies.length;
+  await provider.complete(args);
+  assert.doesNotMatch(JSON.stringify(bodies.at(-1).messages), /image_url/, 'a latched session stops attaching it');
+  assert.equal(bodies.length, before + 1, 'and stops spending a retry on it');
 });
 
 test('a budget cut mid-think salvages the action the model stated in its reasoning', async () => {

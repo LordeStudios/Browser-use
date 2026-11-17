@@ -516,6 +516,15 @@ const ACTIONS = Object.freeze({
   browser_navigate: { risk: 'external-navigation' },
   browser_search: { risk: 'read' },
   browser_fetch: { risk: 'read' },
+  // File dialogs: the agent answers Open/Save itself instead of driving the OS
+  // dialog. Reading state is safe; attaching files or writing to disk is not.
+  browser_file_dialog_arm: { risk: 'browser-control' },
+  browser_file_dialog_state: { risk: 'read' },
+  browser_file_dialog_accept: { risk: 'filesystem-write' },
+  browser_file_dialog_cancel: { risk: 'browser-control' },
+  browser_downloads_set_path: { risk: 'filesystem-write' },
+  browser_downloads_list: { risk: 'read' },
+  browser_save_file: { risk: 'filesystem-write' },
   computer_model: { risk: 'read' },
   schedule_task: { risk: 'read' },
   // Re-points the run's DEFAULT search/scope root to a directory the USER
@@ -633,7 +642,21 @@ function fallbackConversationTitle(task) {
 }
 
 function normalizeConversationTitle(value, fallback) {
-  const title = String(value || '').replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '').slice(0, 80);
+  // A small model asked for "only the title" still sometimes answers
+  // `**Title:** "Compare Pricing"`. That text is printed in the header and in
+  // a history tab, so the wrapper is stripped rather than shown. Decoration
+  // and the label prefix can wrap each other (`**Title:**`), hence the passes.
+  let title = String(value || '').replace(/\s+/g, ' ').trim();
+  for (let pass = 0; pass < 3; pass += 1) {
+    const before = title;
+    title = title
+      .replace(/^["'“”‘’*`\s]+/, '')
+      .replace(/["'“”‘’*`\s]+$/, '')
+      .replace(/^(?:conversation\s+title|chat\s+title|title)\s*[:\-–—]\s*/i, '')
+      .trim();
+    if (title === before) break;
+  }
+  title = title.replace(/[.!?]+$/, '').trim().slice(0, 80);
   return title || String(fallback || 'Browser task').slice(0, 80);
 }
 
@@ -643,7 +666,7 @@ function normalizeConversationTitle(value, fallback) {
 // evolving with the chat, silently. Failures are cosmetic and swallowed.
 const TITLE_GENERATE_MIN_INTERVAL_MS = 30000;
 
-async function maybeGenerateConversationTitle(agent, run, { force = false } = {}) {
+async function maybeGenerateConversationTitle(agent, run, { force = false, inRun = false } = {}) {
   if (!agent?.titleApi || !run || !Array.isArray(run.messages)) return;
   const userMessages = run.messages.filter((message) => message.role === 'user'
     && message.source !== 'runtime' && String(message.content || '').trim());
@@ -652,7 +675,10 @@ async function maybeGenerateConversationTitle(agent, run, { force = false } = {}
   if (run.titleInFlight) return;
   if (!force && now - Number(run.titleGeneratedAt || 0) < TITLE_GENERATE_MIN_INTERVAL_MS) return;
   const latestUserText = String(userMessages.at(-1).content || '').trim();
-  if (!force && run.titleSource === latestUserText) return; // nothing new to name
+  // `titleSource` answers "has a NEW user turn arrived since the last name?".
+  // A mid-run refresh has no new turn by definition — its trigger is new
+  // evidence — so the throttle alone paces it.
+  if (!force && !inRun && run.titleSource === latestUserText) return; // nothing new to name
   run.titleInFlight = true;
   try {
     run.titleGeneratedAt = now;
@@ -731,7 +757,14 @@ function appendConversationMessage(run, role, content, { source = null, domAttac
 }
 
 function ensureTerminalAssistantMessage(run) {
-  const summary = String(run?.result?.summary || run?.result?.error || '').trim();
+  let summary = String(run?.result?.summary || run?.result?.error || '').trim();
+  // A terminal failure with no summary used to end SILENTLY. That is the exact
+  // confusion that makes a user re-send the same message several times: the
+  // spinner stops and nothing says why. Never leave a failed run without a
+  // sentence — an honest "it stopped" beats an empty transcript.
+  if (!summary && run?.status === 'failed') {
+    summary = 'The run stopped before returning a result, so nothing is confirmed. The work so far is preserved — send a message to retry from here.';
+  }
   if (!summary || run?.status === 'cancelled') return;
   // The model's own closing reply often IS the summary; appending again would
   // submit the terminal message twice, so check recent assistant entries.
@@ -1125,6 +1158,12 @@ function restoreConversationSnapshot(snapshot) {
       : snapshot.nativeSurfaceSeen instanceof Set
         ? [...snapshot.nativeSurfaceSeen].map((id) => String(id)).filter(Boolean)
         : [],
+    // The native-dialog DEMAND travels with the conversation: a dialog is
+    // only looked for after the agent asked for one, and a continuation that
+    // is still resolving the file picker it opened must keep that demand.
+    nativeDialogExpectedUntil: Number.isFinite(Number(snapshot.nativeDialogExpectedUntil)) ? Number(snapshot.nativeDialogExpectedUntil) : 0,
+    nativeDialogExpectedReason: String(snapshot.nativeDialogExpectedReason || ''),
+    nativeDialogDetected: Boolean(snapshot.nativeDialogDetected),
     thinkingArchive
   };
 }
@@ -2174,8 +2213,16 @@ async function executeAction(controller, run, call) {
       return { ok: true, result: tab };
     }
     if (call.name === 'browser_select_tab') {
-      const tabId = String(call.input.tabId || '');
-      if (!tabId || typeof run.selectTab !== 'function') throw new Error('browser_select_tab requires a valid tabId.');
+      const tabId = String(call.input.tabId || '').trim();
+      if (!tabId || typeof run.selectTab !== 'function') throw new Error('browser_select_tab requires a valid tabId from browser_tabs.');
+      // The host owns tab existence; the roster only makes the FAILURE
+      // actionable. Pre-rejecting on a list that might be a partial view would
+      // refuse valid ids, which is worse than a slightly later error.
+      let roster = [];
+      try { roster = controller.listTabs?.() || []; } catch { roster = []; }
+      const rosterLine = () => (roster.length
+        ? roster.map((tab) => `${tab.id}${tab.active ? ' (visible)' : ''}`).join(', ')
+        : 'none');
       const selection = Promise.resolve().then(() => run.selectTab(tabId));
       // Selecting a tab is a binding change, not a navigation. Bound the host
       // callback so a stale WebContents/IPC handoff can never hold the agent
@@ -2188,15 +2235,57 @@ async function executeAction(controller, run, call) {
           waitFor(1_500, run.abortController?.signal).then(() => { throw new Error('browser_select_tab timed out while switching the run binding. Re-list tabs and retry once.'); })
         ]);
       } catch (error) {
-        return { ok: false, recoverable: true, recoverySource: 'tab_selection', error: String(error?.message || error), tabId };
+        // IMMEDIATE FEEDBACK. The old reply was a bare host message with no tab
+        // map, so a wrong id looked identical to a slow switch and the run
+        // stalled until a human stopped it. Say what exists and what the run
+        // is still bound to.
+        return {
+          ok: false,
+          recoverable: true,
+          recoverySource: 'tab_selection',
+          tabId,
+          error: `The tab switch FAILED, so the run still targets ${run.tabId || 'no tab'}: ${String(error?.message || error)} Open tabs right now: ${rosterLine()}. Use one of those ids, or call browser_new_tab first — do not re-send ${tabId}.`,
+          result: { tabId, selectedTabId: run.tabId || null, tabs: compactTabRoster(controller, run.tabId) }
+        };
       }
       if (!selected?.id) return { ok: false, recoverable: true, recoverySource: 'tab_selection', error: 'browser_select_tab returned no selected tab identity. Re-list tabs and retry once.', tabId };
+      // VERIFY THE SWITCH. The host can resolve with a DIFFERENT tab (or the
+      // same one) when the requested id was handled loosely; reporting success
+      // regardless is how a run ended up acting on the wrong page while every
+      // reply looked fine. A mismatch is a recoverable failure with the roster.
+      if (String(selected.id) !== tabId) {
+        return {
+          ok: false,
+          recoverable: true,
+          recoverySource: 'tab_selection',
+          tabId,
+          error: `The tab switch did not take: ${tabId} was requested but ${selected.id} came back as the bound tab. Nothing was assumed — open tabs are ${rosterLine()}; select again from that list.`,
+          result: { requestedTabId: tabId, selectedTabId: String(selected.id), tabs: compactTabRoster(controller, selected.id) }
+        };
+      }
       run.tabId = selected.id;
       rebindDebuggerPin(controller, run, selected.id);
       run.skipNavigationSettleOnce = true;
       run.latestObservation = null;
       run.loopState = { recentActions: [], unchangedPages: 0, lastFingerprint: null, noProgressActions: 0, consecutiveWaits: 0, lastWaitedMs: 0 };
-      return { ok: true, result: { ...selected, selectedTabId: String(selected.id), note: 'Tab binding changed immediately. The next decision receives a fresh observation for this tab; no tab-load wait is required.' } };
+      // Immediate, explicit feedback about what actually changed: the run's
+      // target is NOT the same thing as the tab the human is looking at.
+      const visibleTabId = roster.find((tab) => tab.active)?.id || null;
+      const isVisible = selected.active === true || (visibleTabId && String(visibleTabId) === tabId);
+      return {
+        ok: true,
+        result: {
+          ...selected,
+          selectedTabId: String(selected.id),
+          boundTabId: String(selected.id),
+          activeTabId: visibleTabId,
+          switched: Boolean(isVisible),
+          tabs: compactTabRoster(controller, selected.id),
+          note: isVisible
+            ? 'Tab binding changed immediately: this tab is now the run target AND the visible tab. The next decision receives a fresh observation for it.'
+            : `Tab binding changed immediately: this tab is now the run target. The VISIBLE tab did not change (still ${visibleTabId || 'none'}), which is expected — use browser_focus_tab if you need it brought to the front. Do not re-select.`
+        }
+      };
     }
     if (call.name === 'browser_focus_tab') {
       // The human-facing switch: changes which tab is visible/selected. The
@@ -2293,6 +2382,22 @@ async function executeAction(controller, run, call) {
           error: 'This request explicitly asks for a comprehensive long-form analysis. Create the supported report file, choosing TXT or HTML yourself, then return a concise saved-file confirmation.'
         };
       }
+      // THIN REPLY GATE (one bounce per run). The persona tells the model to
+      // "mention only NEW evidence and the next action" — right during work,
+      // wrong at the end, where it produced bare "Done"/"Finished"/"Replied"
+      // summaries. A user who receives one assumes the agent did not
+      // understand and re-sends the task. Bounce ONCE with the actual request
+      // quoted; if the model still returns a token, accept it rather than
+      // loop.
+      const requested = String(call.input?.summary || '').replace(/\s+/g, ' ').trim();
+      if (call.input.success !== false && !run.thinReplyBounced && isThinTerminalReply(requested)) {
+        run.thinReplyBounced = true;
+        return {
+          ok: false,
+          recoverable: true,
+          error: `Your summary "${requested.slice(0, 80)}" is a status token, not an answer. The user asked: "${quoteRequest(run.task, 300)}". Reply to THEM in one or two sentences: what you did or found, and anything they must know or decide. Do not answer "Done", "Finished" or "Completed".`
+        };
+      }
       const success = call.input.success !== false;
       return { ok: true, summary: String(call.input.summary || 'Task completed.').slice(0, 4_000), success, verified: success && call.input.verified === true, final: call.input.final === true };
     }
@@ -2320,10 +2425,45 @@ async function executeAction(controller, run, call) {
       }
       throw new Error(`Tab ${targetTabId} is no longer available.`);
     }
+    if (call.name === 'browser_file_dialog_arm') {
+      return { ok: true, ...(await controller.fileDialogArm(targetTabId)) };
+    }
+    if (call.name === 'browser_file_dialog_state') {
+      const stateTab = call.input?.tabId !== undefined ? String(call.input.tabId) : targetTabId;
+      return { ok: true, ...(await controller.fileDialogState(stateTab)) };
+    }
+    if (call.name === 'browser_file_dialog_accept') {
+      return { ok: true, ...(await controller.fileDialogAccept(targetTabId, {
+        files: call.input?.files,
+        selector: call.input?.selector
+      })) };
+    }
+    if (call.name === 'browser_file_dialog_cancel') {
+      return { ok: true, ...(await controller.fileDialogCancel(targetTabId)) };
+    }
+    if (call.name === 'browser_downloads_set_path') {
+      return { ok: true, ...(await controller.downloadsSetPath(targetTabId, { directory: call.input?.directory })) };
+    }
+    if (call.name === 'browser_downloads_list') {
+      return { ok: true, ...(await controller.downloadsList()) };
+    }
+    if (call.name === 'browser_save_file') {
+      return { ok: true, ...(await controller.saveFileToDisk(call.input || {})) };
+    }
     if (call.name === 'browser_observe') {
       const observation = await observe(controller, targetTabId, run.settings.vision);
       run.lastObservedUrl = observation.navigation.url;
       storeTabObservation(run, targetTabId, observation);
+      // WHERE AM I / WHAT EXISTS. The observation is the one payload the model
+      // sees on every decision, so the tab map belongs here: a run that never
+      // called browser_tabs still knows its bound tab and every open one, and
+      // cannot invent an id or guess which page "tab" it is clicking.
+      observation.navigation = {
+        ...observation.navigation,
+        boundTabId: String(targetTabId),
+        activeTabId: (() => { try { return controller.listTabs?.()?.find((tab) => tab.active)?.id || null; } catch { return null; } })(),
+        tabs: compactTabRoster(controller, targetTabId)
+      };
       return { ok: true, observation };
     }
     if (call.name === 'browser_mousemove') {
@@ -2359,8 +2499,11 @@ async function executeAction(controller, run, call) {
       // When the index resolves, it wins; coordinates are the fallback.
       const requestedIndex = coerceElementIndex(call.input.element !== undefined ? call.input.element : call.input.index);
       if (requestedIndex !== undefined) {
+        let urlBefore = '';
+        try { urlBefore = String(controller.navigationState?.(targetTabId)?.url || ''); } catch { urlBefore = ''; }
         try {
-          return pointerActionOutput(await controller.clickElement(targetTabId, { index: requestedIndex }, run.id), 'indexed click');
+          const clicked = pointerActionOutput(await controller.clickElement(targetTabId, { index: requestedIndex }, run.id), 'indexed click');
+          return clickDeliveryOutcome(clicked, { controller, tabId: targetTabId, urlBefore });
         } catch (elementError) {
           // Fail-closed element resolution falls back to an explicit point when
           // the model supplied one; otherwise the element error is the answer.
@@ -2379,6 +2522,8 @@ async function executeAction(controller, run, call) {
           coordinateSpace: call.input.coordinateSpace,
           screenshotId: call.input.screenshotId
         });
+        let urlBefore = '';
+        try { urlBefore = String(controller.navigationState?.(targetTabId)?.url || ''); } catch { urlBefore = ''; }
         const result = pointerActionOutput(await controller.clickAt(targetTabId, point, run.id), 'coordinate click');
         const hit = result?.result?.hit;
         if (result.ok && hit && hit.hit === false) {
@@ -2393,7 +2538,8 @@ async function executeAction(controller, run, call) {
         if (result.ok && hit?.hit && hit.isCanvas) {
           result.result.canvasHit = true;
         }
-        return result;
+        // A page that hovered but never received the press is a failure.
+        return clickDeliveryOutcome(result, { controller, tabId: targetTabId, urlBefore });
       }
       throw new Error('browser_click requires either an element index or {x, y} coordinates.');
     }
@@ -2414,8 +2560,8 @@ async function executeAction(controller, run, call) {
             startY: Math.round(fromEl.center.y),
             endX: Math.round(toEl.center.x),
             endY: Math.round(toEl.center.y),
-            steps: clamp(call.input.steps ?? 12, 1, 100),
-            durationMs: clamp(call.input.durationMs ?? 300, 5, 5_000)
+            steps: clamp(call.input.steps ?? 24, 1, 100),
+            durationMs: clamp(call.input.durationMs ?? 450, 5, 5_000)
           }, run.id), 'element drag');
         }
       }
@@ -2427,8 +2573,8 @@ async function executeAction(controller, run, call) {
           startY: start.y,
           endX: end.x,
           endY: end.y,
-          steps: clamp(call.input.steps ?? 12, 1, 100),
-          durationMs: clamp(call.input.durationMs ?? 300, 5, 5_000)
+          steps: clamp(call.input.steps ?? 24, 1, 100),
+          durationMs: clamp(call.input.durationMs ?? 450, 5, 5_000)
         }, run.id), 'drag');
     }
     if (call.name === 'browser_type') {
@@ -2861,6 +3007,52 @@ function pointerActionOutput(result, action) {
   };
 }
 
+// A COMPACT TAB ROSTER, attached to every tab-scoped reply. The model kept
+// acting on a tab map it had invented: it asked for ids that were never open
+// and clicked page "tabs" by guessed index because nothing in the reply told it
+// which tabs exist or which one it was actually bound to. Two fields cost
+// almost nothing and remove the guesswork entirely.
+function compactTabRoster(controller, boundTabId = '') {
+  try {
+    return (controller.listTabs?.() || []).map((tab) => ({
+      id: String(tab.id),
+      title: String(tab.title || '').slice(0, 60),
+      active: tab.active === true,
+      ...(String(tab.id) === String(boundTabId) ? { bound: true } : {})
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// A CLICK THAT ONLY HOVERED IS A FAILURE. The cursor animation runs before the
+// input, so the page can paint hover styling while the press is swallowed; the
+// old reply said ok:true, and the model sat waiting for an effect that would
+// never arrive. `delivered === false` is the probe's explicit verdict that no
+// press reached the page — the one signal that must never be reported as
+// success. `delivered: null` means "the probe was not armed", which proves
+// nothing and stays a success.
+function clickDeliveryOutcome(output, { controller, tabId, urlBefore = '' } = {}) {
+  const delivered = output?.result?.delivered;
+  if (delivered !== false) return output;
+  // A click that NAVIGATED cannot leave a click record on the old document.
+  // Reading that as "swallowed" would fail every link click on the web.
+  let urlAfter = '';
+  try { urlAfter = String(controller.navigationState?.(tabId)?.url || ''); } catch { urlAfter = ''; }
+  if (urlAfter && urlBefore && urlAfter !== urlBefore) return output;
+  const result = output.result || {};
+  const x = Math.round(Number(result.x ?? result.element?.center?.x ?? 0));
+  const y = Math.round(Number(result.y ?? result.element?.center?.y ?? 0));
+  return {
+    ok: false,
+    recoverable: true,
+    recoverySource: 'click_not_delivered',
+    error: `The pointer reached (${x}, ${y}) and the page showed hover styling, but no click reached it — the press was swallowed, so the click did NOT happen. Take a fresh browser_observe and click the element again (or browser_target_click on its visible label); do not wait for a result that will never arrive.`,
+    result
+  };
+}
+
+
 function requiresApproval(call, run) {
   if (run.settings.approvalMode === 'unattended') return false;
   if (parseHcuToolName(call.name)) return hcuMutation(call.name, call.input);
@@ -2892,6 +3084,26 @@ function approvalReason(call, run) {
   if (call.name === 'task_spawn') return `The agent wants to start an isolated background agent run for: ${String(call.input?.task || '').slice(0, 160)}.`;
   if (call.name === 'schedule_task' && call.input?.action === 'create') return `The agent wants to create a recurring scheduled task (${String(call.input?.cron || `${call.input?.everySeconds}s interval`)}) for: ${String(call.input?.task || '').slice(0, 160)}.`;
   return `The agent wants to run ${call.name}.`;
+}
+
+// A STATUS TOKEN IS NOT AN ANSWER.
+//
+// Observed terminal summaries: "Done", "Finished", "Completed", "Replied",
+// "Acknowledged user's greeting. No specific task requested." Each one leaves
+// the user with nothing to read, so they conclude the agent ignored the
+// request and send the message again. The prompt states the contract; this is
+// the mechanical backstop for models that ignore it.
+const THIN_REPLY_TOKEN = /^(?:(?:all\s+)?(?:done|finished|complete|completed|replied|replied\s+to\s+(?:the\s+)?user|ok|okay|sure|noted|acknowledged|understood|working\s+on\s+it|task\s+(?:completed|done|finished))[\s.!]*)$/i;
+const THIN_REPLY_META = /^(?:acknowledged|noted|understood)\b[\s\S]{0,80}\bno\s+(?:specific\s+)?(?:task|request|action|instruction)s?\b/i;
+
+function isThinTerminalReply(text) {
+  const value = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!value) return true;
+  if (THIN_REPLY_TOKEN.test(value)) return true;
+  if (THIN_REPLY_META.test(value)) return true;
+  // "Done." / "Finished!" with a trailing filename is still a token.
+  if (value.length <= 18 && /^(?:done|finished|completed|replied)\b/i.test(value)) return true;
+  return false;
 }
 
 function shouldFinalizeConclusivePointerMove(calls, assistantText) {
@@ -3370,7 +3582,10 @@ function codingCheckSatisfied(run) {
 // advertised catalog when the backend is the stub; the desktop app keeps them.
 const HEADLESS_UNAVAILABLE_COMPUTER_TOOLS = new Set([
   'computer_read', 'computer_search', 'computer_index', 'computer_fs',
-  'computer_patch', 'computer_patch_live', 'computer_patch_chunk', 'computer_write', 'computer_git'
+  'computer_patch', 'computer_patch_live', 'computer_patch_chunk', 'computer_write', 'computer_git',
+  // A headless run IS the process: restarting the app would kill the caller
+  // mid-decision, so the tool is not offered there.
+  'computer_resume'
 ]);
 
 function toolDefinitions(task = '', controlMode = 'browser', { usedSkills = [], observationDomain = 'browser', agentMessagingAvailable = false, workspace = false, headlessComputer = false, webSearchAvailable = false, hcuTools = [] } = {}) {
@@ -3431,6 +3646,13 @@ function toolDefinitions(task = '', controlMode = 'browser', { usedSkills = [], 
     browser_new_tab: { url: 'optional absolute URL (default about:blank); opens as a background tab and becomes this run\'s tab' },
     browser_wait: { ms: 'positive ms, up to 900000 (15m); short repeats escalate (15s..10m) — prefer one long wait for a known long job; returns early once navigation settles' },
     browser_fetch: { url: 'absolute URL', maxLength: 'optional body characters (default 20000, cap 100000); scripts/styles stripped' },
+    browser_file_dialog_arm: { tabId: TAB_TARGET_HINT },
+    browser_file_dialog_state: { tabId: TAB_TARGET_HINT },
+    browser_file_dialog_accept: { files: 'absolute paths to attach — one path unless the picker reported multiple: true', selector: 'optional CSS selector when the page uses a custom file control', tabId: TAB_TARGET_HINT },
+    browser_file_dialog_cancel: { tabId: TAB_TARGET_HINT },
+    browser_downloads_set_path: { directory: 'absolute directory that should receive downloads', tabId: TAB_TARGET_HINT },
+    browser_downloads_list: {},
+    browser_save_file: { path: 'absolute destination file path', text: 'UTF-8 text content', base64: 'base64 content for binary files' },
     computer_model: { kind: 'image | tts | stt | video — the type of asset the task needs', prompt: 'full, self-contained generation prompt (image/video/tts) — describe subject, style, lighting; no text inside the image; for an image EDIT describe the change to make (upscale, angle, background, …)', model: 'optional exact model id; omit to use the connection default with automatic fallback through same-kind models', voice: 'optional TTS voice id', imagePath: "image kind: absolute path of a LOCAL image file to EDIT — the harness reads and attaches it; NEVER read image bytes into your context (computer_read base64 of an image wastes hundreds of KB and the bytes never survive to the next call)", saveTo: "optional absolute output path — the finished asset is written to this file and returned as savedPath", fileBase64: 'stt: base64 audio payload to transcribe; image kind WITHOUT imagePath = edit the attached bytes (only when you already hold them)', filename: 'stt: audio file name; image edit: the source image file name', size: 'image edit only: optional output size like 1024x1024' },
     workspace_retarget: { path: 'absolute directory path the user named (task or message)' },
     notebook: { op: 'read | update (default read)', section: 'optional section name for read (e.g. PROJECT FACTS) or the target section for update; user-owned sections route to NOTES', text: 'update only: the durable line to append' },
@@ -3499,6 +3721,13 @@ function toolDefinitions(task = '', controlMode = 'browser', { usedSkills = [], 
     browser_navigate: 'Navigate the target tab to an absolute URL.',
     browser_search: 'Web search in the current tab; returns titles with hrefs.',
     browser_fetch: 'Fetch an http(s) URL as bounded stripped text without a tab.',
+    browser_file_dialog_arm: 'Arm native file-dialog interception on the target tab. Call it once before an action that may open an Open/Save dialog (a file input, an upload button, a download link) so the OS dialog never appears and the harness owns the answer.',
+    browser_file_dialog_state: 'Report whether a native file chooser is waiting on the tab (mode, multiple, backendNodeId) plus recent downloads and the download directory. Poll it after any action that may have opened a picker: when pending is non-null the dialog is open and waiting for browser_file_dialog_accept.',
+    browser_file_dialog_accept: 'Attach absolute file paths to the page file input with no OS dialog. Works even when no chooser is pending: it then targets input[type=file] directly (pass selector for a custom control), so a picker that opened before arming is still answerable.',
+    browser_file_dialog_cancel: 'Dismiss the waiting Open dialog the way a person pressing Cancel would.',
+    browser_downloads_set_path: 'Route every download (Save As) on the tab to a directory so no Save dialog is shown. Creates the directory when missing.',
+    browser_downloads_list: 'List downloads tracked for the tab with state, bytes, and the destination path — use it to confirm a save completed instead of guessing.',
+    browser_save_file: 'Write content straight to an absolute path with no dialog: pass text or base64. Use it when the task is "save this output as a file" rather than downloading it from the page.',
     computer_model: 'Generate a non-language asset through the user\'s configured AI providers: kind image (a picture), tts (spoken audio), stt (a transcript from fileBase64), or video. Use it by itself when a task needs an asset — a website hero image, narration audio, a transcript — instead of claiming the asset exists. Image kind can also EDIT an existing local picture: pass imagePath (the harness reads and attaches the file — never pull image bytes through your own context) and optionally saveTo to land the result as a real file (returned as savedPath). Falls back across same-kind models automatically; the result returns the asset URL/data URL with the model that produced it.',
     browser_done: 'Before calling this, CHECK BY INSTINCT: re-read your plan/goals list and the original user request — every plan item must be done or explicitly skipped, and every sub-request in the original ask must be addressed in your summary. If ANY item or sub-request remains, do not call done: do the next piece of work first. Subagents you spawned count too — their findings must be received and acted on (or their pending work explicitly handed off) before finishing. Then answer only after reconciling every part of the objective with evidence. Finishing one part of a larger goal is not done: continue with the next part, or report the concrete blocker. Never finish while your own summary still lists remaining work.',
     agent_message: 'Coordination tool, only when the task cannot progress without a concrete handoff, shared-resource decision, or fact from another live agent. Never a default step, status chat, or delegation. Include the exact task, resource, question - other chats do not know your context. Delivery needs the target running, actively waiting, or a resident subagent of yours: an idle resident starts the message as its new assignment on its SAME conversation and reports findings back. When another agent asks you a direct question or requests your findings, REPLYING with agent_message addressed to it is required — that is a requested report, not status chat. Never assume or claim a reply unless it appears in agentMessages.',
@@ -3509,7 +3738,7 @@ function toolDefinitions(task = '', controlMode = 'browser', { usedSkills = [], 
     .map(([name, metadata]) => ({ name, ...((SKILL_TOOL_DESCRIPTIONS[name] || BROWSER_TOOL_DESCRIPTIONS[name]) ? { description: SKILL_TOOL_DESCRIPTIONS[name] || BROWSER_TOOL_DESCRIPTIONS[name] } : {}), input: inputs[name] || {} }))
     .concat(controlMode === 'agi'
       ? (isCodingTask(task, workspace)
-        ? COMPUTER_TOOLS.filter(tool => ['computer_terminal', 'computer_index', 'computer_read', 'computer_write', 'computer_search', 'computer_fs', 'computer_fs_batch', 'computer_patch', 'computer_patch_live', 'computer_patch_chunk', 'computer_git', 'computer_keyboard', 'computer_screenshot', 'computer_clipboard', 'computer_model', 'computer_observe', 'computer_window', 'computer_record'].includes(tool.name))
+        ? COMPUTER_TOOLS.filter(tool => ['computer_terminal', 'computer_index', 'computer_read', 'computer_write', 'computer_search', 'computer_fs', 'computer_fs_batch', 'computer_patch', 'computer_patch_live', 'computer_patch_chunk', 'computer_git', 'computer_keyboard', 'computer_screenshot', 'computer_clipboard', 'computer_model', 'computer_observe', 'computer_window', 'computer_record', 'computer_resume'].includes(tool.name))
         : COMPUTER_TOOLS
       ).filter(tool => !(headlessComputer && HEADLESS_UNAVAILABLE_COMPUTER_TOOLS.has(tool.name)))
         .map(tool => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema }))
@@ -3809,6 +4038,7 @@ module.exports = {
   withinStepTimeout: (typeof withinStepTimeout === 'function' ? withinStepTimeout : null),
   resolveSnapshotElement: (typeof resolveSnapshotElement === 'function' ? resolveSnapshotElement : null),
   shouldFinalizeConclusivePointerMove: (typeof shouldFinalizeConclusivePointerMove === 'function' ? shouldFinalizeConclusivePointerMove : null),
+  isThinTerminalReply: (typeof isThinTerminalReply === 'function' ? isThinTerminalReply : null),
   terminalPointerMoveCompletion: (typeof terminalPointerMoveCompletion === 'function' ? terminalPointerMoveCompletion : null),
   isWaitPollCall: (typeof isWaitPollCall === 'function' ? isWaitPollCall : null),
   repeatedAppendAfterFill: (typeof repeatedAppendAfterFill === 'function' ? repeatedAppendAfterFill : null),

@@ -12,6 +12,7 @@ const {
   decisionBudgetCutOff,
   decisionOutputBudgetError,
   declaresVisualUnsupported,
+  looksLikeVisualRejection,
   readOpenAiEventStream,
   readAnthropicEventStream,
   emitCompletedReasoning,
@@ -185,10 +186,17 @@ class OpenAiCompatibleProvider {
         || (Array.isArray(attachments) && attachments.some((item) => item?.kind === 'image' && item?.data));
       if (pendingVisual) {
         await this.resolveVisionCapability();
-        if (this.visualCapability === 'no') {
-          this.visualUnsupported = true;
-          this.visionDegraded = true;
-        }
+        // GATEWAY METADATA IS A HINT, NOT A VERDICT. The roster's
+        // capabilities.vision flag is wrong often enough (open-weight models
+        // served by gateways that never fill the field in, or fill it in per
+        // family rather than per model) that latching text-only from it made
+        // the app announce "this model does not support image input" for
+        // models that demonstrably do — before a single image was ever sent.
+        // Keep the hint for diagnostics, but let a REAL rejection latch the
+        // text-only path (below). Cost of being wrong: one rejected request
+        // for a genuinely text-only model, which the fallback already
+        // recovers from.
+        if (this.visualCapability === 'no') this.visualCapabilityHint = 'gateway-metadata';
       }
     }
     // VISION DELEGATE (text-only fallback) — BEFORE the context build: when
@@ -243,6 +251,12 @@ class OpenAiCompatibleProvider {
     // capability is retried on the next decision instead of being lost for
     // the session — see the strike-based latch below.
     let skipVisuals = false;
+    // Statuses that mean "I could not parse this request as written". These are
+    // the only ones allowed to count as evidence about image support. A rate
+    // limit (429), a gateway fault (5xx), an auth failure (401/403) or a
+    // payload-size refusal (413) says nothing about whether the model can see,
+    // and must never be read as a capability verdict.
+    const STRUCTURAL_REFUSAL_STATUSES = new Set([400, 415, 422]);
     const relayThought = (text) => {
       const next = String(text || '');
       if (!next || typeof onThought !== 'function') return;
@@ -425,12 +439,39 @@ const userSafeSystem = String(system || '').trim() || IDENTITY_LINE;
           lastError = error;
           continue;
         }
+        // A provider that rejects the image PART ITSELF must be handled before
+        // the tool-schema fallback. Both used to claim the same single retry,
+        // and the tools branch came first: the retry was spent removing tools,
+        // the image was re-sent unchanged, the second attempt failed with the
+        // same 400 and — with no attempts left — the run parked. That is the
+        // "keeps attaching the unsupported image forever" loop.
+        //
+        // It must be BOTH a structural status and a structural message, and one
+        // occurrence is a STRIKE, not a verdict: this decision retries without
+        // the image, but the next decision may try it again. Blinding a model
+        // that can see — because one request was rate-limited, throttled or
+        // answered by a broken gateway — is far worse than an honest failure,
+        // so the latch needs two independent structural refusals.
+        if (activeVisuals.length
+          && STRUCTURAL_REFUSAL_STATUSES.has(Number(response.status))
+          && looksLikeVisualRejection(error.message)
+          && attempt < 2) {
+          this.visualHardFailures += 1;
+          if (this.visualHardFailures >= 2) {
+            this.visualUnsupported = true;
+            if (nativeImage) this.visionDegraded = true;
+          }
+          skipVisuals = true;
+          requestKind = 'capability-fallback';
+          lastError = new Error('The provider does not accept image parts; retrying this decision with text evidence only.');
+          continue;
+        }
         // Model gateways vary in native tool-calling support. One 400 is a
         // strike, not a verdict: retry this decision JSON-style, but only a
         // CONSISTENTLY tool-hostile gateway (three strikes) latches the whole
         // session into the JSON-in-content protocol — the reasoning-degrading
         // route that silently degraded sessions on transient 400s.
-        if (activeTools.length && Number(response.status) === 400 && attempt < 2) {
+        if (activeTools.length && Number(response.status) === 400 && attempt < 2 && !looksLikeVisualRejection(error.message)) {
           this.nativeToolsFailures = (this.nativeToolsFailures || 0) + 1;
           if (this.nativeToolsFailures >= 3) this.nativeToolsBroken = true;
           toolsRejectedThisCall = true;

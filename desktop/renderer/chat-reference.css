@@ -77,22 +77,26 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-head-actions { display: flex; flex: 0 0 auto; gap: 1px; }
 .agent-drawer .agent-icon-button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: #aaa; }
 .agent-drawer .agent-icon-button:hover { background: #172023; color: #c8ff00; }
+/* The copied state must survive the hover rule (equal specificity, and the
+   pointer is still over the button right after the click): a lime icon on the
+   hover background is a much weaker acknowledgement than the copied fill. */
+.agent-drawer .agent-icon-button.is-copied { background: #263b13; color: #c8ff00; }
 .agent-drawer .agent-icon-button .ph, .icon-button .ph { font-size: 16px; line-height: 1; }
 
 .agent-settings-screen { position: absolute; z-index: 120; inset: 0; display: flex; flex-direction: column; min-height: 0; overflow: hidden; background: var(--agent-bg); }
 .agent-settings-screen-head { display: grid; grid-template-columns: 30px minmax(0, 1fr) 30px; align-items: center; min-height: 42px; padding: 0 11px; border-bottom: 1px solid var(--agent-line); }
 .agent-settings-screen-head strong { overflow: hidden; color: #f5f5f5; font-size: 14px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .agent-settings-tabs { display: flex; gap: 4px; padding: 8px 16px 0; border-bottom: 1px solid var(--agent-line); }
-.agent-settings-tabs button { flex: 1; min-height: 30px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #8f9a9d; font-size: 11px; font-weight: 700; }
+.agent-settings-tabs button { flex: 1; min-height: 30px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #8f9a9d; font-size: 10.5px; font-weight: 700; }
 .agent-settings-tabs button.is-active { border-color: #c8ff00; color: #edf3f3; }
 .agent-settings-content { display: grid; align-content: start; gap: 14px; min-height: 0; overflow: auto; padding: 14px 16px 28px; }
 .agent-settings-section { display: grid; gap: 10px; padding: 0 0 14px; border-bottom: 1px solid #20282b; }
-.agent-settings-section h2 { margin: 0; color: #edf3f3; font-size: 11px; font-weight: 800; letter-spacing: .01em; text-transform: uppercase; }
+.agent-settings-section h2 { margin: 0; color: #edf3f3; font-size: 10.5px; font-weight: 800; letter-spacing: .01em; text-transform: uppercase; }
 .agent-settings-subhead { margin: 6px 0 0; color: #8f9a9d; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .agent-settings-section-head { display: flex; align-items: center; justify-content: space-between; }
 .agent-settings-note { margin: 0; color: #8f9a9d; font-size: 12px; line-height: 1.45; }
 .agent-connection-list { display: grid; gap: 5px; min-height: 42px; padding: 9px; border: 1px dashed #2c383b; border-radius: 7px; background: #0b1214; }
-.agent-connection-list p { margin: 0; color: #8b9496; font-size: 11px; line-height: 1.35; }
+.agent-connection-list p { margin: 0; color: #8b9496; font-size: 10.5px; line-height: 1.35; }
 .agent-connection-item { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 42px; padding: 5px 7px; border: 1px solid #273438; border-radius: 6px; background: #10181a; color: #dce5e5; text-align: left; }
 .agent-connection-item:hover, .agent-connection-item.is-active { border-color: #4b6270; background: #162124; }
 .agent-connection-item.is-disabled { opacity: .58; }
@@ -137,7 +141,7 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-provider-key-wrap button { position: absolute; top: 50%; right: 5px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; transform: translateY(-50%); border: 0; border-radius: 6px; background: transparent; color: #9ba8aa; }
 .agent-provider-key-wrap button:hover { background: #172124; color: #c8ff00; }
 .agent-provider-key-wrap .ph { font-size: 15px; }
-.agent-provider-field a { color: #c8ff00; font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; text-decoration: none; }
+.agent-provider-field a { color: #c8ff00; font-size: 10.5px; font-weight: 500; letter-spacing: 0; text-transform: none; text-decoration: none; }
 .agent-provider-field a:hover { color: #e4ff65; text-decoration: underline; }
 .agent-provider-auth-note { margin: -2px 0 0; color: #839092; font-size: 10px; line-height: 1.35; }
 .agent-provider-actions { display: flex; align-items: center; gap: 8px; }
@@ -149,7 +153,7 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-record-task-button { min-height: 28px; padding: 0 9px; color: #071012; font-size: 10px; }
 .agent-record-task-button.is-recording { background: #ef4f64; color: #fff; }
 .agent-provider-save .ph, .agent-provider-refresh .ph { font-size: 15px; }
-.agent-provider-test-status { min-height: 16px; margin: 0; color: #8f9a9d; font-size: 11px; text-align: center; }
+.agent-provider-test-status { min-height: 16px; margin: 0; color: #8f9a9d; font-size: 10.5px; text-align: center; }
 .agent-provider-test-status[data-state="checking"] { color: #d9e1e1; }.agent-provider-test-status[data-state="ok"] { color: #c8ff00; }.agent-provider-test-status[data-state="error"] { color: #ff7b87; }
 .agent-model-entry { display: flex; gap: 7px; }.agent-model-entry button { min-width: 58px; border: 1px solid #2a383b; border-radius: 8px; background: #10191b; color: #edf3f3; font-weight: 700; }.agent-model-entry button:hover { border-color: #c8ff00; color: #c8ff00; }
 .agent-model-option { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; text-align: left; }
@@ -179,17 +183,17 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-schedule-field input, .agent-schedule-field textarea, .agent-schedule-field select, .agent-schedule-editor input, .agent-schedule-editor textarea, .agent-schedule-editor select { width: 100%; min-height: 30px; border: 1px solid #344246; border-radius: 6px; background: #0f1719; color: #edf2f2; padding: 6px 8px; }
 .agent-schedule-editor textarea { resize: vertical; }
 .agent-schedule-editor details { border-top: 1px solid #20272a; padding-top: 8px; }
-.agent-schedule-editor summary { cursor: pointer; color: #c8ff00; font-size: 11px; }
+.agent-schedule-editor summary { cursor: pointer; color: #c8ff00; font-size: 10.5px; }
 .agent-schedule-weekdays { display: flex; gap: 4px; }
 .agent-schedule-day { width: 28px; height: 28px; border: 1px solid #344246; border-radius: 50%; background: #0f1719; color: #8b9699; }
 .agent-schedule-day.is-selected { border-color: #c8ff00; background: #c8ff00; color: #071012; }
-.agent-schedule-preview { min-height: 17px; color: #c8ff00; font-size: 11px; }
+.agent-schedule-preview { min-height: 17px; color: #c8ff00; font-size: 10.5px; }
 .agent-schedule-editor .save-button { color: #071012; }
-.agent-schedule-error { margin: 0; color: #ef4f64; font-size: 11px; }
+.agent-schedule-error { margin: 0; color: #ef4f64; font-size: 10.5px; }
 .agent-alarm-row { display: grid; gap: 4px; }
 .agent-alarm-row.is-paused { opacity: .65; }
 .agent-alarm-row small { color: #8b9699; }
-.agent-alarm-prompt { margin: 4px 0; color: #edf2f2; font-size: 11px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.agent-alarm-prompt { margin: 4px 0; color: #edf2f2; font-size: 10.5px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
 .agent-alarm-actions { justify-content: flex-end; }
 .agent-history-item { display: block; width: 100%; padding: 10px; border: 1px solid #414141; border-radius: 8px; background: #202020; color: #e9e9e9; text-align: left; }
 .agent-history-item:hover { border-color: #717171; background: #292929; }
@@ -200,6 +204,52 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-history-item.is-live:hover { border-color: var(--accent, #c8ff00); background: #1a220f; }
 .agent-history-item.is-live small { display: block; margin-top: 2px; color: var(--accent, #c8ff00); font-size: 10px; }
 .agent-history-section-label { margin: 6px 0 2px; color: #8f9a9d; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+/* ── Agent lanes ────────────────────────────────────────────────────────────
+   One tab per agent slot. The selected lane is where the NEXT task goes, so
+   the strip is a destination, not a filter: it reads like the tab bars agents
+   already use, with live work signalled at the tab itself. */
+.agent-lane-tabs { display: flex; flex: 0 0 auto; gap: 3px; padding: 8px 11px 0; border-bottom: 1px solid var(--agent-line); }
+.agent-lane-tab { display: inline-flex; align-items: center; gap: 5px; flex: 1 1 0; min-width: 0; justify-content: center; padding: 7px 6px 8px; border: 0; border-bottom: 2px solid transparent; border-radius: 7px 7px 0 0; background: transparent; color: #8f9a9d; font: inherit; font-size: 10.5px; font-weight: 600; cursor: pointer; transition: color .15s ease, background .15s ease, border-color .15s ease; }
+.agent-lane-tab:hover { color: #d6e0e2; background: #ffffff08; }
+.agent-lane-tab.is-active { color: #eef4f5; border-bottom-color: var(--accent, #c8ff00); background: #ffffff0a; }
+.agent-lane-tab-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A dot means "this agent has live work you are not looking at"; the ring is
+   the same news for the tab you ARE looking at, but spinning, because that is
+   the one whose list is on screen. */
+.agent-lane-dot { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: var(--accent, #c8ff00); box-shadow: 0 0 0 3px #c8ff0022; }
+/* Hollow = "the task you have open lives here". It has to be visually distinct
+   from the solid dot (work is happening) and from the spinner (work is
+   happening on the tab you are on), so it carries no fill and no glow. */
+.agent-lane-open-ring { width: 7px; height: 7px; flex: 0 0 auto; border: 1.5px solid #c8ff0099; border-radius: 50%; }
+.agent-lane-spinner { width: 10px; height: 10px; flex: 0 0 auto; border-radius: 50%; border: 1.5px solid #c8ff0033; border-top-color: var(--accent, #c8ff00); animation: agent-lane-spin .7s linear infinite; }
+@keyframes agent-lane-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .agent-lane-spinner { animation-duration: 2.4s; } }
+/* A subagent's row is indented and wears its NAME: without the chip it read as
+   an ordinary task and the user could not tell whose work it was. */
+.agent-history-item.is-subagent { border-color: #3a3f45; background: #1b1d1f; }
+.agent-history-item.is-subagent.is-child { margin-left: 14px; width: calc(100% - 14px); }
+.agent-history-item.is-subagent.is-child::before { content: ""; position: absolute; left: -8px; top: 14px; width: 7px; height: 1px; background: #4a5157; }
+.agent-history-item.is-subagent { position: relative; }
+.agent-history-subagent-chip { display: inline-block; margin-bottom: 3px; padding: 1px 6px; border: 1px solid #5a6268; border-radius: 999px; color: #cfd6da; font-size: 9px; font-weight: 800; letter-spacing: .07em; line-height: 1.6; text-transform: uppercase; }
+.agent-history-meta { display: block; margin-top: 2px; color: #8f9a9d; font-size: 10px; }
+.agent-history-item.is-live .agent-history-meta { color: var(--accent, #c8ff00); }
+/* OPEN is a different fact from LIVE. A live row says "work is happening"; an
+   open row says "this is the task in the transcript". A finished task can be
+   the open one, and a running task can be one you are not looking at — so the
+   marker has to be legible on both, and it must survive the accent-coloured
+   meta text that live rows use. */
+.agent-history-item.is-open { border-color: #5f6f22; background: #1b2210; box-shadow: inset 2px 0 0 var(--accent, #c8ff00); }
+.agent-history-item.is-open:hover { border-color: var(--accent, #c8ff00); background: #212a13; }
+.agent-history-open-pill { display: inline-block; margin-right: 6px; padding: 0 5px; border-radius: 4px; background: var(--accent, #c8ff00); color: #0b1200; font-size: 8.5px; font-weight: 800; letter-spacing: .08em; line-height: 1.55; vertical-align: 1px; }
+/* An open row's own meta keeps the neutral colour so the pill is the thing that
+   reads as "you are here", not the whole row glowing. */
+.agent-history-item.is-open .agent-history-meta { color: #b8c2a4; }
+/* The lane badge beside the conversation title: the tabs live behind the
+   history screen, so the drawer must still say which agent a new message
+   will belong to. */
+.agent-lane-badge { display: inline-flex; align-items: center; margin-left: 6px; padding: 0 6px; border: 1px solid #454c51; border-radius: 999px; color: #b9c2c6; font-size: 9px; font-weight: 800; letter-spacing: .07em; line-height: 1.7; text-transform: uppercase; vertical-align: 1px; }
+.agent-lane-badge[data-lane="agent2"] { border-color: #4b5a66; color: #a9c7d8; }
+.agent-lane-badge[data-lane="agent3"] { border-color: #5a4b66; color: #c9b3d8; }
 /* Cross-session coordination traffic in the transcript. */
 .agent-message.is-agent-message { border-color: #3a4418; background: #12160a; }
 .agent-message.is-agent-message header strong { color: var(--accent, #c8ff00); }
@@ -213,7 +263,16 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-message.has-badge header { display: flex; }
 .agent-message.has-badge header strong { color: var(--accent, #c8ff00); }
 .agent-message.has-badge .agent-message-badge { margin-left: 0; }
-.agent-transcript { display: block; min-width: 0; min-height: 0; flex: 1; overflow-x: hidden; overflow-y: auto; padding: 11px 27px 190px; overscroll-behavior: contain; scrollbar-color: #4b4b4b transparent; scrollbar-width: thin; }
+/* The transcript is ONE centered column of at most 640px. A grid track
+   (minmax(0, 760px) + justify-content:center) was wrong here: at the drawer's
+   real width the track either filled the width — so nothing looked centered —
+   or overflowed it and `justify-content:center` split the overflow across BOTH
+   edges, clipping the tool icons on the left and the user bubbles on the right.
+   Centering with PADDING instead cannot overflow: the inline padding is
+   max(27px, (width - 640px)/2), so the content box is always the centered
+   column, tool cards start at its left edge and user bubbles right-align to
+   its right edge. */
+.agent-transcript { display: block; min-width: 0; min-height: 0; flex: 1; overflow-x: hidden; overflow-y: auto; padding: 11px max(27px, calc((100% - 640px) / 2)) 190px; overscroll-behavior: contain; scrollbar-color: #4b4b4b transparent; scrollbar-width: thin; }
 .agent-transcript::-webkit-scrollbar { width: 9px; }
 .agent-transcript::-webkit-scrollbar-thumb { border: 2px solid var(--agent-bg); border-radius: 999px; background: #4a4a4a; }
 .agent-empty { margin: 0; color: #a8a8a8; font-size: 12px; text-align: center; }
@@ -234,7 +293,15 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-thought-stamp { display:block; margin:4px 0 8px; color:#7d898c; font-size:10px; line-height:1.3; text-align:right; }
 .agent-message.is-thinking details { min-width: 0; }
 .agent-message.is-thinking summary { cursor: pointer; color: #aaa; font-size: 14px; }
-.agent-thinking-content { max-height: 265px; margin: 7px 0 0; overflow: auto; color: #777; font: italic 13px/1.55 'Avenir UI', 'Segoe UI', system-ui, sans-serif; overflow-wrap: anywhere; }
+/* An EXPANDED thought card must be readable in full: the old hard 265px cap
+   put a nested scrollbar INSIDE the transcript's own scroller, so the card's
+   lower part was clipped and "scrolling the entries" fought two scroll areas.
+   Settled/historical cards now grow to their natural height and the
+   TRANSCRIPT scrolls (one scrollbar, everything reachable). Only the LIVE
+   streaming card keeps a cap, so a long-running thought cannot push the
+   composer off-screen mid-stream. */
+.agent-thinking-content { max-height: none; margin: 7px 0 0; overflow: visible; color: #777; font: italic 13px/1.55 'Avenir UI', 'Segoe UI', system-ui, sans-serif; overflow-wrap: anywhere; }
+.agent-message.is-thinking .agent-thinking-content { max-height: 265px; overflow: auto; }
 .agent-message .agent-thinking-content p { margin: 0 0 7px; color: inherit; font: inherit; white-space: normal; }
 .agent-thinking-content p:last-child { margin-bottom: 0; }
 .agent-thinking-content h1, .agent-thinking-content h2, .agent-thinking-content h3, .agent-thinking-content h4, .agent-thinking-content h5, .agent-thinking-content h6 { margin: 8px 0 4px; color: inherit; font-size: 13px; font-weight: 500; line-height: 1.4; }
@@ -251,6 +318,82 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-message .agent-thinking-content pre code { display: block; max-width: 100%; padding: 8px 9px; overflow: auto; border-radius: 7px; white-space: pre; }
 
 .agent-message.is-tool { margin: 4px 0; cursor: pointer; }
+/* ── FAILURE CARDS ──────────────────────────────────────────────────────────
+   A stopped run must say why, in the provider's own words. `is-parked` is the
+   softer variant: recovery resumes it, so it must NOT read like a dead end. */
+.agent-message.is-failure { margin: 10px 0; padding: 10px 13px; border: 1px solid #4a2a30; border-radius: 10px; background: #150c0e; }
+.agent-message.is-failure header { display: flex; align-items: center; gap: 7px; margin: 0 0 6px; }
+.agent-message.is-failure header strong { color: #ff9da8; font-size: 13px; font-weight: 600; }
+.agent-message.is-failure.is-parked { border-color: #4a3d18; background: #14100a; }
+.agent-message.is-failure.is-parked header strong { color: #e8c982; }
+.agent-failure-mark { display: grid; place-items: center; flex: none; width: 16px; height: 16px; color: #ff9da8; }
+.agent-message.is-failure.is-parked .agent-failure-mark { color: #e8c982; }
+.agent-failure-mark .ph { font-size: 14px; }
+.agent-message.is-failure p { margin: 0 0 6px; color: #d3d9da; font-size: 13px; line-height: 1.55; }
+.agent-message.is-failure p:last-child { margin-bottom: 0; }
+.agent-message.is-failure .agent-failure-provider { display: block; margin: 7px 0; padding: 7px 10px; border-left: 2px solid #6b3a42; border-radius: 0 7px 7px 0; background: #0b1214; }
+.agent-message.is-failure .agent-failure-provider span { display: block; margin-bottom: 3px; color: #7d898c; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.agent-message.is-failure .agent-failure-provider code { display: block; color: #c3cccd; font: 12px/1.5 'Cascadia Mono', Consolas, ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.agent-message.is-failure .agent-failure-next { color: #9fb0b3; font-size: 12.5px; }
+.agent-message.is-failure .agent-failure-resume { margin-top: 4px; color: #b9a06a; font-size: 12px; }
+.agent-message.is-failure .agent-failure-attempts { color: #7d898c; font-size: 10.5px; }
+.agent-message.is-failure.is-failure-compact { margin: 4px 0; padding: 6px 10px; border-color: #3a2a2d; border-radius: 8px; background: #120e10; }
+.agent-message.is-failure.is-failure-compact header { margin-bottom: 2px; }
+.agent-message.is-failure.is-failure-compact header strong { color: #e7a1a9; font-size: 12px; font-weight: 500; }
+.agent-message.is-failure.is-failure-compact p { color: #a9b3b4; font-size: 12px; }
+/* ── AGENT ORB ───────────────────────────────────────────────────────────────
+   Suspended above the composer, centred, NO card: no border, no background, no
+   padding box. The halo is the only decoration — a soft radial bloom whose
+   colour follows the mode, so the state is readable from the colour alone.
+   Pointer-transparent: it must never eat a click meant for the transcript. */
+.agent-orb-dock { position: absolute; left: 50%; bottom: calc(100% + 4px + var(--orb-lift, 0px)); z-index: 8; display: flex; flex-direction: column; align-items: center; gap: 2px; width: max-content; max-width: calc(100% - 24px); transform: translateX(-50%); pointer-events: none; transition: bottom .22s ease; }
+.agent-orb-dock[hidden] { display: none !important; }
+/* The stage is exactly the canvas box, so anything centred in it is centred on
+   the particle sphere — the caption below must not move the glow. */
+.agent-orb-stage { position: relative; display: block; width: max-content; z-index: 1; }
+/* The shadow that makes the orb sit ON the conversation instead of through it:
+   strongest under the orb and the caption, gone by the time it reaches the
+   top, and feathered horizontally so it never reads as a dark rectangle. Two
+   layers — a tight ellipse that seats the sphere, and a wider vertical wash
+   that dims the text directly beneath it. */
+.agent-orb-scrim {
+  position: absolute;
+  left: 50%;
+  bottom: -16px;
+  width: 168px;
+  height: 128px;
+  margin-left: -84px;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 52% 40% at 50% 82%, rgba(4, 6, 7, .62), rgba(4, 6, 7, .3) 55%, rgba(4, 6, 7, 0) 76%),
+    linear-gradient(to top, rgba(4, 6, 7, .5), rgba(4, 6, 7, .22) 42%, rgba(4, 6, 7, 0) 74%);
+  filter: blur(7px);
+  opacity: .9;
+  transition: opacity .3s ease;
+}
+.agent-orb-dock[data-mode="waiting"] .agent-orb-scrim { opacity: .74; }
+.agent-orb-dock[data-mode="error"] .agent-orb-scrim {
+  background:
+    radial-gradient(ellipse 52% 40% at 50% 82%, rgba(24, 4, 7, .6), rgba(24, 4, 7, .28) 55%, rgba(24, 4, 7, 0) 76%),
+    linear-gradient(to top, rgba(24, 4, 7, .46), rgba(24, 4, 7, .2) 42%, rgba(24, 4, 7, 0) 74%);
+}
+.agent-orb-halo { position: absolute; top: 50%; left: 50%; width: 98px; height: 98px; margin: -49px 0 0 -49px; border-radius: 50%; background: radial-gradient(circle, #c8ff0026, transparent 68%); filter: blur(2px); transition: background .45s ease; }
+.agent-orb-canvas { position: relative; display: block; }
+.agent-orb-caption { position: relative; z-index: 1; display: flex; align-items: baseline; gap: 6px; max-width: 100%; color: #9fb0b3; font-size: 11.5px; line-height: 1.3; white-space: nowrap; opacity: 0; transform: translateY(-2px); transition: opacity .25s ease, transform .25s ease; }
+.agent-orb-dock.has-caption .agent-orb-caption { opacity: 1; transform: none; }
+.agent-orb-elapsed { color: #63716f; font-variant-numeric: tabular-nums; }
+#agent-orb-label { overflow: hidden; text-overflow: ellipsis; }
+.agent-orb-dock[data-mode="deep"] .agent-orb-halo { background: radial-gradient(circle, #96f0ff26, transparent 68%); }
+.agent-orb-dock[data-mode="planning"] .agent-orb-halo { background: radial-gradient(circle, #c8ff0022, transparent 68%); }
+.agent-orb-dock[data-mode="acting"] .agent-orb-halo { background: radial-gradient(circle, #c8ff0033, transparent 70%); }
+.agent-orb-dock[data-mode="waiting"] .agent-orb-halo { background: radial-gradient(circle, #ffc4502e, transparent 68%); }
+.agent-orb-dock[data-mode="waiting"] .agent-orb-caption { color: #d8b273; }
+.agent-orb-dock[data-mode="error"] .agent-orb-halo { background: radial-gradient(circle, #ef4f6440, transparent 68%); }
+.agent-orb-dock[data-mode="error"] .agent-orb-caption { color: #ff9da8; }
+@media (prefers-reduced-motion: reduce) {
+  .agent-orb-halo, .agent-orb-caption { transition: none; }
+}
 .agent-message.is-tool header { min-height: 24px; }
 .agent-message.is-tool header strong { display: none; }
 .agent-action-pointer { display: grid; place-items: center; width: 14px; height: 20px; color: #c0c0c0; }
@@ -258,14 +401,14 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-action-name { min-width: 0; flex: 1; overflow: hidden; color: #bdbdbd; font-size: 13px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
 .agent-message.is-tool:hover .agent-action-name { color: #f2f2f2; }
 .agent-action-target { display: inline-flex; align-items: center; gap: 4px; max-width: 60%; margin-left: 8px; padding: 0 7px; vertical-align: bottom; overflow: hidden; border: 1px solid #303b3e; border-radius: 6px; background: #0c1315; color: #dfe6e7; font: 11px/18px 'Cascadia Mono', Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; cursor: default; }
-.agent-action-target .ph { flex: none; color: #c8ff00; font-size: 11px; }
+.agent-action-target .ph { flex: none; color: #c8ff00; font-size: 10.5px; }
 .agent-action-target.is-folder .ph { color: #8fd3ff; }
 .agent-action-target:hover { border-color: #647276; background: #111a1c; }
 .agent-message.is-screenshot { cursor: default; }
 .agent-screenshot-action { display: grid; width: min(100%, 300px); margin: 4px 0 8px 18px; padding: 0; overflow: hidden; border: 1px solid #303b3e; border-radius: 9px; background: #0c1315; color: #dfe6e7; text-align: left; }
 .agent-screenshot-action:hover { border-color: #647276; background: #111a1c; }
 .agent-screenshot-action img { display: block; width: 100%; max-height: 150px; object-fit: cover; object-position: top; background: #050809; }
-.agent-screenshot-action span { display: flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 9px; font-size: 11px; font-weight: 650; }
+.agent-screenshot-action span { display: flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 9px; font-size: 10.5px; font-weight: 650; }
 .agent-screenshot-action .ph { color: #c8ff00; font-size: 13px; }
 .agent-report-action { display: inline-flex; align-items: center; gap: 7px; max-width: calc(100% - 18px); margin: 5px 0 8px 18px; padding: 7px 9px; border: 0; border-radius: 7px; background: #142125; color: #b8e8ff; font: inherit; font-size: 12px; font-weight: 550; text-align: left; text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
 .agent-report-action:hover { background: #1b2d32; color: #e0f6ff; }
@@ -306,6 +449,10 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
   pointer-events: none;
   z-index: 5;
 }
+/* The whole-chat copy control sits in the header row, and the drawer clips
+   everything above it — so its badge drops BELOW the button instead of over
+   the icon. */
+.agent-head-actions .agent-copy-chat.is-copied::after { top: calc(100% + 6px); bottom: auto; }
 .agent-file-chip.is-copied, .agent-action-target.is-copied { background: #263b13; color: #c8ff00; border-color: #3f5a22; }
 .agent-message-hover-actions { position: absolute; z-index: 3; top: -5px; right: 0; display: flex; align-items: center; gap: 2px; padding: 3px 6px; border: 1px solid #293438; border-radius: 8px; background: #10181a; box-shadow: 0 4px 12px #0008; opacity: 0; pointer-events: none; transition: opacity .12s ease; }
 .agent-message.is-tool:hover .agent-message-hover-actions, .agent-message-hover-actions:focus-within { opacity: 1; pointer-events: auto; }
@@ -316,7 +463,7 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 
 .agent-inspection { margin: 4px 0 10px; padding: 0; border: 0; }
 .agent-inspection-head { display: flex; align-items: center; min-height: 28px; padding: 0 8px; border-radius: 12px 12px 0 0; background: #393939; }
-.agent-inspection-head strong { flex: 1; color: #d8d8d8; font-size: 11px; text-transform: lowercase; }
+.agent-inspection-head strong { flex: 1; color: #d8d8d8; font-size: 10.5px; text-transform: lowercase; }
 .agent-inspection-copy { opacity: 1; }
 .agent-inspection pre, .agent-message code { max-width: 100%; margin: 0; padding: 9px 11px; overflow: auto; border: 1px solid #414141; background: #202020; color: #d4d4d4; font: 11px/1.5 Consolas, ui-monospace, monospace; white-space: pre-wrap; }
 .agent-inspection pre { max-height: 250px; border-radius: 0 0 14px 14px; }
@@ -366,20 +513,20 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-composer .agent-task-editor:empty::before, .agent-composer .agent-task-editor:has(> br:only-child)::before { content: attr(data-placeholder); color: #aaa; pointer-events: none; }
 /* Inline DOM attachment cards: a real pill inside the sentence, removable
    from its own small x; serializes to its stable element name in sent text. */
-.agent-task-editor .dom-attach-card { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; height: 22px; margin: 0 2px; padding: 0 5px 0 9px; border: 1px solid #39474a; border-radius: 11px; background: #111a1c; color: #cbd3d4; font-size: 11px; vertical-align: middle; }
+.agent-task-editor .dom-attach-card { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; height: 22px; margin: 0 2px; padding: 0 5px 0 9px; border: 1px solid #39474a; border-radius: 11px; background: #111a1c; color: #cbd3d4; font-size: 10.5px; vertical-align: middle; }
 .agent-task-editor .dom-attach-card > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agent-task-editor .dom-attach-card-remove { display: grid; place-items: center; width: 15px; height: 15px; flex: 0 0 15px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #879194; font-size: 10px; line-height: 1; }
 .agent-task-editor .dom-attach-card-remove:hover { background: #263236; color: #fff; }
 /* Sent-message DOM references: real hyperlinks to the captured element, not
    plain text — clicking re-opens exactly what the agent was handed. */
-.agent-message .dom-ref-link { display: inline-flex; align-items: center; height: 19px; margin: 0 1px; padding: 0 8px; border: 1px solid #39474a; border-radius: 10px; background: #111a1c; color: #9fd4de; font-size: 11px; font-weight: 600; line-height: 1; vertical-align: middle; cursor: pointer; }
+.agent-message .dom-ref-link { display: inline-flex; align-items: center; height: 19px; margin: 0 1px; padding: 0 8px; border: 1px solid #39474a; border-radius: 10px; background: #111a1c; color: #9fd4de; font-size: 10.5px; font-weight: 600; line-height: 1; vertical-align: middle; cursor: pointer; }
 .agent-message .dom-ref-link:hover { border-color: #6d8a8f; background: #16242a; color: #fff; }
 .dom-ref-preview-overlay { position: absolute; z-index: 1000; display: grid; place-items: center; padding: 16px; background: rgb(0 0 0 / 55%); } /* LORDE_POPUP_LAYER_V364b — top/height are pinned to the drawer's visible area in JS. */
 .dom-ref-preview-panel { display: flex; flex-direction: column; width: min(720px, calc(100% - 16px)); min-width: 0; max-height: calc(100% - 16px); min-height: 0; border: 1px solid #39474a; border-radius: 12px; background: #0d1517; box-shadow: 0 18px 60px rgb(0 0 0 / 45%); }
 .dom-ref-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #243136; color: #e8e8e8; font-size: 12px; }
 .dom-ref-preview-close { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #879194; font-size: 12px; cursor: pointer; }
 .dom-ref-preview-close:hover { background: #263236; color: #fff; }
-.dom-ref-preview-panel pre { flex: 1 1 auto; margin: 0; padding: 12px 14px; overflow: auto; border-radius: 0 0 12px 12px; background: transparent; color: #cbd3d4; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.dom-ref-preview-panel pre { flex: 1 1 auto; margin: 0; padding: 12px 14px; overflow: auto; border-radius: 0 0 12px 12px; background: transparent; color: #cbd3d4; font-size: 10.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 .agent-composer textarea::placeholder { color: #aaa; }
 .agent-drawer .agent-composer textarea:focus, .agent-drawer .agent-composer textarea:focus-visible { outline: 0; box-shadow: none; }
 .agent-attachments { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 17px 5px; }
@@ -459,10 +606,10 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
    those two buttons take it over starting from the stop's former column. */
 .agent-run-action-button.is-visible ~ .agent-submit-stack .agent-cancel-button { position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 5; }
 .agent-model-menu { position: absolute; z-index: 120; bottom: calc(100% + 4px); left: 0; display: flex; flex-direction: column; gap: 2px; width: min(280px, calc(100vw - 28px)); max-width: none; max-height: min(360px, calc(100vh - 112px)); overflow: hidden; padding: 4px; border: 1px solid #2c383b; border-radius: 8px; background: #0d0d10; box-shadow: 0 18px 60px #0008; }
-.agent-model-menu-search { display: flex; align-items: center; flex: 0 0 30px; gap: 4px; padding: 0 5px; border-bottom: 1px solid #25262a; }.agent-model-menu-search .ph { color: #74777d; font-size: 13px; }.agent-model-menu-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: #f1f1f1; font-size: 11px; }
+.agent-model-menu-search { display: flex; align-items: center; flex: 0 0 30px; gap: 4px; padding: 0 5px; border-bottom: 1px solid #25262a; }.agent-model-menu-search .ph { color: #74777d; font-size: 13px; }.agent-model-menu-search input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: #f1f1f1; font-size: 10.5px; }
 .agent-model-list { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto; padding-top: 2px; }
 .agent-drawer .agent-model-option { display: flex; align-items: center; width: 100%; min-height: 25px; padding: 5px 6px; border: 0; border-radius: 4px; background: transparent; color: #e5e5e5; text-align: left; }
-.agent-model-option strong { min-width: 0; width: auto; flex: 1 1 auto; overflow: hidden; color: inherit; font-size: 11px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.agent-model-option strong { min-width: 0; width: auto; flex: 1 1 auto; overflow: hidden; color: inherit; font-size: 10.5px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .agent-model-option:hover, .agent-model-option.is-active { background: #172124; }
 .agent-model-option .agent-model-delete {
   display: inline-grid; place-items: center; flex: none;
@@ -492,7 +639,10 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 @media (max-width: 700px) {
   .agent-drawer { width: 100%; min-width: 0; }
   .agent-drawer-resize { display: none; }
-  .agent-transcript { padding-inline: 27px; }
+  /* Narrow windows get a smaller minimum gutter, but the centered column is
+     still honoured: a flat 27px here silently disabled the centering on every
+     window at or below 700px — which is exactly when it is most visible. */
+  .agent-transcript { padding-inline: max(16px, calc((100% - 640px) / 2)); }
 }
 
 /* ---- Fresh re-plan card: identical bubble shape to the user's message, in
@@ -674,7 +824,7 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
   border-radius: 99px;
   background: #0c1416f2;
   color: #cfd8da;
-  font-size: 11px;
+  font-size: 10.5px;
   white-space: nowrap;
   box-shadow: 0 6px 18px #00000066;
   opacity: 0;
@@ -846,7 +996,7 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
   border-radius: 8px;
   background: transparent;
   color: #cfd7d8;
-  font-size: 11px;
+  font-size: 10.5px;
 }
 .agent-plan-editor-button:hover { background: #1c2629; }
 .agent-plan-editor-button.is-primary { border-color: #c8ff00; background: #c8ff00; color: #071012; font-weight: 600; }
@@ -1080,7 +1230,7 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
   animation: agent-media-shimmer 1.3s linear infinite;
 }
 @keyframes agent-media-shimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
-.agent-media-caption { display: flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 9px; font-size: 11px; font-weight: 650; }
+.agent-media-caption { display: flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 9px; font-size: 10.5px; font-weight: 650; }
 .agent-media-caption .agent-media-spinner { display: inline-grid; place-items: center; color: #c8ff00; font-size: 13px; animation: agent-media-spin 0.9s linear infinite; }
 @keyframes agent-media-spin { to { transform: rotate(360deg); } }
 .agent-media-save {
@@ -1168,7 +1318,7 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
   border-radius: 8px 8px 0 0;
   background: transparent;
   color: #8f9a9d;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   line-height: 1.2;
   cursor: pointer;
@@ -1206,7 +1356,7 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
   margin-right: -4px;
   border-radius: 4px;
   color: #6d7a7e;
-  font-size: 11px;
+  font-size: 10.5px;
   line-height: 1;
 }
 .agent-subagent-tab-close:hover { background: #ef4f6422; color: #ff9da8; }
@@ -1224,9 +1374,9 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-slash-menu { position: absolute; z-index: 22; bottom: calc(100% + 6px); left: 0; right: 0; display: flex; flex-direction: column; gap: 2px; max-height: min(280px, calc(100vh - 160px)); overflow: hidden auto; padding: 4px; border: 1px solid #2c383b; border-radius: 8px; background: #0d0d10; box-shadow: 0 18px 60px #0008; }
 .agent-slash-option { display: flex; align-items: baseline; gap: 8px; width: 100%; min-height: 25px; padding: 5px 6px; border: 0; border-radius: 4px; background: transparent; color: #e5e5e5; text-align: left; font: inherit; cursor: pointer; }
 .agent-slash-option:hover, .agent-slash-option.is-active { background: #172124; }
-.agent-slash-name { flex: none; color: #b8e63f; font-size: 11px; font-weight: 600; }
+.agent-slash-name { flex: none; color: #b8e63f; font-size: 10.5px; font-weight: 600; }
 .agent-slash-args { flex: none; color: #74777d; font-size: 10px; }
-.agent-slash-desc { min-width: 0; flex: 1 1 auto; overflow: hidden; color: #9a9da3; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.agent-slash-desc { min-width: 0; flex: 1 1 auto; overflow: hidden; color: #9a9da3; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Subagent tab model badge: a model-targeted spawn is confirmable at a glance. */
 .agent-subagent-tab-model {
@@ -1268,8 +1418,8 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
   cursor: pointer;
 }
 .agent-ask-html button:hover { border-color: var(--agent-accent, #c8ff00); }
-.agent-ask-html pre { padding: 8px 10px; border-radius: 6px; background: var(--agent-bg, #060b0d); overflow-x: auto; font-size: 11px; }
-.agent-ask-html code { font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+.agent-ask-html pre { padding: 8px 10px; border-radius: 6px; background: var(--agent-bg, #060b0d); overflow-x: auto; font-size: 10.5px; }
+.agent-ask-html code { font-family: ui-monospace, Consolas, monospace; font-size: 10.5px; }
 .agent-ask-html h1, .agent-ask-html h2, .agent-ask-html h3 { margin: 12px 0 6px; }
 .agent-ask-html ul, .agent-ask-html ol { padding-left: 20px; margin: 6px 0; }
 .agent-ask-html li { margin: 3px 0; }
@@ -1301,11 +1451,11 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-ask-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 .agent-ask-choices { counter-reset: ask-option; }
 .agent-ask-choices .agent-ask-choice { position: relative; padding-left: 42px; }
-.agent-ask-choices .agent-ask-choice::before { content: counter(ask-option); counter-increment: ask-option; position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 21px; height: 21px; display: grid; place-items: center; border-radius: 50%; background: #c8ff00; color: #10150b; font-size: 11px; font-weight: 800; }
+.agent-ask-choices .agent-ask-choice::before { content: counter(ask-option); counter-increment: ask-option; position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 21px; height: 21px; display: grid; place-items: center; border-radius: 50%; background: #c8ff00; color: #10150b; font-size: 10.5px; font-weight: 800; }
 .agent-ask-choice:hover:not(:disabled) { border-color: var(--accent, #c8ff00); background: #1d2a0e; }
 .agent-ask-choice:focus-visible { outline: 2px solid var(--accent, #c8ff00); outline-offset: 2px; }
 .agent-ask-choice:disabled { opacity: .5; cursor: default; }
-.agent-ask-hint { display: block; margin: 4px 0 0 18px; color: var(--agent-muted, #8f9a9d); font-size: 11px; }
+.agent-ask-hint { display: block; margin: 4px 0 0 18px; color: var(--agent-muted, #8f9a9d); font-size: 10.5px; }
 .agent-ask-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin: 12px 0 0 18px; padding: 14px; border: 1px solid #33432a; border-radius: 16px; background: linear-gradient(145deg, #18220f, #10170c); box-shadow: 0 8px 22px rgba(0,0,0,.18); }
 .agent-ask-input { width: 100%; min-height: 96px; resize: vertical; box-sizing: border-box; padding: 14px; border: 1px solid #526337; border-radius: 11px; background: #0c120a; color: #f0f7dc; font: 15px/1.5 inherit; outline: none; }
 .agent-ask-input:focus { border-color: #c8ff00; box-shadow: 0 0 0 3px rgba(200,255,0,.13); }
@@ -1337,18 +1487,23 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
    expands the message jump window; clicking a dash or row scrolls to that
    exact message. */
 .agent-timeline {
+  /* A full-drawer OVERLAY, so the expanded window can be centered in the chat
+     instead of being pinned to the 20px strip in the right gutter (which is
+     why the window always sat off to the right). The overlay itself never
+     takes pointer events; the strip and the window opt back in. */
   position: absolute;
-  top: 118px;
-  bottom: 208px;
-  right: 4px;
-  width: 20px;
-  z-index: 8;
-  display: flex;
-  align-items: stretch;
-  justify-content: flex-end;
+  inset: 0;
+  z-index: 65;
+  display: block;
   pointer-events: none;
 }
 .agent-timeline-track {
+  /* The strip keeps its old place — the right gutter, vertically centered —
+     now positioned inside the overlay. */
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
   pointer-events: auto;
   width: 14px;
   display: flex;
@@ -1363,29 +1518,46 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
 .agent-timeline-track::-webkit-scrollbar { display: none; }
 .agent-timeline-dash {
   flex: 0 0 auto;
-  width: 10px;
-  height: 3px;
+  width: 7px;
+  height: 2.5px;
   padding: 0;
   border: 0;
   border-radius: 2px;
-  background: #9aaac055;
+  background: #9aaac044;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
+  opacity: 0.75;
+  transition: background 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
 }
 .agent-timeline-dash:hover { background: var(--accent, #c8ff00); transform: scaleX(1.35); }
 .agent-timeline-dash.is-user { background: #7aa5e088; }
 .agent-timeline-dash.is-error { background: #d46a6a99; }
+/* Only the nearest (most recent) user message keeps the full highlight;
+   every older dash stays grayed out and a bit smaller. */
+.agent-timeline-dash.is-nearest {
+  width: 10px;
+  height: 3px;
+  opacity: 1;
+  background: var(--accent, #c8ff00);
+  box-shadow: 0 0 6px var(--accent-soft, #c8ff0022);
+}
 .agent-timeline-window {
   pointer-events: auto;
   display: none;
   position: absolute;
-  /* Overlap the strip by 2px: a dead seam between trigger and panel is what
-     collapsed the window mid-travel (the card vanished before the pointer
-     reached a row). The card now physically touches the strip. */
-  right: 16px;
-  top: 0;
-  width: 300px;
-  max-height: 100%;
+  /* DOCKED TO THE STRIP — no dead gap. Centering the window (left:50% +
+     translateX(-50%)) opened a wide empty channel between the 14px strip in
+     the right gutter and the panel, which both looked wrong and broke the
+     joined hover region the strip and the panel are supposed to form. The
+     window's right edge sits 2px past the strip's left edge, so travelling
+     from a dash into a row never crosses empty space. Vertically it is
+     centered on the strip. */
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(380px, calc(100% - 40px));
+  /* Size to contents: the window grows with the message list up to a
+     viewport-based cap, instead of being clipped to the strip's height. */
+  max-height: calc(100vh - 180px);
   overflow-y: auto;
   padding: 6px;
   border: 1px solid #2a3542;
@@ -1395,8 +1567,10 @@ body.standalone-chat-window:not(.is-chat-docked) .agent-drawer-resize { display:
   scrollbar-width: thin;
 }
 /* Hover-intent open state (JS) plus the CSS fallback: the strip and the window
-   behave as ONE joined hover region. */
-.agent-timeline:hover .agent-timeline-window,
+   behave as ONE joined hover region. The hover is keyed on the TRACK — the
+   overlay spans the whole drawer, so `:hover` on .agent-timeline itself would
+   be true everywhere and the window would never close. */
+.agent-timeline-track:hover ~ .agent-timeline-window,
 .agent-timeline.is-open .agent-timeline-window,
 .agent-timeline:focus-within .agent-timeline-window { display: flex; flex-direction: column; gap: 3px; }
 .agent-timeline-row {

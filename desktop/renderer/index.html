@@ -54,14 +54,14 @@
   <aside class="drawer agent-drawer" id="agent-panel" aria-label="AI chat" hidden>
     <div class="agent-drawer-resize" id="agent-drawer-resize" role="separator" aria-label="Resize AI chat" aria-orientation="vertical" tabindex="0"></div>
     <div class="agent-shell-head">
-      <div class="agent-title"><strong id="agent-conversation-title">New conversation</strong><small id="agent-tab-scope">No active tab</small><small id="agent-run-status">Ready</small></div>
+      <div class="agent-title"><strong id="agent-conversation-title">New conversation</strong><span class="agent-lane-badge" id="agent-lane-badge" hidden>Chat 1</span><small id="agent-tab-scope">No active tab</small><small id="agent-run-status">Ready</small></div>
       <div class="agent-head-actions">
         <button class="agent-icon-button" id="agent-pin" type="button" aria-label="Unpin chat" title="Unpin chat"><i class="ph ph-push-pin"></i></button><button class="agent-icon-button" id="agent-settings-toggle" type="button" aria-label="Open AI provider settings" title="AI provider settings" aria-expanded="false" aria-controls="agent-settings-screen"><i class="ph ph-gear-six" aria-hidden="true"></i></button>
         <button class="agent-icon-button" id="agent-new-chat" type="button" aria-label="Start new chat" title="New chat"><i class="ph ph-plus" aria-hidden="true"></i></button>
         <button class="agent-icon-button" id="agent-skills" type="button" aria-label="Open learned skills" title="Learned skills"><i class="ph ph-brain" aria-hidden="true"></i></button>
         <button class="agent-icon-button" id="agent-schedules" type="button" aria-label="Open scheduled tasks" title="Schedules"><i class="ph ph-clock" aria-hidden="true"></i></button>
         <button class="agent-icon-button" id="agent-history" type="button" aria-label="Open chat history" title="History"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i></button>
-        <button class="agent-icon-button" id="agent-copy-chat" type="button" aria-label="Copy whole chat" title="Copy whole chat"><i class="ph ph-copy" aria-hidden="true"></i></button>
+        <button class="agent-icon-button agent-copy-chat" id="agent-copy-chat" type="button" aria-label="Copy whole chat" title="Copy whole chat"><i class="ph ph-copy" aria-hidden="true"></i></button>
         <button class="agent-icon-button" data-close="agent" type="button" aria-label="Close AI chat" title="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
     </div>
@@ -97,7 +97,7 @@
         </div>
       </form>
     </section>
-    <section class="agent-history-screen" id="agent-history-view" aria-label="Chat history" hidden><div class="agent-history-screen-head"><div><span class="agent-kicker">CONVERSATIONS</span><strong>History</strong></div><button class="agent-icon-button" id="agent-history-close" type="button" aria-label="Close history"><i class="ph ph-x" aria-hidden="true"></i></button></div><div class="agent-history-list" id="agent-history-list"></div></section>
+    <section class="agent-history-screen" id="agent-history-view" aria-label="Chat history" hidden><div class="agent-history-screen-head"><div><span class="agent-kicker">CONVERSATIONS</span><strong>History</strong></div><button class="agent-icon-button" id="agent-history-close" type="button" aria-label="Close history"><i class="ph ph-x" aria-hidden="true"></i></button></div><div class="agent-lane-tabs" id="agent-lane-tabs" role="tablist" aria-label="Chats"></div><div class="agent-history-list" id="agent-history-list"></div></section>
     <section class="agent-history-screen agent-schedules-screen" id="agent-schedules-view" aria-label="Scheduled tasks" hidden>
       <div class="agent-history-screen-head"><div><span class="agent-kicker">TASKS</span><strong>Scheduled tasks</strong></div><div class="agent-screen-actions"><button class="agent-icon-button" id="agent-schedule-add" type="button" aria-label="Add scheduled task" title="Add task"><i class="ph ph-plus" aria-hidden="true"></i></button><button class="agent-icon-button" id="agent-schedules-close" type="button" aria-label="Close schedules"><i class="ph ph-x" aria-hidden="true"></i></button></div></div>
       <div class="agent-schedules-body"><div class="agent-schedule-editor-host" id="agent-schedule-editor-host" hidden></div><div class="agent-history-list" id="agent-schedules-list"></div></div>
@@ -158,6 +158,25 @@
       <button class="agent-queued-remove" id="agent-queued-remove" type="button" aria-label="Discard queued message"><i class="ph ph-x" aria-hidden="true"></i></button>
     </div>
     <form class="agent-composer" id="agent-form">
+      <!-- AGENT ORB: suspended above the composer, no card and no chrome. Its
+           shape is the status (sphere thinking, lattice planning, cube
+           executing, ring waiting, red shatter failing). Pointer-transparent so
+           it can never eat a click meant for the transcript. -->
+      <div class="agent-orb-dock" id="agent-orb-dock" hidden aria-hidden="true">
+        <!-- The scrim sits UNDER the orb and its caption and fades out upward,
+             so transcript text behind the orb is dimmed instead of colliding
+             with it. It is a sibling of the stage (not a child) because the
+             stage is the exact canvas box the glow is centred on. -->
+        <span class="agent-orb-scrim"></span>
+        <!-- The halo is anchored to the STAGE (which is exactly the canvas), not
+             to the dock: the caption is laid out below the canvas, so centring
+             the glow on the dock pushed it 8px below the particle sphere. -->
+        <div class="agent-orb-stage">
+          <span class="agent-orb-halo"></span>
+          <canvas class="agent-orb-canvas" id="agent-orb-canvas"></canvas>
+        </div>
+        <span class="agent-orb-caption"><span id="agent-orb-label"></span><span class="agent-orb-elapsed" id="agent-orb-elapsed"></span></span>
+      </div>
       <label class="sr-only" for="agent-task">Ask the browser agent to perform a task. Press Enter to send; Shift+Enter inserts a new line.</label>
       <div class="agent-slash-menu" id="agent-slash-menu" role="listbox" aria-label="Chat commands" hidden></div>
       <div id="agent-task" class="agent-task-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-keyshortcuts="Enter Shift+Enter" aria-label="Ask the browser agent to perform a task. Press Enter to send; Shift+Enter inserts a new line." data-placeholder="Reply to continue this session"></div>
@@ -246,6 +265,8 @@
   <script src="toolTarget.cjs"></script>
   <script src="chatCommands.cjs"></script>
   <script src="skillsView.cjs"></script>
+  <script src="agentOrb.js"></script>
+  <script src="agentLanes.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

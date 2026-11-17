@@ -361,7 +361,14 @@ test('tab changes and tab closure release input without ending the opaque MCP se
   assert.equal(broker.unbindTab('tab-a'), false);
   assert.equal(released.length, 3, 'repeated unbind must not duplicate cleanup');
   assert.equal((await tool('browser_get_tabs')).body.error, undefined, 'unbound sessions retain non-tab tools');
-  assert.match((await tool('browser_get_tab')).body.error.message, /bind a desktop tab/i);
+  // A missing binding is a usage state the caller resolves with another tool,
+  // so it is a tool failure at HTTP 200 (isError + text), not a JSON-RPC fault.
+  // The transport still succeeded; treating it as an error made clients retry
+  // the connection instead of binding a tab.
+  const unboundTab = await tool('browser_get_tab');
+  assert.equal(unboundTab.body.error, undefined, 'a missing binding must not look like a broken transport');
+  assert.equal(unboundTab.body.result.isError, true);
+  assert.match(unboundTab.body.result.content[0].text, /Bind a desktop tab/i);
   assert.equal(ended.length, 0, 'tab closure must not revoke authentication');
   assert.equal((await tool('browser_bind_tab', { tabId: 'tab-b' })).body.error, undefined);
   await expectLiveTab('tab-b');

@@ -103,7 +103,18 @@ function hangingTab(id) {
   return { id, webContents: { isDestroyed: () => false, debugger: debuggerClient }, calls, releaseHang: () => releaseHang?.() };
 }
 
+// The lease's own timeout timer is unref'd on purpose — it must never keep
+// Electron alive. A test that waits on that timer therefore has nothing holding
+// the event loop, so the runner exits before the timeout fires and the subtest
+// is cancelled with "Promise resolution is still pending". Hold the loop open
+// explicitly for the duration of the test.
+function keepEventLoopAlive() {
+  const timer = setTimeout(() => {}, 10_000);
+  return () => clearTimeout(timer);
+}
+
 test('a hung command times out, releases the queue slot, and the next command proceeds', async () => {
+  const releaseLoop = keepEventLoopAlive();
   const tab = hangingTab('tab-1');
   const timeouts = [];
   const manager = new DebuggerLeaseManager({
@@ -123,9 +134,11 @@ test('a hung command times out, releases the queue slot, and the next command pr
   const result = await manager.send('tab-1', 'background input', 'Input.insertText', { text: 'hello' });
   assert.deepEqual(result, { data: 'png-data' });
   assert.equal(manager.metrics.timeouts, 1);
+  releaseLoop();
 });
 
 test('a hung command settling late never detaches a newer lease channel', async () => {
+  const releaseLoop = keepEventLoopAlive();
   const tab = hangingTab('tab-1');
   const manager = new DebuggerLeaseManager({ getTabs: () => [tab], operationTimeoutMs: 120 });
 
@@ -146,4 +159,78 @@ test('a hung command settling late never detaches a newer lease channel', async 
   const again = await manager.send('tab-1', 'background input', 'Input.insertText', { text: 'after-late' });
   assert.deepEqual(again, { data: 'png-data' });
   assert.equal(manager.metrics.timeouts, 1);
+  releaseLoop();
+});
+
+// ---- Slow-reply regressions ----------------------------------------------
+// Chromium forwards a synthetic mouse move to the renderer immediately but can
+// take SECONDS to acknowledge it (this fork measured ~5.1s per move, 25.5s for a
+// 4-step drag). The acknowledgement is not the delivery, and CDP processes
+// commands in order on one session, so waiting on it put dead time on every
+// hover AND let one slow move hold the tab's slot against every later call.
+
+function slowMoveTab(id) {
+  const calls = [];
+  let isAttached = false;
+  const pending = [];
+  const debuggerClient = {
+    isAttached: () => isAttached,
+    attach: () => { calls.push('attach'); isAttached = true; },
+    detach: () => { calls.push('detach'); isAttached = false; },
+    sendCommand: (method, params) => {
+      calls.push([method, params]);
+      if (method === 'Input.dispatchMouseEvent' && params?.type === 'mouseMoved') {
+        // Acknowledged only when the test says so, like the real 5s reply.
+        return new Promise((resolve) => { pending.push(() => resolve({ late: true })); });
+      }
+      return Promise.resolve({ ok: true });
+    }
+  };
+  return {
+    id,
+    webContents: { isDestroyed: () => false, debugger: debuggerClient },
+    calls,
+    releaseSlowReplies: () => { for (const release of pending.splice(0)) release(); }
+  };
+}
+
+test('a slow mouse-move reply releases the tab slot at its queue budget', async () => {
+  const releaseLoop = keepEventLoopAlive();
+  const tab = slowMoveTab('tab-1');
+  const manager = new DebuggerLeaseManager({ getTabs: () => [tab], operationTimeoutMs: 60_000 });
+
+  const slow = manager.send('tab-1', 'native mouse input', 'Input.dispatchMouseEvent', { type: 'mouseMoved' }, { queueBudgetMs: 40 });
+  await new Promise((resolve) => setTimeout(resolve, 90));
+
+  const startedAt = Date.now();
+  const next = await manager.send('tab-1', 'next', 'Runtime.evaluate', {});
+  const elapsed = Date.now() - startedAt;
+
+  assert.deepEqual(next, { ok: true });
+  assert.ok(elapsed < 1000, `the next command must not wait for the slow reply (waited ${elapsed}ms)`);
+
+  // The late reply is still observed by the caller that owns it.
+  tab.releaseSlowReplies();
+  assert.deepEqual(await slow, { late: true });
+  releaseLoop();
+});
+
+test('without a budget a slow reply keeps its serialization slot', async () => {
+  const releaseLoop = keepEventLoopAlive();
+  const tab = slowMoveTab('tab-1');
+  const manager = new DebuggerLeaseManager({ getTabs: () => [tab], operationTimeoutMs: 60_000 });
+
+  const slow = manager.send('tab-1', 'native mouse input', 'Input.dispatchMouseEvent', { type: 'mouseMoved' });
+  await new Promise((resolve) => setTimeout(resolve, 90));
+
+  let finished = false;
+  const next = manager.send('tab-1', 'next', 'Runtime.evaluate', {}).then(() => { finished = true; });
+  await new Promise((resolve) => setTimeout(resolve, 120));
+
+  assert.equal(finished, false, 'an unbudgeted command still owns the tab, so ordering is never traded away silently');
+
+  tab.releaseSlowReplies();
+  await slow;
+  await next;
+  releaseLoop();
 });

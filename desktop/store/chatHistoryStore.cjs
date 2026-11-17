@@ -161,6 +161,18 @@ function normalize(record = {}) {
     target: clean(record.target, 500),
     observationDomain: ['browser', 'computer'].includes(record.observationDomain) ? record.observationDomain : undefined,
     status: ['running', 'paused', 'awaiting_approval', 'interrupted', 'completed', 'failed', 'cancelled'].includes(record.status) ? record.status : 'failed',
+    // Which of the three agent slots produced this conversation. The history
+    // window is tabbed per agent, so a record without a lane would land in a
+    // bucket nobody chose; older records predate lanes and belong to Agent 1.
+    agentIdentity: clean(record.agentIdentity, 40) || 'agent1',
+    // A subagent's run is saved like any other conversation, but it must be
+    // labelled with the subagent's NAME on its row and stay attached to the
+    // task that spawned it — otherwise it reads as a stray main-run entry.
+    subagentAlias: clean(record.subagentAlias, 60) || '',
+    parentRunId: clean(record.parentRunId, 120) || '',
+    // When the run stopped. `updatedAt` also moves for late bookkeeping, so
+    // the finished stamp is recorded explicitly and the UI prefers it.
+    finishedAt: Number.isFinite(Number(record.finishedAt)) ? Number(record.finishedAt) : undefined,
     eventRevision: Math.max(0, Number(record.eventRevision) || 0),
     attemptSequence: Math.max(0, Number(record.attemptSequence) || 0),
     attemptId: clean(record.attemptId, 120),

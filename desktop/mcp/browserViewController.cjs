@@ -13,6 +13,40 @@ const NAVIGATION_COMMIT_TIMEOUT_MS = 12_000;
 // segments below that ceiling prevents a long low-step drag from arriving,
 // idling, fading, and only reappearing for its release edge.
 const POINTER_DRAG_SEGMENT_MAX_MS = 300;
+// Chromium forwards a synthetic mouse move to the renderer immediately but can
+// take SECONDS to acknowledge it: this fork measured ~5.1s per move, which made
+// a single hover cost 5s and a 4-step drag 25.5s. The acknowledgement is not the
+// delivery — CDP processes commands in order on one session — so waiting for it
+// added dead time without changing where the event landed. Bound it, and release
+// the tab's serialization slot at the same budget so one slow move cannot stall
+// the next call. The reply, if it arrives late, is still observed.
+// 1.2s was still the whole cost of a hover: the reply is advisory, so the budget
+// only needs to cover a healthy acknowledgement. When it is exceeded the result
+// says `acknowledged:false` and the caller learns the truth without paying for
+// it. An unacknowledged move is still ordered ahead of every later command.
+const MOUSE_MOVE_ACK_BUDGET_MS = 250;
+// A wheel's acknowledgement is NOT proof the default scroll action ran — the
+// document's own scroll position is. Chromium can defer the wheel reply past any
+// sensible budget, so this is a short observation window; `scroll()` then polls
+// the document itself for the real answer instead of waiting on the reply.
+const MOUSE_WHEEL_ACK_BUDGET_MS = 1_200;
+// How long scroll() watches the document for the effect of its own wheel before
+// deciding the delivery was unknown.
+const SCROLL_SETTLE_POLLS = 6;
+const SCROLL_SETTLE_INTERVAL_MS = 60;
+// Chromium DISCARDS mouse and wheel input for a hidden render widget, and a
+// Browser-use window that is merely occluded — the agent's own chat window in
+// front, another app maximised over it, or a minimised window — is enough to
+// hide it. The event then lands nowhere while the call still looks successful:
+// the live measurement for this fork was 0 mousemove and 0 wheel DOM events
+// across 3 hovers and 3 scrolls on a painted tab, which is the same
+// "six foreground clicks, zero page effect" failure class as the chess run.
+// The page states its own visibility in ~13ms, so gate every pointer path on it.
+const INPUT_VISIBILITY_TTL_MS = 2_000;
+// After raising the window, how long to wait for the renderer to report visible
+// again. Occlusion recovery is fast, but it crosses a window-manager round trip.
+const INPUT_RAISE_SETTLE_MS = 700;
+const INPUT_VISIBILITY_POLL_MS = 60;
 // When a search engine interstitials a human-verification challenge, the
 // search call waits this long for a human to clear it in the visible window
 // (the agent surfaces a notice), then resumes automatically. The user's own
@@ -21,7 +55,7 @@ const CAPTCHA_HUMAN_WAIT_MS = 90_000;
 const CAPTCHA_POLL_INTERVAL_MS = 3_000;
 
 class BrowserViewController {
-  constructor({ getTabs, getSelectedTabId, getConsoleEntries, normalizeUrl, createTab = null, closeTab = null, isTabPaintable = null, ensureTabPaintable = null, deviceEmulator = null, debuggerLeaseManager = null, pointerVisualizer = null, onDeviceModeChanged = null }) {
+  constructor({ getTabs, getSelectedTabId, getConsoleEntries, normalizeUrl, createTab = null, closeTab = null, isTabPaintable = null, ensureTabPaintable = null, raiseForInput = null, selectTab = null, deviceEmulator = null, debuggerLeaseManager = null, pointerVisualizer = null, onDeviceModeChanged = null, fileDialogBridge = null }) {
     this.getTabs = getTabs;
     this.getSelectedTabId = getSelectedTabId;
     this.createTabCallback = createTab;
@@ -35,12 +69,27 @@ class BrowserViewController {
     // layout/z-order pass. The shell may reattach only that already-selected
     // view once before native input fails closed.
     this.ensureTabPaintable = ensureTabPaintable;
+    // Brings the Browser-use window back above whatever is covering it. Chromium
+    // stops delivering pointer input to an occluded view, so a pointer action
+    // taken while the user is looking at another window cannot land without
+    // this. Injected because only main owns the BrowserWindow.
+    this.raiseForInput = typeof raiseForInput === 'function' ? raiseForInput : null;
+    // Selects a tab in the shell. Binding a tab that is not on screen would
+    // otherwise bind a renderer that can never receive input.
+    this.selectTab = typeof selectTab === 'function' ? selectTab : null;
+    // Per-tab memo of the last visibility verdict, so a drag or a click does not
+    // pay a page round trip per event. Visibility does not change mid-gesture.
+    this.inputVisibility = new Map();
     // Present when device emulation is available. Under a mobile or tablet
     // profile the pointer is not an input device at all, so the mouse tools
     // refuse rather than silently sending events the page cannot receive.
     this.deviceEmulator = deviceEmulator;
     this.onDeviceModeChanged = typeof onDeviceModeChanged === 'function' ? onDeviceModeChanged : null;
     this.debuggerLeaseManager = debuggerLeaseManager;
+    // File dialog bridge: answers native Open dialogs and routes Save/downloads
+    // to a directory so the agent never has to operate the OS dialog. Injected
+    // because this module stays dependency-free (main owns the instance).
+    this.fileDialogBridge = fileDialogBridge;
     // App-owned visualization is isolated from the controlled page. The
     // visualizer may wait for a smooth arrival, but it never changes target DOM
     // and never decides which WebContents receives the native event.
@@ -117,6 +166,69 @@ class BrowserViewController {
     return summarizeTab(this.requireTab(tabId), this.getSelectedTabId?.());
   }
 
+  // ---- File dialogs (open / save / attach) -------------------------------
+  // Owner directive: the agent must be able to complete an Open or Save
+  // dialog without the OS dialog, and it must know when one is waiting.
+
+  requireFileDialogBridge() {
+    if (!this.fileDialogBridge) {
+      const error = new Error('File dialog bridge is unavailable in this build.');
+      error.code = 'FILE_DIALOG_BRIDGE_MISSING';
+      throw error;
+    }
+    return this.fileDialogBridge;
+  }
+
+  /** Arms interception for the bound tab; safe to call before triggering a picker. */
+  async fileDialogArm(tabId) {
+    const bridge = this.requireFileDialogBridge();
+    const webContents = this.requireTab(tabId).webContents;
+    const state = await bridge.attach(webContents);
+    return { tabId, ...state };
+  }
+
+  /** Reports whether a chooser is open, its mode, and recent downloads. */
+  async fileDialogState(tabId) {
+    const bridge = this.requireFileDialogBridge();
+    if (tabId) {
+      const webContents = this.requireTab(tabId).webContents;
+      await bridge.attach(webContents);
+    }
+    return { tabId: tabId || null, ...bridge.state() };
+  }
+
+  /** Answers the open dialog with real files — no OS dialog is shown. */
+  async fileDialogAccept(tabId, { files, selector = null } = {}) {
+    const bridge = this.requireFileDialogBridge();
+    const webContents = this.requireTab(tabId).webContents;
+    await bridge.attach(webContents);
+    return bridge.accept(files, { selector });
+  }
+
+  async fileDialogCancel(tabId) {
+    const bridge = this.requireFileDialogBridge();
+    const webContents = this.requireTab(tabId).webContents;
+    await bridge.attach(webContents);
+    return bridge.cancel();
+  }
+
+  /** Downloads (Save As) land in this directory instead of prompting. */
+  async downloadsSetPath(tabId, { directory } = {}) {
+    const bridge = this.requireFileDialogBridge();
+    const webContents = this.requireTab(tabId).webContents;
+    await bridge.attach(webContents);
+    return bridge.setDownloadPath(directory);
+  }
+
+  async downloadsList() {
+    return { downloads: this.requireFileDialogBridge().listDownloads() };
+  }
+
+  /** Writes agent-supplied content to disk with no dialog involved. */
+  async saveFileToDisk({ path: target, text = null, base64 = null } = {}) {
+    return this.requireFileDialogBridge().saveFile(target, { text, base64 });
+  }
+
   async screenshot(tabId) {
     const tab = this.requireTab(tabId);
     const captureViaCdp = async () => {
@@ -133,7 +245,7 @@ class BrowserViewController {
       return withTimeout(
         this.debuggerLeaseManager.send(tabId, 'background screenshot', 'Page.captureScreenshot', { format: 'png', fromSurface }),
         CAPTURE_TIMEOUT_MS,
-        'Timed out capturing the background tab. Continue with DOM observation or select the tab manually.'
+        'Timed out capturing the background tab: the browsing view is not producing frames. This is the normal signature of a minimised or fully occluded Browser-use window, or of a view detached by an open drawer. Bring the window to the front, then retry — or continue with DOM observation, which needs no frames.'
       ).then(async (result) => {
         if (!result?.data) throw new Error('Background visual capture returned no image data. Continue with DOM observation or select the tab manually.');
         const metadata = result?.metadata || {};
@@ -359,12 +471,41 @@ class BrowserViewController {
     const tab = this.requireTab(tabId);
     const payload = await this.readElements(tab, options);
     this.elementSnapshots.set(tabId, { at: Date.now(), elements: payload.elements });
+    // LORDE_OBSERVE_TEXT: the observation carried only interactive elements, so
+    // an agent that needed the page's instructions dumped 26 KB of HTML twice.
+    // A bounded text excerpt answers "what does this page say" directly.
+    //
+    // FRAME AWARENESS: the element collector below runs against ONE document, so
+    // a page that renders inside a same-origin iframe reads as an empty shell.
+    // That is not a per-site quirk — TikTok Business Suite, Stripe, Salesforce,
+    // Intercom and most embedded dashboards all do it. Live cost of missing it:
+    // reading one TikTok DM took 10 hand-written probes over 6m55s, because the
+    // first snapshot reported "Business Suite | TikTok" plus footer links and
+    // the agent had to discover the frame blind. One call now names every frame
+    // and quotes it.
+    try {
+      const overview = await this.evaluatePage(tab, 'page text', buildFrameOverviewScript(), 4_000, '');
+      if (typeof overview === 'string' && overview.trim()) payload.text = overview.trim();
+      else {
+        if (typeof overview?.text === 'string' && overview.text.trim()) payload.text = overview.text.trim();
+        // Only advertise frames that actually exist; an empty array is noise on
+        // the overwhelming majority of pages.
+        if (Array.isArray(overview?.frames) && overview.frames.length) payload.frames = overview.frames;
+      }
+    }
+    catch { /* text and frames are aids, never a reason to fail the snapshot */ }
     return payload;
   }
 
   async queryElements(tabId, options = {}) {
     const tab = this.requireTab(tabId);
-    const payload = await this.readElements(tab, options);
+    // LORDE_QUERY_TEXT_NODES: an explicit selector must return what it matched.
+    // Defaulting to interactive-only made `browser_query { selector: '#log' }`
+    // answer count: 0 on a page where that node exists and holds the evidence.
+    const hasSelector = typeof options.selector === 'string' && options.selector.trim().length > 0;
+    const payload = await this.readElements(tab, hasSelector
+      ? { ...options, interactiveOnly: false }
+      : options);
     // Query results expose element indices, so they must share the same current
     // index map that click/type resolve instead of creating a stale side channel.
     this.elementSnapshots.set(tabId, { at: Date.now(), elements: payload.elements });
@@ -378,13 +519,16 @@ class BrowserViewController {
       selector: snapshotElement.selector,
       maxElements: 1,
       interactiveOnly: false,
-      includeText: true
+      includeText: true,
+      // Re-resolve in the frame the element was found in: the selector is
+      // frame-local, so searching the top document would report it stale.
+      framePath: snapshotElement.framePath || null
     })).elements;
     if (!resolved) {
       // Dynamic pages frequently rebuild hashed/nth-child DOM between observation
       // and action. Refresh once and rematch by stable identity before declaring
       // the model's index stale; never fall back to the same numeric index.
-      const fresh = await this.readElements(tab, { maxElements: 250, interactiveOnly: true, includeText: true });
+      const fresh = await this.readElements(tab, { maxElements: 250, interactiveOnly: true, includeText: true, framePath: snapshotElement.framePath || null });
       resolved = bestElementMatch(snapshotElement, fresh.elements);
       this.elementSnapshots.set(tabId, { at: Date.now(), elements: fresh.elements });
     }
@@ -411,6 +555,21 @@ class BrowserViewController {
       if (!this.inputOperationCurrent(operation)) {
         return { tabId, index, input: 'interrupted', button: normalizeButton(button), element, pointer: { interrupted: true, reason: 'input-operation-cancelled' } };
       }
+      // A disabled control swallows the click silently, which reads to the
+      // model as success (the live run clicked a disabled Save button three
+      // times and waited for a download that could never start).
+      if (element && element.enabled === false) {
+        return {
+          tabId,
+          index,
+          input: 'none',
+          button: normalizeButton(button),
+          element,
+          ok: false,
+          recoverable: true,
+          error: `"${element.name || element.id || 'The control'}" is disabled, so the click would do nothing. Satisfy whatever enables it first (attach a file, fill the form, accept the terms), then click again.`
+        };
+      }
       const center = element.center;
       // Clicking by index stays meaningful under a device profile; only the
       // delivery changes, so the same call taps instead of pressing a button.
@@ -424,15 +583,37 @@ class BrowserViewController {
       // evidence (the live chess run repeated a dead button click six times
       // blind). Carry the hit so the model sees where the click actually
       // landed — for an element click the tag should match the target.
-      return { tabId, index, input: click.input, button: normalizeButton(button), element, ...(click.pointer ? { pointer: safePointerProjection(click.pointer) } : {}), ...(click.hit ? { hit: click.hit } : {}) };
+      return { tabId, index, input: click.input, button: normalizeButton(button), element, ...(click.pointer ? { pointer: safePointerProjection(click.pointer) } : {}), ...(click.hit ? { hit: click.hit } : {}), ...this.fileChooserHint() };
     } finally {
       this.finishInputOperation(operation);
     }
   }
 
+  /**
+   * LORDE_FILE_DIALOG_HINT: a click that opens a native picker must say so in
+   * its own reply. Without this the model went hunting through desktop windows
+   * (computer_observe, Alt+F4) while a chooser was already waiting on the tab.
+   */
+  fileChooserHint() {
+    const pending = this.fileDialogBridge?.pending;
+    if (!pending) return {};
+    return {
+      fileChooser: { pending: true, mode: pending.mode, multiple: pending.multiple, backendNodeId: pending.backendNodeId },
+      nextAction: `A native file chooser just opened (${pending.mode}). Answer it with browser_file_dialog_accept { files: [absolute paths] } — do not use computer_* or look for an OS window.`
+    };
+  }
+
   async clickAt(tabId, { x, y, button = 'left' } = {}, sessionId, inputOperation = null) {
     const ownsOperation = !inputOperation;
     const operation = inputOperation || this.inputOperationToken(sessionId, tabId);
+    // Every click route below either rides CDP mouse input or sendInputEvent,
+    // and Chromium discards both for a hidden renderer. Prove the view can
+    // receive input before animating, dispatching, or reporting a hit.
+    // The gate is only awaited when it is active: yielding an extra microtask
+    // here would reorder a click behind a newer pointer action issued in the
+    // same tick.
+    const pendingGate = this.mouseInputGate(tabId);
+    const inputGate = pendingGate ? await pendingGate : {};
     const priorPointer = this.lastPointer.get(tabId);
     // Board games treat a click on the already-clicked point as a DESELECT:
     // the live chess run repeated the same square three and four times because
@@ -456,6 +637,7 @@ class BrowserViewController {
           tabId, x, y, input: 'mouse', button: normalizedButton,
           ...(repeatPoint ? { repeatPoint: true } : {}),
           ...(native ? { delivered: native.delivered, delivery: 'native' } : {}),
+          ...inputGate,
           hit: native?.hit || null
         };
       }
@@ -469,7 +651,7 @@ class BrowserViewController {
           { method: 'Input.dispatchMouseEvent', params: { type: 'mouseReleased', x, y, button: normalizedButton, buttons: 0, clickCount: 1 } }
         ]);
         const hit = await this.hitTest(tabId, { x, y }).catch(() => ({ hit: null, reason: 'hit-test-unavailable' }));
-        return { tabId, x, y, input: 'cdp-background', button: normalizedButton, pointer: { mode: 'cdp-native-input', x, y, pageMutation: false }, batched: true, hit };
+        return { tabId, x, y, input: 'cdp-background', button: normalizedButton, pointer: { mode: 'cdp-native-input', x, y, pageMutation: false }, batched: true, ...inputGate, hit };
       }
       const moved = await this.mouseMove(tabId, { x, y }, { operation, sessionId });
       if (!this.inputOperationCurrent(operation) || inputDeliveryFailed(moved)) return { tabId, x, y, input: 'interrupted', button: normalizeButton(button), pointer: safePointerProjection(moved.pointer) };
@@ -493,6 +675,7 @@ class BrowserViewController {
         // visualizer's own gate stayed invisible.
         ...(moved?.pointer?.reason ? { visualReason: String(moved.pointer.reason).slice(0, 80) } : {}),
         ...(enforced.delivered === null ? {} : { delivered: enforced.delivered, delivery: enforced.delivery }),
+        ...inputGate,
         hit
       };
     } finally {
@@ -702,7 +885,7 @@ class BrowserViewController {
     return this.navigationState(tabId);
   }
 
-  mouseMove(tabId, { x, y }, { waitForPointer = true, pointerDurationMs, operation = null, sessionId } = {}) {
+  mouseMove(tabId, { x, y }, { waitForPointer = true, pointerDurationMs, operation = null, sessionId, buttons } = {}) {
     assertCoordinates(x, y);
     this.assertPointerAllowed(tabId, 'browser_mousemove');
     const ownsOperation = !operation;
@@ -711,7 +894,15 @@ class BrowserViewController {
     // sendInputEvent route inferred it. Without it, a move during a press
     // claims no button is held and the page never enters drag mode - drags
     // simply did nothing (the live drag failure).
-    const heldMask = this.heldButtonMask(sessionId, tabId);
+    // A pinned operation is an in-flight drag: the left button is held for the
+    // whole drag even if the held-button tracking was cleared mid-flight, so
+    // every move must carry buttons=1 or the page never enters drag mode.
+    // An explicit mask wins. The drag's own approach move happens BEFORE its
+    // press, so it must report buttons=0 even though the operation is pinned;
+    // the pinned override below exists only for the moves after the press.
+    const heldMask = Number.isFinite(buttons)
+      ? buttons
+      : (this.heldButtonMask(sessionId, tabId) | (operation?.pinned ? 1 : 0));
     const moveEvent = { type: 'mouseMoved', x, y, buttons: heldMask };
     return this.runInputOperation(activeOperation, ownsOperation, () => {
       if (!this.inputOperationCurrent(activeOperation)) {
@@ -856,10 +1047,12 @@ class BrowserViewController {
           // Releases are edge events and must never be dropped. If their requested
           // movement was superseded, release at the newest committed native point
           // instead of moving back to the stale coordinate.
-          const releasePoint = pointerCannotProceed(visualResult, {
+          // A pinned drag owns its release point: the drop must land exactly at
+          // the requested (x, y), never at a stale lastPointer fallback.
+          const releasePoint = (operation?.pinned || !pointerCannotProceed(visualResult, {
             required: visualRequired,
             waitForArrival: true
-          }) ? (this.lastPointer.get(tabId) || { x, y }) : { x, y };
+          })) ? { x, y } : (this.lastPointer.get(tabId) || { x, y });
           this.lastPointer.set(tabId, releasePoint);
           // Native release is the safety edge. Only forget the held state after
           // dispatch succeeds; click feedback is best-effort and cannot block it.
@@ -896,6 +1089,78 @@ class BrowserViewController {
         return deliverRelease();
       });
     });
+  }
+
+  // Does the page believe Chromium will deliver pointer input to it?
+  // `document.visibilityState` is the renderer's own answer, costs one
+  // Runtime.evaluate (~13ms measured), and needs no frames — so it is readable
+  // in exactly the state where painting has already stopped.
+  async rendererVisible(tabId) {
+    let tab;
+    try { tab = this.requireTab(tabId); } catch { return null; }
+    try {
+      const value = await this.evaluatePage(tab, 'renderer visibility', '(() => document.visibilityState)()', 1_500,
+        'Timed out reading the page visibility state.');
+      if (value === 'visible') return true;
+      if (value === 'hidden') return false;
+      return null;
+    } catch {
+      // An unreadable page must not block input: proceed and let the real
+      // dispatch report its own failure.
+      return null;
+    }
+  }
+
+  async awaitRendererVisible(tabId, budgetMs) {
+    const deadline = Date.now() + Math.max(0, Number(budgetMs) || 0);
+    for (;;) {
+      const visible = await this.rendererVisible(tabId);
+      if (visible !== false) return visible;
+      if (Date.now() >= deadline) return false;
+      await new Promise((resolve) => setTimeout(resolve, INPUT_VISIBILITY_POLL_MS));
+    }
+  }
+
+  // Every pointer path funnels through here before dispatching. Returns the
+  // extra result fields the caller must surface, or throws with the real reason.
+  // A hidden renderer is NOT a retryable condition the caller can wait out: it
+  // needs a window change, so the message has to name that.
+  // Synchronous fast path. Without the shell hook there is nothing to check, and
+  // callers must keep their original synchronous dispatch: making an unchanged
+  // mouse move asynchronous would reorder it behind the caller's next statement.
+  mouseInputGate(tabId) {
+    if (!this.raiseForInput) return null;
+    return this.ensureMouseInputLands(tabId);
+  }
+
+  async ensureMouseInputLands(tabId) {
+    // Only the shell can change what a hidden renderer sees (raise the window,
+    // select the tab). Without that hook there is nothing to try and no way to
+    // verify the cure, so the check would only add a page round trip to every
+    // pointer event. Unit harnesses construct the controller without it.
+    if (!this.raiseForInput) return {};
+    const cached = this.inputVisibility.get(tabId);
+    if (cached && Date.now() - cached.at < INPUT_VISIBILITY_TTL_MS) {
+      if (cached.error) throw new Error(cached.error);
+      return cached.raised ? { raisedWindow: true } : {};
+    }
+    const selected = this.getSelectedTabId() === tabId;
+    let visible = await this.rendererVisible(tabId);
+    let raised = false;
+    if (visible === false && selected && this.raiseForInput) {
+      try { raised = this.raiseForInput(tabId) !== false; } catch { raised = false; }
+      if (raised) visible = await this.awaitRendererVisible(tabId, INPUT_RAISE_SETTLE_MS);
+    }
+    if (visible === false) {
+      const message = selected
+        ? 'The bound tab\'s renderer is hidden (document.visibilityState=hidden), and Chromium discards mouse and wheel input for a hidden view — the event would land nowhere. This happens when the Browser-use window is minimised or fully covered by another window. Bring the Browser-use window to the front, then retry; DOM reads and browser_execute still work in this state.'
+        : 'The bound tab is not the selected tab, so its renderer is hidden and Chromium discards mouse and wheel input for it. Bind a tab that is on screen (browser_bind_tab selects it) before using pointer tools.';
+      this.inputVisibility.set(tabId, { at: Date.now(), error: message });
+      throw new Error(message);
+    }
+    const verdict = { at: Date.now(), visible: visible !== false, raised };
+    this.inputVisibility.set(tabId, verdict);
+    return raised ? { raisedWindow: true } : {};
   }
 
   prepareNativeInput(tabId) {
@@ -944,8 +1209,28 @@ class BrowserViewController {
     // A failed delivery (for example DevTools holding the debugger) fails
     // loudly with its real error instead of landing silently nowhere.
     if (kind === 'mouse') {
-      return this.dispatchCdp(tabId, 'native mouse input', 'Input.dispatchMouseEvent', event)
-        .then(() => ({ tabId, input: 'cdp' }));
+      // A move is the one mouse event whose acknowledgement Chromium can delay
+      // for seconds. Press and release are edge events and their reply is cheap,
+      // so they keep the plain awaited path.
+      const deliver = () => (event.type === 'mouseMoved'
+        ? this.dispatchMouseBounded(tabId, 'native mouse input', event, MOUSE_MOVE_ACK_BUDGET_MS)
+          .then((meta) => ({
+            tabId,
+            input: 'cdp',
+            // Keep the success shape stable: only an unacknowledged move says so.
+            ...(meta.acknowledged === false
+              ? {
+                  acknowledged: false,
+                  ...(meta.ackDeferred ? { ackDeferred: true } : {}),
+                  ...(meta.ackError ? { ackError: meta.ackError } : {})
+                }
+              : {})
+          }))
+        : this.dispatchCdp(tabId, 'native mouse input', 'Input.dispatchMouseEvent', event)
+          .then(() => ({ tabId, input: 'cdp' })));
+      const gate = this.mouseInputGate(tabId);
+      if (!gate) return deliver();
+      return gate.then((extra) => Promise.resolve(deliver()).then((result) => ({ ...result, ...extra })));
     }
     if (this.getSelectedTabId() === tabId && !forceBackground) {
       if (kind === 'text') {
@@ -966,10 +1251,20 @@ class BrowserViewController {
     return dispatch.then(() => ({ tabId, input: 'cdp-background' }));
   }
 
-  dispatchCdp(tabId, purpose, method, params) {
-    if (this.debuggerLeaseManager) return this.debuggerLeaseManager.send(tabId, purpose, method, params);
+  dispatchCdp(tabId, purpose, method, params, options = {}) {
+    if (this.debuggerLeaseManager) return this.debuggerLeaseManager.send(tabId, purpose, method, params, options);
     const webContents = this.requireTab(tabId).webContents;
     return withDebugger(webContents, purpose, (debuggerClient) => debuggerClient.sendCommand(method, params));
+  }
+
+  // Dispatch one mouse event without letting a late acknowledgement become
+  // dead time. Ordering is preserved by the CDP session itself, so the event is
+  // still delivered before anything sent after it.
+  dispatchMouseBounded(tabId, purpose, event, budgetMs) {
+    const issued = Promise.resolve(this.dispatchCdp(tabId, purpose, 'Input.dispatchMouseEvent', event, { queueBudgetMs: budgetMs }))
+      .then(() => ({ acknowledged: true }))
+      .catch((error) => ({ acknowledged: false, ackError: String(error?.message || error).slice(0, 160) }));
+    return withBudget(issued, budgetMs, { acknowledged: false, ackDeferred: true });
   }
 
   // Run-scoped debugger pinning: without a pin, EVERY CDP command pays an
@@ -1009,10 +1304,77 @@ class BrowserViewController {
     return payload.viewport;
   }
 
-  async drag(tabId, { startX, startY, endX, endY, steps = 10, durationMs = 300 } = {}, sessionId) {
-    assertCoordinates(startX, startY);
-    assertCoordinates(endX, endY);
+  // Cheap scroll-position read used for polling. scrollEvidence() builds a DOM
+  // snapshot, which is far too heavy to call repeatedly while waiting for a
+  // wheel to land.
+  async scrollPosition(tab) {
+    try {
+      const view = await this.evaluatePage(
+        tab,
+        'scroll position',
+        '(() => ({ scrollX: window.scrollX, scrollY: window.scrollY }))()',
+        2_000,
+        'Timed out reading the scroll position.'
+      );
+      if (view && Number.isFinite(Number(view.scrollY))) {
+        return { scrollX: Number(view.scrollX) || 0, scrollY: Number(view.scrollY) || 0 };
+      }
+    } catch { /* fall through to the DOM read */ }
+    return null;
+  }
+
+  // Watch the DOCUMENT for the effect of a wheel instead of trusting its
+  // acknowledgement. A painted page moves within a frame or two, so this settles
+  // in well under 100ms; an unpainted one never moves, and the caller gets the
+  // honest answer instead of a six-second wait followed by a claim of success.
+  async settleScroll(tab, before) {
+    // One bounded viewport read is the contract for a normal scroll; the extra
+    // polling below only runs when that read shows the wheel changed nothing.
+    let after = await this.scrollEvidence(tab);
+    if (!before || !after) return after;
+    for (let attempt = 0; attempt < SCROLL_SETTLE_POLLS; attempt += 1) {
+      if (before.scrollX !== after.scrollX || before.scrollY !== after.scrollY) break;
+      await new Promise((resolve) => setTimeout(resolve, SCROLL_SETTLE_INTERVAL_MS));
+      const next = await this.scrollPosition(tab);
+      if (next) after = next;
+    }
+    return after;
+  }
+
+  async drag(tabId, { startX, startY, endX, endY, fromElement, toElement, steps = 10, durationMs = 300 } = {}, sessionId) {
+    // ELEMENT-FIRST DRAG: the element form is the PREFERRED contract, so it
+    // has to work for EVERY caller - the MCP bridge included. It resolves both
+    // DOM indices to the exact centers the browser laid out, so the drag
+    // carries no pixel arithmetic and no offset. The agent path resolves the
+    // same indices from the observation the model actually saw; here the page
+    // is re-read, so a stale index is reported instead of silently dragging
+    // somewhere else.
+    const fromIndex = coerceDragIndex(fromElement);
+    const toIndex = coerceDragIndex(toElement);
+    const elementForm = fromIndex !== undefined || toIndex !== undefined;
+    if (elementForm && (fromIndex === undefined || toIndex === undefined)) {
+      throw new Error('browser_drag needs BOTH fromElement and toElement, or a complete (startX, startY) to (endX, endY) coordinate pair.');
+    }
+    if (!elementForm) {
+      assertCoordinates(startX, startY);
+      assertCoordinates(endX, endY);
+    }
     this.assertPointerAllowed(tabId, 'browser_drag');
+    if (elementForm) {
+      const [from, to] = await Promise.all([
+        this.elementRect(tabId, { index: fromIndex }),
+        this.elementRect(tabId, { index: toIndex })
+      ]);
+      if (!from?.center || !to?.center) {
+        throw new Error('The drag source or destination has no resolvable center; observe the page again before dragging.');
+      }
+      startX = Math.round(from.center.x);
+      startY = Math.round(from.center.y);
+      endX = Math.round(to.center.x);
+      endY = Math.round(to.center.y);
+      assertCoordinates(startX, startY);
+      assertCoordinates(endX, endY);
+    }
 
     // Keep the drag bounded so it cannot outlive the MCP request deadline or hold
     // the process open indefinitely.
@@ -1024,17 +1386,31 @@ class BrowserViewController {
     const delay = Math.max(5, Math.floor(clampedDurationMs / stepCount));
 
     const operation = this.inputOperationToken(sessionId, tabId);
+    // A drag owns the pointer for its whole duration: pin the operation so a
+    // mid-drag pointer-surface invalidation or a stray supersession cannot
+    // cancel it and leave the drop without its intermediate moves.
+    operation.pinned = true;
     try {
-      const initialMove = await this.mouseMove(tabId, { x: startX, y: startY }, { operation, sessionId });
-      if (inputWasInterrupted(initialMove)) return { tabId, startX, startY, endX, endY, input: 'interrupted', pointer: initialMove.pointer };
+      // No button is held at the approach point. Pass the REAL held mask so a
+      // caller that already holds a button keeps it, while a normal drag's
+      // pre-press move honestly reports buttons=0 instead of entering drag mode
+      // before the press has been dispatched.
+      const initialMove = await this.mouseMove(tabId, { x: startX, y: startY }, { operation, sessionId, buttons: this.heldButtonMask(sessionId, tabId) });
+      // The drag owns the pointer: abort only on an explicit cancellation
+      // (active === false). Generation drift from the drag's own sub-calls
+      // must not self-cancel the drag.
+      if (operation.active === false) return { tabId, startX, startY, endX, endY, input: 'interrupted', pointer: initialMove?.pointer || { interrupted: true, reason: 'input-operation-cancelled' } };
       const down = await this.mouseDown(tabId, { x: startX, y: startY, button: 'left' }, sessionId, operation);
-      if (inputWasInterrupted(down)) return { tabId, startX, startY, endX, endY, input: 'interrupted', pointer: down.pointer };
+      if (operation.active === false) return { tabId, startX, startY, endX, endY, input: 'interrupted', pointer: down?.pointer || { interrupted: true, reason: 'input-operation-cancelled' } };
       let pressed = true;
       let interrupted = null;
 
       try {
         for (let i = 1; i <= stepCount; i++) {
-          if (!this.inputOperationCurrent(operation)) {
+          // The drag owns the pointer for its whole duration. Abort only on an
+          // explicit cancellation (active === false); generation-counter drift
+          // from the drag's own sub-calls must not self-cancel the drag.
+          if (operation.active === false) {
             interrupted = { tabId, input: 'interrupted', pointer: { interrupted: true, reason: 'input-operation-cancelled' } };
             break;
           }
@@ -1050,10 +1426,14 @@ class BrowserViewController {
             operation,
             sessionId
           });
-          if (inputWasInterrupted(movement)) {
-            interrupted = movement;
+          if (operation.active === false) {
+            interrupted = { tabId, input: 'interrupted', pointer: movement?.pointer || { interrupted: true, reason: 'input-operation-cancelled' } };
             break;
           }
+          // Wait out the rest of this segment while staying wakeable: a plain
+          // sleep would keep dragging for up to a full segment after the
+          // session was cancelled or a newer pointer action took the pointer,
+          // and the next step would then paint a stale target.
           const remainingDelay = delay - (Date.now() - stepStartedAt);
           if (remainingDelay > 0 && !(await this.waitForInputOperationDelay(remainingDelay, operation))) {
             interrupted = { tabId, input: 'interrupted', pointer: { interrupted: true, reason: 'input-operation-cancelled' } };
@@ -1062,11 +1442,21 @@ class BrowserViewController {
         }
       } finally {
         if (pressed) {
-          if (this.isHeld(sessionId, tabId, 'buttons', 'left')) {
-            const releaseOperation = interrupted ? { ...operation, global: -1 } : operation;
-            await this.mouseUp(tabId, { x: endX, y: endY, button: 'left' }, sessionId, releaseOperation);
-          }
           pressed = false;
+          // A drag's release is an edge event and must never be dropped. Dispatch
+          // it directly at the requested drop point: routing through mouseUp lets
+          // a superseded visual move fall back to the stale grab coordinate, and
+          // the page then registers the drop at the token's start position.
+          // Cancellation is the one exception: session cleanup has already
+          // released the button, and a second mouseup is a duplicate edge the
+          // page can read as a separate release.
+          if (this.isHeld(sessionId, tabId, 'buttons', 'left')) {
+            const prepared = this.prepareNativeInput(tabId);
+            const releaseEvent = { type: 'mouseReleased', x: endX, y: endY, button: 'left', buttons: 0, clickCount: 1 };
+            await Promise.resolve(this.dispatchInput(tabId, prepared.tab.webContents, releaseEvent, 'mouse', prepared.forceBackground)).catch(() => {});
+            this.lastPointer.set(tabId, { x: endX, y: endY });
+          }
+          this.forgetHeld(sessionId, tabId, 'buttons', 'left');
         }
       }
 
@@ -1092,27 +1482,57 @@ class BrowserViewController {
     try {
       const prepared = this.prepareNativeInput(tabId);
       const tab = prepared.tab;
+      // A wheel is discarded outright by a hidden renderer, so prove the view can
+      // receive it BEFORE paying for evidence reads. This is what turns a 1.7s
+      // "the wheel was never acknowledged" into a ~15ms answer that names the
+      // real cause (an occluded or minimised window).
+      const pendingGate = this.mouseInputGate(tabId);
+      const inputGate = pendingGate ? await pendingGate : {};
       const before = await this.scrollEvidence(tab);
       if (!this.inputOperationCurrent(operation)) return { tabId, deltaX, deltaY, input: 'interrupted', pointer: { interrupted: true, reason: 'input-operation-cancelled' } };
       const origin = this.wheelOrigin(tabId, before, { x, y });
       const visualRequired = Boolean(this.pointerVisualizer) && this.getSelectedTabId() === tabId && this.isTabPaintable?.(tabId) !== false;
-      const pointer = await this.pointerVisualizer?.move?.(tabId, origin, { waitForArrival: true, operationId: operation.pointerAction });
+      // Only pay for the cursor animation when the cursor is actually required.
+      // This used to await the visualizer unconditionally and then ignore its
+      // verdict when visualRequired was false — paying a full pointer timeout on
+      // exactly the tabs where the visual was known to be unusable, which is
+      // what pushed a background scroll past its ceiling.
+      const pointer = visualRequired
+        ? await this.pointerVisualizer?.move?.(tabId, origin, { waitForArrival: true, operationId: operation.pointerAction })
+        : null;
       if (!this.inputOperationCurrent(operation)) return { tabId, deltaX, deltaY, input: 'interrupted', origin, pointer };
       if (pointerCannotProceed(pointer, {
         required: visualRequired,
         waitForArrival: true
       })) {
         // The wheel must scroll even when the cursor visual cannot proceed.
-        await this.dispatchCdp(tabId, 'background wheel input', 'Input.dispatchMouseEvent', { type: 'mouseWheel', ...origin, deltaX, deltaY });
-        return { tabId, deltaX, deltaY, origin, pointer: { ...safePointerProjection(pointer), deliveryFallback: true } };
+        const fallbackWheel = await this.dispatchMouseBounded(tabId, 'background wheel input', { type: 'mouseWheel', ...origin, deltaX, deltaY }, MOUSE_WHEEL_ACK_BUDGET_MS);
+        // This branch used to return without any before/after evidence, so a wheel
+        // that reached nothing still looked like a completed scroll.
+        const fallbackAfter = await this.settleScroll(tab, before);
+        assertScrollDelivered({ before, after: fallbackAfter, wheel: fallbackWheel, deltaX, deltaY });
+        return {
+          tabId,
+          deltaX,
+          deltaY,
+          input: 'mouse',
+          origin,
+          before: { scrollX: before.scrollX, scrollY: before.scrollY },
+          after: { scrollX: fallbackAfter.scrollX, scrollY: fallbackAfter.scrollY },
+          moved: before.scrollX !== fallbackAfter.scrollX || before.scrollY !== fallbackAfter.scrollY,
+          wheel: fallbackWheel,
+          ...inputGate,
+          pointer: { ...safePointerProjection(pointer), deliveryFallback: true }
+        };
       }
       this.lastPointer.set(tabId, origin);
       this.pointerVisualizer?.activity?.(tabId, origin, { operationId: operation.pointerAction });
-      await this.dispatchCdp(tabId, 'background wheel input', 'Input.dispatchMouseEvent', { type: 'mouseWheel', ...origin, deltaX, deltaY });
-      // Give Chromium one event-loop turn to apply the default wheel action before
-      // reporting whether this native event actually moved the document.
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      const after = await this.scrollEvidence(tab);
+      const wheel = await this.dispatchMouseBounded(tabId, 'background wheel input', { type: 'mouseWheel', ...origin, deltaX, deltaY }, MOUSE_WHEEL_ACK_BUDGET_MS);
+      // The wheel reply is not the proof; the document's own position is. Poll it
+      // instead of paying a multi-second acknowledgement wait.
+      const after = await this.settleScroll(tab, before);
+      // Never report a completed scroll for a wheel nobody acknowledged.
+      assertScrollDelivered({ before, after, wheel, deltaX, deltaY });
       return {
         tabId,
         deltaX,
@@ -1122,6 +1542,8 @@ class BrowserViewController {
         before: { scrollX: before.scrollX, scrollY: before.scrollY },
         after: { scrollX: after.scrollX, scrollY: after.scrollY },
         moved: before.scrollX !== after.scrollX || before.scrollY !== after.scrollY,
+        ...inputGate,
+        ...(wheel && wheel.acknowledged === false ? { wheel } : {}),
         ...(pointer ? { pointer } : {})
       };
     } finally {
@@ -1134,9 +1556,13 @@ class BrowserViewController {
     if (!['press', 'down', 'up'].includes(action)) throw new Error('Key action must be press, down, or up');
     const prepared = this.prepareNativeInput(tabId);
     const webContents = prepared.tab.webContents;
+    // Carry the virtual key code and DOM `code`, not just the label. Without them
+    // the page gets a keydown with key:"" and no default action — ArrowDown never
+    // scrolls, Enter never submits, Tab never moves focus.
+    const described = describeKey(key);
     const events = action === 'press'
-      ? [{ type: 'keyDown', key }, { type: 'keyUp', key }]
-      : [{ type: action === 'down' ? 'keyDown' : 'keyUp', key }];
+      ? [cdpKeyParams(described, 'keyDown'), cdpKeyParams(described, 'keyUp')]
+      : [cdpKeyParams(described, action === 'down' ? 'keyDown' : 'keyUp')];
     if (action === 'down') this.trackHeld(sessionId, tabId, 'keys', key);
     else this.forgetHeld(sessionId, tabId, 'keys', key);
     const background = this.getSelectedTabId() !== tabId || prepared.forceBackground;
@@ -1193,6 +1619,31 @@ class BrowserViewController {
     };
   }
 
+  // LORDE_FILL_FORM_V1 — fill many controls in one tool call. Each field write
+  // would otherwise cost its own model round trip, and the round trip is where
+  // the latency lives, not the DOM write. fillElement already verifies every
+  // control, so one batch call yields one verification block instead of N
+  // interleaved snapshot-verify cycles. A bad index is reported, never fatal.
+  async fillForm(tabId, { fields } = {}) {
+    if (!Array.isArray(fields) || !fields.length) throw new Error('browser_fill_form needs a non-empty fields array.');
+    if (fields.length > 40) throw new Error('browser_fill_form accepts at most 40 fields per call.');
+    const results = [];
+    for (const field of fields) {
+      const index = Number(field && field.index);
+      if (!Number.isFinite(index)) {
+        results.push({ index: field && field.index !== undefined ? field.index : null, ok: false, changed: false, reason: 'Field index is not a number.' });
+        continue;
+      }
+      try {
+        results.push(await this.fillElement(tabId, { index, text: String(field && field.text !== undefined ? field.text : '') }));
+      } catch (error) {
+        results.push({ index, ok: false, changed: false, reason: String(error && error.message ? error.message : error).slice(0, 300) });
+      }
+    }
+    const filled = results.filter(item => item.ok === true).length;
+    return { tabId, requested: fields.length, filled, failed: fields.length - filled, fields: results };
+  }
+
   // Idempotent: safe to call for an unknown owner, a closed tab, or twice.
   releaseSessionInput(sessionId) {
     const owner = inputOwner(sessionId);
@@ -1209,7 +1660,7 @@ class BrowserViewController {
       this.beginReleasedButtonCleanup(owner, held.tabId, button, webContents, held.buttonRoutes?.get(button));
     }
     for (const key of keys) {
-      trySendInputEvent(webContents, { type: 'keyUp', keyCode: key });
+      trySendInputEvent(webContents, { type: 'keyUp', keyCode: describeKey(key).electron || key });
     }
     const anotherButtonRemainsHeld = [...this.heldInput.values()].some((candidate) => candidate.tabId === held.tabId && candidate.buttons.size > 0);
     if (buttons.length > 0 && !anotherButtonRemainsHeld) {
@@ -1225,6 +1676,14 @@ class BrowserViewController {
     // Our own preparation reports a surface change too; cancelling here would
     // drop the press of the click that triggered the preparation.
     if (!this.suppressPointerInvalidation) this.cancelActivePointerOperations({ tabId, reason });
+    // A pinned drag owns the pointer for its whole duration. A surface
+    // invalidation mid-drag must NOT dispatch a cleanup release at the stale
+    // grab point — the page consumes it as the drop ("missed the slots").
+    // The drag's own finally block releases at the real end coordinate.
+    const pinnedDrag = this.activePointerOperations.get(tabId);
+    if (pinnedDrag?.pinned && pinnedDrag.active !== false) {
+      return { released: false, tabId, reason, owners: [] };
+    }
     const webContents = this.findLiveWebContents(tabId);
     const released = [];
     for (const [owner, held] of [...this.heldInput]) {
@@ -1313,6 +1772,12 @@ class BrowserViewController {
 
   cancelInputOperation(operation, reason) {
     if (!operation?.active) return false;
+    // Pinned operations (an in-flight drag) survive surface invalidation and
+    // supersession; only an explicit session/tab/global input release cancels.
+    if (operation.pinned
+      && reason !== 'session-input-released'
+      && reason !== 'tab-input-released'
+      && reason !== 'all-input-released') return false;
     operation.active = false;
     if (this.activePointerOperations.get(operation.tabId) === operation) {
       this.activePointerOperations.delete(operation.tabId);
@@ -1525,10 +1990,37 @@ class BrowserViewController {
     const anchor = options.anchor && Number.isFinite(options.anchor.x) && Number.isFinite(options.anchor.y)
       ? { x: Math.round(options.anchor.x), y: Math.round(options.anchor.y) }
       : null;
-    const payload = await this.evaluatePage(tab, 'DOM snapshot', buildElementCollectorScript({ interactiveOnly, includeText, maxElements, selector, text, anchor }), 8_000,
+    // A frame path addresses a same-origin iframe reported by browser_dom_snapshot
+    // (e.g. [0]). Reading inside it is what turns "this page is an empty shell"
+    // into a usable snapshot on frame-based apps.
+    const framePath = Array.isArray(options.framePath) && options.framePath.length
+      ? options.framePath.map((value) => Number(value)).filter((value) => Number.isInteger(value) && value >= 0)
+      : null;
+    const payload = await this.evaluatePage(tab, 'DOM snapshot', buildElementCollectorScript({ interactiveOnly, includeText, maxElements, selector, text, anchor, framePath: framePath && framePath.length ? framePath : null }), 8_000,
       'Timed out reading the bound tab structure. If the Browser-use window is still starting up, wait a moment and retry.');
+    // Frame reads return frame-local rects. Lift them once, here, so every
+    // consumer — indexed click, element_rect, screenshots — shares one coordinate
+    // space: top-document CSS pixels.
+    const offset = framePath && payload?.frameOffset && (payload.frameOffset.x || payload.frameOffset.y) ? payload.frameOffset : null;
+    if (offset) {
+      const lift = (entry) => {
+        if (!entry) return;
+        if (entry.rect) entry.rect = { ...entry.rect, x: entry.rect.x + offset.x, y: entry.rect.y + offset.y };
+        if (entry.center) entry.center = { x: entry.center.x + offset.x, y: entry.center.y + offset.y };
+        entry.framePath = framePath;
+      };
+      for (const key of ['elements', 'visualTargets', 'regions', 'landmarks']) {
+        if (Array.isArray(payload[key])) payload[key].forEach(lift);
+      }
+    }
     const result = { tabId: tab.id, ...payload };
-    if (result.viewport?.width > 0 && result.viewport?.height > 0) this.lastViewport.set(tab.id, result.viewport);
+    delete result.frameOffset;
+    if (framePath) {
+      // The tab's viewport belongs to the top document; a frame read reports the
+      // frame's box and must not replace it.
+      const topViewport = this.lastViewport.get(tab.id);
+      if (topViewport) result.viewport = { ...topViewport };
+    } else if (result.viewport?.width > 0 && result.viewport?.height > 0) this.lastViewport.set(tab.id, result.viewport);
     return result;
   }
 
@@ -1813,6 +2305,98 @@ function cdpMouseToElectronEvent(event) {
   };
 }
 
+// A key event needs a virtual key code to produce a DEFAULT ACTION. `key` alone
+// only labels the event: the page sees keydown, but ArrowDown never scrolls,
+// Enter never submits and Tab never moves focus, because the browser resolves
+// default actions from the key code. The live measurement for this fork was a
+// keydown arriving with key:"" and scrollY unchanged, on both the Electron and
+// the CDP route. Electron's sendInputEvent is worse still: it wants its own
+// accelerator names ("Down", "Return"), so passing "ArrowDown" produced an
+// event with no key at all.
+const NAMED_KEYS = {
+  Enter: { vk: 13, code: 'Enter', electron: 'Return', text: '\r' },
+  Tab: { vk: 9, code: 'Tab', electron: 'Tab' },
+  Escape: { vk: 27, code: 'Escape', electron: 'Escape' },
+  Backspace: { vk: 8, code: 'Backspace', electron: 'Backspace' },
+  Delete: { vk: 46, code: 'Delete', electron: 'Delete' },
+  Insert: { vk: 45, code: 'Insert', electron: 'Insert' },
+  Home: { vk: 36, code: 'Home', electron: 'Home' },
+  End: { vk: 35, code: 'End', electron: 'End' },
+  PageUp: { vk: 33, code: 'PageUp', electron: 'PageUp' },
+  PageDown: { vk: 34, code: 'PageDown', electron: 'PageDown' },
+  ArrowLeft: { vk: 37, code: 'ArrowLeft', electron: 'Left' },
+  ArrowUp: { vk: 38, code: 'ArrowUp', electron: 'Up' },
+  ArrowRight: { vk: 39, code: 'ArrowRight', electron: 'Right' },
+  ArrowDown: { vk: 40, code: 'ArrowDown', electron: 'Down' },
+  ' ': { vk: 32, code: 'Space', electron: 'Space', text: ' ' },
+  Shift: { vk: 16, code: 'ShiftLeft', electron: 'Shift' },
+  Control: { vk: 17, code: 'ControlLeft', electron: 'Control' },
+  Alt: { vk: 18, code: 'AltLeft', electron: 'Alt' },
+  Meta: { vk: 91, code: 'MetaLeft', electron: 'Meta' },
+  CapsLock: { vk: 20, code: 'CapsLock', electron: 'CapsLock' },
+  NumLock: { vk: 144, code: 'NumLock', electron: 'NumLock' },
+  ScrollLock: { vk: 145, code: 'ScrollLock', electron: 'ScrollLock' },
+  Pause: { vk: 19, code: 'Pause', electron: 'Pause' },
+  PrintScreen: { vk: 44, code: 'PrintScreen', electron: 'PrintScreen' },
+  ContextMenu: { vk: 93, code: 'ContextMenu', electron: 'ContextMenu' }
+};
+
+// Names a model actually types, mapped onto the DOM key value above.
+const KEY_ALIASES = {
+  return: 'Enter', esc: 'Escape', spacebar: ' ', space: ' ',
+  up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight',
+  arrowup: 'ArrowUp', arrowdown: 'ArrowDown', arrowleft: 'ArrowLeft', arrowright: 'ArrowRight',
+  del: 'Delete', ins: 'Insert', pgup: 'PageUp', pgdn: 'PageDown', pageup: 'PageUp', pagedown: 'PageDown',
+  ctrl: 'Control', control: 'Control', shift: 'Shift', alt: 'Alt', option: 'Alt',
+  cmd: 'Meta', command: 'Meta', win: 'Meta', super: 'Meta', meta: 'Meta',
+  enter: 'Enter', tab: 'Tab', backspace: 'Backspace', insert: 'Insert',
+  home: 'Home', end: 'End', capslock: 'CapsLock', numlock: 'NumLock',
+  scrolllock: 'ScrollLock', pause: 'Pause', printscreen: 'PrintScreen', menu: 'ContextMenu'
+};
+
+const PUNCTUATION_CODES = {
+  '!': 'Digit1', '@': 'Digit2', '#': 'Digit3', '$': 'Digit4', '%': 'Digit5',
+  '^': 'Digit6', '&': 'Digit7', '*': 'Digit8', '(': 'Digit9', ')': 'Digit0',
+  '-': 'Minus', _: 'Minus', '=': 'Equal', '+': 'Equal',
+  '[': 'BracketLeft', '{': 'BracketLeft', ']': 'BracketRight', '}': 'BracketRight',
+  '\\': 'Backslash', '|': 'Backslash', ';': 'Semicolon', ':': 'Semicolon',
+  "'": 'Quote', '"': 'Quote', ',': 'Comma', '<': 'Comma', '.': 'Period', '>': 'Period',
+  '/': 'Slash', '?': 'Slash', '`': 'Backquote', '~': 'Backquote'
+};
+
+// One description per key, used by BOTH delivery routes so they can never drift.
+function describeKey(rawKey) {
+  const key = String(rawKey ?? '');
+  const normalized = KEY_ALIASES[key.toLowerCase()] || key;
+  const named = NAMED_KEYS[normalized];
+  if (named) return { key: normalized, ...named };
+  if (/^f([1-9]|1\d|2[0-4])$/i.test(normalized)) {
+    const index = Number(normalized.slice(1));
+    return { key: `F${index}`, code: `F${index}`, vk: 111 + index, electron: `F${index}` };
+  }
+  if (key.length === 1) {
+    const upper = key.toUpperCase();
+    const isLetter = /^[a-z]$/i.test(key);
+    const isDigit = /^[0-9]$/.test(key);
+    const code = isLetter ? `Key${upper}` : isDigit ? `Digit${key}` : (PUNCTUATION_CODES[key] || '');
+    return { key, code, vk: upper.charCodeAt(0), electron: upper, text: key };
+  }
+  // Unknown key: keep the historical behaviour rather than inventing a code.
+  return { key, code: '', vk: 0, electron: key };
+}
+
+// CDP params for one key edge. `text` is what actually inserts a character, and
+// it belongs only on the down edge.
+function cdpKeyParams(described, type) {
+  return {
+    type,
+    key: described.key,
+    ...(described.code ? { code: described.code } : {}),
+    ...(described.vk ? { windowsVirtualKeyCode: described.vk, nativeVirtualKeyCode: described.vk } : {}),
+    ...(described.text && type === 'keyDown' ? { text: described.text, unmodifiedText: described.text } : {})
+  };
+}
+
 function cdpKeyToElectronEvent(event) {
   const bitmask = Number(event.modifiers) || 0;
   const modifiers = [];
@@ -1822,7 +2406,7 @@ function cdpKeyToElectronEvent(event) {
   if (bitmask & 1) modifiers.push('shift');
   return {
     type: event.type,
-    keyCode: event.code === 'KeyA' ? 'A' : event.key,
+    keyCode: describeKey(event.key).electron || event.key,
     ...(modifiers.length ? { modifiers } : {})
   };
 }
@@ -1841,6 +2425,45 @@ function finalizeMaybePromise(value, finalizer) {
   if (value && typeof value.then === 'function') return value.finally(finalizer);
   finalizer();
   return value;
+}
+
+// Resolve with the real value when it arrives inside the budget, otherwise with
+// a copy of `fallback`. The losing promise is always consumed, so a late
+// rejection can never surface as an unhandled rejection.
+function withBudget(promise, budgetMs, fallback) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish({ ...fallback }), Math.max(1, Number(budgetMs) || 1));
+    if (typeof timer.unref === 'function') timer.unref();
+    Promise.resolve(promise).then(finish, () => finish({ ...fallback }));
+  });
+}
+
+// A wheel that was never acknowledged AND a document that did not move is an
+// UNKNOWN delivery, not a successful scroll. Returning a success envelope there
+// is the same class of lie as reporting `dispatched: true` for a click the page
+// never received: the caller moves on believing the viewport advanced, and the
+// next observation silently disagrees with the model's own plan. Fail loudly and
+// say what the page actually shows.
+function assertScrollDelivered({ before, after, wheel, deltaX, deltaY }) {
+  if (!before || !after) return false;
+  if ((Number(deltaX) || 0) === 0 && (Number(deltaY) || 0) === 0) return false;
+  const moved = before.scrollX !== after.scrollX || before.scrollY !== after.scrollY;
+  if (moved) return true;
+  if (wheel?.acknowledged !== false) return false;
+  throw new Error(
+    `The wheel event was never acknowledged and the document did not scroll `
+    + `(scrollX=${after.scrollX}, scrollY=${after.scrollY} unchanged after deltaY=${Number(deltaY) || 0}). `
+    + 'The browsing view is most likely not painted or not visible, so the wheel never reached the '
+    + 'renderer. Confirm the Browser-use window is not minimised or fully hidden behind another window, '
+    + 'or scroll from the page itself with browser_execute window.scrollTo().'
+  );
 }
 
 function ignoreVisualFailure(action) {
@@ -1925,6 +2548,22 @@ function trySendInputEvent(webContents, event) {
 
 function assertCoordinates(x, y) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error('Pointer coordinates must be finite numbers');
+}
+
+// A DOM index may arrive as a number or as its string form (models and MCP
+// clients disagree on the encoding). Anything else is not an index.
+function coerceDragIndex(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parsed = Number(value);
+  if (Number.isInteger(parsed) && parsed >= 0) return parsed;
+  if (typeof value === 'string') {
+    const match = value.match(/(?:index=)?(\d+)/);
+    if (match) {
+      const fromString = Number(match[1]);
+      if (Number.isInteger(fromString) && fromString >= 0) return fromString;
+    }
+  }
+  return undefined;
 }
 
 // DuckDuckGo result links are redirects: //duckduckgo.com/l/?uddg=<encoded>&rut=...
@@ -2204,11 +2843,104 @@ function selectElementsByAnchor(elements, cap, anchor) {
     .sort((a, b) => a.index - b.index);
 }
 
-function buildElementCollectorScript({ interactiveOnly, includeText, maxElements, selector, text, anchor }) {
-  const key = JSON.stringify([Boolean(interactiveOnly), Boolean(includeText), Number(maxElements), selector || null, text || null, anchor || null]);
+// FRAME OVERVIEW: answers "what is on this page" for pages whose content lives
+// inside iframes. The element collector is document-scoped by construction, so
+// without this a frame-based app reports as an empty shell and the agent has to
+// reverse-engineer `frame.contentDocument` by hand — which is exactly what cost
+// 10 probes and 6m55s on the TikTok inbox read.
+//
+// Two things make the report actionable rather than decorative:
+//  - `offset` is the frame's content origin in TOP-document CSS pixels, so a
+//    coordinate measured inside the frame can be clicked directly.
+//  - `path` is the iframe index chain ([] → [0] → [0,2]), which is stable for a
+//    page load and is how a caller re-enters the same frame later.
+// Cross-origin frames are reported as `crossOrigin: true` with no text: the
+// agent needs to know a frame is there and opaque, not to be told it is empty.
+function buildFrameOverviewScript({ maxText = 2_000, perFrameText = 1_200, maxDepth = 3, maxFrames = 8 } = {}) {
+  return `(() => {
+    const clampText = (raw, limit) => String(raw || '').replace(/[ \\t]+/g, ' ').replace(/\\n{3,}/g, '\\n\\n').trim().slice(0, limit);
+    const MAX_TEXT = ${JSON.stringify(maxText)};
+    const PER_FRAME_TEXT = ${JSON.stringify(perFrameText)};
+    const MAX_DEPTH = ${JSON.stringify(maxDepth)};
+    const MAX_FRAMES = ${JSON.stringify(maxFrames)};
+    const frames = [];
+    const walk = (doc, path, depth, base) => {
+      if (depth >= MAX_DEPTH || frames.length >= MAX_FRAMES) return;
+      let list = [];
+      try { list = Array.from(doc.querySelectorAll('iframe,frame')); } catch { return; }
+      for (let i = 0; i < list.length; i += 1) {
+        if (frames.length >= MAX_FRAMES) return;
+        const el = list[i];
+        const childPath = path.concat(i);
+        let rect = null;
+        try { rect = el.getBoundingClientRect(); } catch { rect = null; }
+        // The content viewport starts inside the frame's border, not at the
+        // border box edge; clientLeft/clientTop is that inset.
+        const offset = rect
+          ? { x: Math.round(base.x + rect.left + (Number(el.clientLeft) || 0)), y: Math.round(base.y + rect.top + (Number(el.clientTop) || 0)) }
+          : null;
+        let src = '';
+        try { src = String(el.getAttribute('src') || ''); } catch { src = ''; }
+        let childDoc = null;
+        try { childDoc = el.contentDocument; } catch { childDoc = null; }
+        const size = rect ? { w: Math.round(rect.width), h: Math.round(rect.height) } : null;
+        if (!childDoc) {
+          frames.push({ path: childPath, src: src.slice(0, 200), crossOrigin: true, offset, size, text: '' });
+          continue;
+        }
+        let text = '';
+        try { text = clampText(childDoc.body ? childDoc.body.innerText : '', PER_FRAME_TEXT); } catch { text = ''; }
+        let viewport = null;
+        try { viewport = { w: childDoc.documentElement.clientWidth, h: childDoc.documentElement.clientHeight }; } catch { viewport = null; }
+        frames.push({ path: childPath, src: src.slice(0, 200), crossOrigin: false, offset, size, viewport, text });
+        if (offset) { try { walk(childDoc, childPath, depth + 1, offset); } catch { /* one bad frame never fails the report */ } }
+      }
+    };
+    walk(document, [], 0, { x: 0, y: 0 });
+    return { text: clampText(document.body ? document.body.innerText : '', MAX_TEXT), frames };
+  })()`;
+}
+
+function buildElementCollectorScript({ interactiveOnly, includeText, maxElements, selector, text, anchor, framePath }) {
+  const frame = Array.isArray(framePath) && framePath.length ? framePath.map(Number) : null;
+  const key = JSON.stringify([Boolean(interactiveOnly), Boolean(includeText), Number(maxElements), selector || null, text || null, anchor || null, frame]);
   const cached = elementCollectorScriptCache.get(key);
   if (cached) return cached;
   const script = `(() => {
+    // FRAME SCOPE — an iframe is a separate JavaScript realm, so a collector that
+    // hard-codes the top \`document\` cannot see inside it, and one that keeps the
+    // top realm's constructors silently fails every \`instanceof HTMLElement\`
+    // check on frame nodes. Both are rebound here to the frame reached through
+    // the reported path. Rects stay frame-local; the caller adds \`frameOffset\`
+    // so every coordinate it returns is in top-document CSS pixels and therefore
+    // directly clickable.
+    const __topUrl = location.href;
+    const __topTitle = document.title;
+    const __topReady = document.readyState;
+    const __framePath = ${JSON.stringify(frame)};
+    let __doc = document;
+    let __win = window;
+    let __frameOffset = { x: 0, y: 0 };
+    if (__framePath) {
+      for (const __index of __framePath) {
+        let __el = null;
+        try { __el = __doc.querySelectorAll('iframe,frame')[__index] || null; } catch { __el = null; }
+        let __child = null;
+        try { __child = __el ? __el.contentDocument : null; } catch { __child = null; }
+        if (!__child) break;
+        try {
+          const __rect = __el.getBoundingClientRect();
+          __frameOffset = { x: __frameOffset.x + __rect.left + (Number(__el.clientLeft) || 0), y: __frameOffset.y + __rect.top + (Number(__el.clientTop) || 0) };
+        } catch { /* geometry is advisory; never abort the read */ }
+        __doc = __child;
+        __win = __el.contentWindow || __child.defaultView || __win;
+      }
+    }
+    // The collector body below is unchanged: it receives the frame's realm as
+    // PARAMETERS. Parameters shadow the globals cleanly, whereas a const
+    // declaration of document/window would put every earlier read in the
+    // temporal dead zone — which is exactly how the first version of this failed.
+    const __run = (document, window, location, getComputedStyle, Node, HTMLElement, HTMLAnchorElement, CSS) => {
     // Arm the click probe at OBSERVATION time: the hit test also installs it,
     // but that runs AFTER a click, so the first click of a run would have no
     // delivery evidence. Same shape as the hit-test probe (window.__bdsClickProbe).
@@ -2362,7 +3094,12 @@ function buildElementCollectorScript({ interactiveOnly, includeText, maxElements
       if (seen.has(element)) continue;
       seen.add(element);
       if (interactiveOnly && !interactive(element)) continue;
-      if (!cheapMatches(element)) continue;
+      // A cheap ATTRIBUTE miss is not a TEXT miss. Rejecting here meant the text
+      // filter only ever matched elements whose text also appeared in an
+      // attribute, so content search returned nothing on ordinary pages —
+      // measured on the TikTok inbox, where { text: 'Cottiny' } returned 0 rows
+      // that plainly contain it. The full check below still decides.
+      if (filterText && !cheapMatches(element) && !String(element.textContent || '').toLowerCase().includes(filterText)) continue;
       const style = getComputedStyle(element);
       const rect = element.getBoundingClientRect();
       if (hidden(element, style, rect)) continue;
@@ -2534,21 +3271,26 @@ function buildElementCollectorScript({ interactiveOnly, includeText, maxElements
       .filter((landmark) => landmark.text || landmark.label)
       .slice(0, 20);
     return {
-      url: location.href,
-      title: document.title,
-      readyState: document.readyState,
+      url: __topUrl,
+      title: __topTitle,
+      readyState: __topReady,
       viewport,
+      // Top-document pixel offset of the frame that was read, so the caller can
+      // lift frame-local rects into clickable page coordinates.
+      frameOffset: __frameOffset,
       elements: finalElements,
       visualTargets,
       regions,
       landmarks,
       truncated: finalElements.length >= cap
     };
+    };
+    return __run(__doc, __win, __win.location, __win.getComputedStyle.bind(__win), __win.Node, __win.HTMLElement, __win.HTMLAnchorElement, __win.CSS);
   })();`;
   elementCollectorScriptCache.set(key, script);
   if (elementCollectorScriptCache.size > 32) elementCollectorScriptCache.delete(elementCollectorScriptCache.keys().next().value);
   return script;
 }
 
-module.exports = { BrowserViewController, summarizeTab, ANONYMOUS_INPUT_OWNER, decodeDuckDuckGoHref, selectElementsByAnchor };
+module.exports = { BrowserViewController, summarizeTab, ANONYMOUS_INPUT_OWNER, decodeDuckDuckGoHref, selectElementsByAnchor, assertCoordinates };
 

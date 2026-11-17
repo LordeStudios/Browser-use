@@ -76,10 +76,48 @@ class DesktopCapture {
     const height = Math.max(1, Math.round(width * display.bounds.height / display.bounds.width));
     const source = await this.source(display, { width, height });
     if (source.thumbnail.isEmpty()) throw new Error('Desktop capture returned an empty image.');
-    const size = source.thumbnail.getSize(), bytes = source.thumbnail.toPNG();
+    let thumbnail = source.thumbnail;
+    let size = thumbnail.getSize();
+    // The display mapping is fixed by the capture itself; a crop only shifts
+    // the origin and shrinks the image, so scale stays valid for both.
+    const scaleX = display.bounds.width / size.width, scaleY = display.bounds.height / size.height;
+    let origin = { x: display.bounds.x, y: display.bounds.y };
+    if (input.windowBounds) {
+      const crop = this.cropToWindow(thumbnail, size, display, scaleX, scaleY, input.windowBounds);
+      thumbnail = crop.thumbnail;
+      size = crop.size;
+      origin = crop.origin;
+    }
+    const bytes = thumbnail.toPNG();
     return { mimeType: 'image/png', data: bytes.toString('base64'), imageHash: crypto.createHash('sha256').update(bytes).digest('hex'), source: 'native-desktop', displayId: display.id,
-      width: size.width, height: size.height, coordinateSpace: 'physical-desktop-pixels', origin: { x: display.bounds.x, y: display.bounds.y },
-      scaleX: display.bounds.width / size.width, scaleY: display.bounds.height / size.height, capturedAt: Date.now() };
+      width: size.width, height: size.height, coordinateSpace: 'physical-desktop-pixels', origin,
+      // A crop resamples nothing, so the desktop-per-pixel ratio survives it.
+      scaleX, scaleY,
+      capturedAt: Date.now(),
+      ...(input.windowBounds ? { window: { title: input.windowTitle || null, bounds: input.windowBounds } } : {}) };
+  }
+
+  // Crops a display capture to a window rectangle given in desktop pixels. The
+  // rectangle is converted into image pixels with the SAME scale the capture
+  // reported, then clamped to the image: a window that hangs off the display
+  // (maximised windows routinely start at -9,-9) yields the visible part rather
+  // than an out-of-bounds crop. The returned origin is the desktop coordinate of
+  // the crop's top-left pixel, so origin + pixel*scale stays exact.
+  cropToWindow(thumbnail, size, display, scaleX, scaleY, bounds) {
+    const left = Math.round((bounds.x - display.bounds.x) / scaleX);
+    const top = Math.round((bounds.y - display.bounds.y) / scaleY);
+    const x = Math.max(0, Math.min(size.width - 1, left));
+    const y = Math.max(0, Math.min(size.height - 1, top));
+    const wantedWidth = Math.max(1, Math.round(bounds.width / scaleX));
+    const wantedHeight = Math.max(1, Math.round(bounds.height / scaleY));
+    const cropWidth = Math.max(1, Math.min(size.width - x, wantedWidth));
+    const cropHeight = Math.max(1, Math.min(size.height - y, wantedHeight));
+    const cropped = thumbnail.crop({ x, y, width: cropWidth, height: cropHeight });
+    return {
+      thumbnail: cropped,
+      size: cropped.getSize(),
+      origin: { x: Math.round(display.bounds.x + x * scaleX), y: Math.round(display.bounds.y + y * scaleY) }
+    };
   }
 
   requireSender(event, id) {

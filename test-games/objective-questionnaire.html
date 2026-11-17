@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Objective Questionnaire — 40 questions, 30s each</title>
+<style>
+  :root {
+    --bg: #0a1018;
+    --panel: #111a27;
+    --line: #223146;
+    --text: #e7eefb;
+    --muted: #92a3b9;
+    --accent: #7ad7ff;
+    --good: #43e08a;
+    --bad: #ff6a6a;
+    --idle: #7387a0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--text);
+    background: radial-gradient(1100px 560px at 50% -12%, #16263c 0%, var(--bg) 62%);
+    font: 14px/1.45 ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+    display: flex; justify-content: center; padding: 24px 18px 36px;
+  }
+  main { width: min(980px, 100%); }
+  h1 { margin: 0 0 4px; font-size: 20px; }
+  .sub { margin: 0 0 16px; color: var(--muted); font-size: 12.5px; }
+  .hud { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .stat { flex: 1 1 128px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 9px 13px; }
+  .stat b { display: block; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .stat span { font-size: 19px; font-variant-numeric: tabular-nums; }
+  #state[data-state="ready"] { color: var(--idle); }
+  #state[data-state="running"] { color: var(--accent); }
+  #state[data-state="pass"] { color: var(--good); }
+  #state[data-state="fail"] { color: var(--bad); }
+  #clock[data-warn="true"] { color: var(--bad); }
+  #clock[data-warn="false"] { color: var(--accent); }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px 18px; margin-bottom: 14px; min-height: 190px;
+  }
+  .qtopic { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .qtext { font-size: 16.5px; line-height: 1.55; margin-bottom: 14px; }
+  .options { display: grid; gap: 9px; }
+  .objective {
+    display: flex; gap: 12px; align-items: baseline; text-align: left; width: 100%;
+    padding: 11px 14px; border-radius: 10px; border: 1px solid #2c4058;
+    background: #16233a; color: var(--text); font-size: 14px; line-height: 1.4; cursor: pointer;
+    transition: border-color .12s ease, background .12s ease;
+  }
+  .objective:hover { border-color: var(--accent); }
+  .objective.picked { border-color: var(--accent); background: #142a44; box-shadow: 0 0 0 1px var(--accent) inset; }
+  .objective .key { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  .nav { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .nav button {
+    border: 1px solid var(--line); background: #16213a; color: var(--text);
+    border-radius: 10px; padding: 10px 18px; font-weight: 600; cursor: pointer; font-size: 13.5px;
+  }
+  .nav button:disabled { opacity: .38; cursor: default; }
+  .nav button.primary { background: #1a3552; border-color: #2f6ea8; }
+  .nav button.danger { background: #2a1620; border-color: #7a2f42; color: #ffd9d9; }
+  .nav button:hover:not(:disabled) { border-color: var(--accent); }
+  #intro p { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 0 0 14px; }
+  #start {
+    border: 1px solid #2f6ea8; background: #1a3552; color: var(--text);
+    border-radius: 10px; padding: 12px 22px; font-weight: 700; cursor: pointer; font-size: 14px;
+  }
+  #start:hover { border-color: var(--accent); }
+  .foot { display: flex; gap: 14px; align-items: flex-start; margin-top: 4px; }
+  .log {
+    flex: 1 1 auto; max-height: 170px; overflow: auto; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #c6d5ea;
+  }
+  .log .ok { color: var(--good); }
+  .log .no { color: var(--bad); }
+  #reset { flex: 0 0 auto; border: 1px solid var(--line); background: #16213a; color: var(--text); border-radius: 10px; padding: 10px 16px; font-weight: 600; cursor: pointer; }
+  #result { margin-top: 10px; font-size: 13px; color: var(--muted); min-height: 18px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Objective Questionnaire</h1>
+  <p class="sub">Every start draws <b>40 questions</b> fresh from a <b>200-question</b> pool, shuffled at random. Each question carries <b>up to 4 objectives</b>: select the correct one, then press <b>Next</b> (or <b>Finish</b> on the last). <b>Previous</b> goes back and lets you change your mind. The moment a question is displayed its own <b>30s</b> window opens; if it is exhausted before <b>Next</b> (or <b>Finish</b>), the run FAILS and must be retried with freshly shuffled questions. Correctness is scored at <b>Finish</b> — no hints during the run. The clock is wall-clock based: researching in another tab does NOT pause it.</p>
+
+  <div class="hud">
+    <div class="stat"><b>State</b><span id="state" data-state="ready">READY</span></div>
+    <div class="stat"><b>Question</b><span id="progress">—</span></div>
+    <div class="stat"><b>Time left</b><span id="clock" data-warn="false">30.00s</span></div>
+    <div class="stat"><b>Answered</b><span id="answered">0 / 40</span></div>
+    <div class="stat"><b>Selected</b><span id="selected">—</span></div>
+    <div class="stat"><b>Longest pause</b><span id="gap">—</span></div>
+  </div>
+
+  <section id="intro" class="panel">
+    <p>Press <b>Start questionnaire</b> to draw 40 shuffled questions. From that moment every question is on a 30 second clock. Do your thinking and your research in parallel — this page keeps counting and stays exactly where it is until you act on it.</p>
+    <button id="start" type="button">Start questionnaire</button>
+    <span id="poolsize" class="qtopic"></span>
+  </section>
+
+  <section id="panel" class="panel" hidden>
+    <div class="qtopic" id="topic"></div>
+    <div class="qtext" id="qtext"></div>
+    <div class="options" id="options"></div>
+  </section>
+
+  <div class="nav">
+    <button id="previous" type="button" disabled>Previous</button>
+    <button id="next" type="button" class="primary" disabled>Next</button>
+    <button id="finish" type="button" class="primary" disabled>Finish</button>
+    <button id="retry" type="button" class="danger" hidden>Retry — reshuffled 40</button>
+    <button id="reset" type="button">Reset</button>
+  </div>
+
+  <div class="foot">
+    <div class="log" id="log" aria-live="polite"></div>
+  </div>
+  <div id="result"></div>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const RUN_SIZE = 40;          // questions per run, drawn from the pool
+  const QUESTION_MS = 30_000;   // each displayed question owns one 30s window
+  const TICK_MS = 100;          // the ticker only paints; decisions use timestamps
+  const THINK_GAP_MS = 15_000;  // an information-only marker for long parallel pauses
+  // ?plain=1 = an UNLABELED page (no role, no tabindex, no aria-label), i.e.
+  // what the real web looks like. The harness must find the objectives from
+  // their text alone; the labeled default is only a convenience.
+  const PLAIN = new URLSearchParams(location.search).has('plain');
+
+  // ── THE POOL — 200 real questions, each with up to 4 objectives ─────────
+  // Every entry is objectively checkable, and most require either a
+  // derivation or two facts held at once: the point is that the reader has to
+  // actually WORK on each one, in parallel with whatever else it is doing.
+  const q = (text, choices, answer, topic) => ({ q: text, c: choices, a: answer, t: topic });
+  const POOL = [
+    // ── arithmetic & number theory ──────────────────────────────────────
+    q('17 × 23 = ?', ['381', '391', '397', '361'], 1, 'arithmetic'),
+    q('47 × 53 = ?', ['2441', '2591', '2491', '2481'], 2, 'arithmetic'),
+    q('√1764 = ?', ['41', '43', '44', '42'], 3, 'arithmetic'),
+    q('2^15 = ?', ['32768', '16384', '65536', '32766'], 0, 'arithmetic'),
+    q('log₂(4096) = ?', ['10', '12', '11', '13'], 1, 'arithmetic'),
+    q('The sum of the integers 1 through 100 is:', ['5000', '5151', '5050', '4950'], 2, 'arithmetic'),
+    q('The 20th triangular number (1+2+…+20) is:', ['190', '200', '210', '220'], 2, 'arithmetic'),
+    q('7! ÷ 5! = ?', ['56', '42', '21', '14'], 1, 'arithmetic'),
+    q('GCD(1071, 462) = ?', ['7', '33', '21', '11'], 2, 'arithmetic'),
+    q('LCM(12, 18) = ?', ['36', '72', '54', '24'], 0, 'arithmetic'),
+    q('How many prime numbers are below 50?', ['14', '15', '16', '12'], 1, 'number theory'),
+    q('The 15th Fibonacci number (F₁ = F₂ = 1) is:', ['377', '610', '987', '233'], 1, 'number theory'),
+    q('In IEEE-754 double precision, 0.1 + 0.2 evaluates to:', ['exactly 0.3', 'slightly less than 0.3', 'slightly more than 0.3', 'a value that cannot be printed'], 2, 'computer arithmetic'),
+    q('The next prime after 17 is:', ['19', '21', '23', '18'], 0, 'number theory'),
+    q('72 has how many positive divisors?', ['10', '8', '12', '16'], 2, 'number theory'),
+    q('45 in binary is:', ['101011', '101101', '110011', '100111'], 1, 'computer arithmetic'),
+    q('The sum of the first 10 odd numbers is:', ['90', '110', '100', '81'], 2, 'number theory'),
+    q('The units digit of 7^2023 is:', ['7', '9', '1', '3'], 3, 'number theory'),
+    q('1/2 + 1/3 + 1/6 = ?', ['1', '5/6', '7/6', '11/12'], 0, 'arithmetic'),
+    q('How many three-digit numbers are divisible by 9?', ['99', '100', '101', '111'], 1, 'number theory'),
+    q('(2^10)² = ?', ['1048576', '2048', '524288', '2097152'], 0, 'arithmetic'),
+    q('12.5% of 640 = ?', ['64', '80', '76', '84'], 1, 'arithmetic'),
+    q('If 3x + 7 = 25, then x = ?', ['6', '5', '7', '9'], 0, 'algebra'),
+    q('The next prime after 89 is:', ['91', '93', '97', '99'], 2, 'number theory'),
+    q('How many bits are needed to address 4 GB of memory, byte by byte?', ['30', '32', '34', '36'], 1, 'computer arithmetic'),
+    // ── algebra & geometry ──────────────────────────────────────────────
+    q('The roots of x² − 5x + 6 = 0 are:', ['1 and 6', '2 and 3', '−2 and −3', '3 and 4'], 1, 'algebra'),
+    q('The slope of the line through (1, 2) and (4, 11) is:', ['2', '3', '4', '1/3'], 1, 'algebra'),
+    q('A triangle has sides 13, 14 and 15. Its area is:', ['84', '78', '91', '90'], 0, 'geometry'),
+    q('A decagon (10-sided polygon) has how many diagonals?', ['35', '40', '45', '30'], 0, 'geometry'),
+    q('Using π ≈ 22/7, the circumference of a circle of radius 7 is:', ['44', '22', '88', '49'], 0, 'geometry'),
+    q('A cube has a surface area of 150. Its volume is:', ['125', '150', '216', '100'], 0, 'geometry'),
+    q('f(x) = 3x² − 12x + 7 reaches its minimum at x = ?', ['2', '4', '−2', '12'], 0, 'algebra'),
+    q('sin(30°) = ?', ['0.5', '√2/2', '√3/2', '1'], 0, 'geometry'),
+    q('The distance between (0, 0) and (6, 8) is:', ['10', '12', '14', '48'], 0, 'geometry'),
+    q('Each interior angle of a regular octagon measures:', ['120°', '135°', '140°', '150°'], 1, 'geometry'),
+    q('y varies inversely with x. If y = 6 when x = 4, then y at x = 8 is:', ['12', '3', '2', '8'], 1, 'algebra'),
+    q('The discriminant of 2x² + 3x − 5 = 0 is:', ['29', '31', '49', '−31'], 2, 'algebra'),
+    q('The sum of the first 9 odd numbers is:', ['72', '81', '90', '99'], 1, 'number theory'),
+    q('A cylinder has radius 3 and height 5. Its volume is:', ['15π', '45π', '75π', '90π'], 1, 'geometry'),
+    q('The x-intercept of 3x + 4y = 12 is at x = ?', ['3', '4', '12', '6'], 1, 'algebra'),
+    q('The midpoint of (−2, 5) and (6, −1) is:', ['(2, 2)', '(2, 3)', '(4, 4)', '(−4, 6)'], 0, 'geometry'),
+    q('tan(45°) = ?', ['0', '1', '√3/3', '√3'], 1, 'geometry'),
+    q('A circle has circumference 12π. Its area is:', ['6π', '12π', '36π', '144π'], 2, 'geometry'),
+    // ── probability & combinatorics ─────────────────────────────────────
+    q('Two fair coins are tossed. The probability of exactly one head is:', ['1/4', '1/2', '2/3', '3/4'], 1, 'probability'),
+    q('Three fair coins are tossed. The probability of exactly two heads is:', ['1/4', '3/8', '1/2', '5/8'], 1, 'probability'),
+    q('Five distinct books can be arranged on a shelf in how many ways?', ['60', '100', '120', '240'], 2, 'combinatorics'),
+    q('C(10, 3) — choosing 3 of 10 — equals:', ['720', '120', '240', '30'], 1, 'combinatorics'),
+    q('Two fair dice are rolled. The probability the sum is 7 is:', ['1/6', '1/9', '1/12', '7/36'], 0, 'probability'),
+    q('The probability of drawing an ace from a standard 52-card deck is:', ['1/52', '1/26', '1/13', '4/13'], 2, 'probability'),
+    q('C(8, 2) equals:', ['16', '28', '56', '64'], 1, 'combinatorics'),
+    q('Two fair coins are tossed. The probability of at least one head is:', ['1/2', '2/3', '3/4', '7/8'], 2, 'probability'),
+    q('A pentagon has how many diagonals?', ['5', '6', '8', '10'], 0, 'combinatorics'),
+    q('A fair die is rolled twice. The probability both rolls are even is:', ['1/4', '1/3', '1/2', '1/6'], 0, 'probability'),
+    q('Twelve people each shake hands once with every other person. How many handshakes?', ['66', '78', '132', '144'], 0, 'combinatorics'),
+    q('The letters of LEVEL can be arranged in how many distinct ways?', ['60', '120', '30', '20'], 2, 'combinatorics'),
+    q('Drawing one card from a standard deck, the probability it is a king or a queen is:', ['1/13', '2/13', '4/13', '1/6'], 1, 'probability'),
+    q('The expected value of one roll of a fair six-sided die is:', ['3', '3.5', '3.25', '4'], 1, 'probability'),
+    q('Two fair dice are rolled. The probability the sum is at least 10 is:', ['1/12', '1/9', '1/6', '5/36'], 2, 'probability'),
+    // ── computer science & networks ─────────────────────────────────────
+    q('The worst-case time complexity of binary search on a sorted array is:', ['O(n)', 'O(log n)', 'O(n log n)', 'O(1)'], 1, 'algorithms'),
+    q('The worst-case time complexity of quicksort is:', ['O(n log n)', 'O(n²)', 'O(n)', 'O(log n)'], 1, 'algorithms'),
+    q('Which of these sorting algorithms is stable?', ['quicksort', 'heapsort', 'merge sort', 'selection sort'], 2, 'algorithms'),
+    q('A SHA-256 digest is how many bits long?', ['128', '160', '256', '512'], 2, 'security'),
+    q('The default port for HTTPS is:', ['80', '443', '8080', '22'], 1, 'networks'),
+    q('HTTP status 301 means:', ['temporary redirect', 'permanent redirect', 'not found', 'server error'], 1, 'networks'),
+    q('An IPv6 address is how many bits long?', ['32', '64', '96', '128'], 3, 'networks'),
+    q('Base64 encoding maps:', ['4 bytes into 3 characters', '3 bytes into 4 characters', '2 bytes into 3 characters', '3 bytes into 2 characters'], 1, 'computer arithmetic'),
+    q("Dijkstra's algorithm with a binary heap runs in:", ['O(V²) always', 'O(E log V) only', 'O((V + E) log V)', 'O(V + E)'], 2, 'algorithms'),
+    q('The UTF-8 encoding of "€" (U+20AC) is:', ['1 byte', '2 bytes', '3 bytes', '4 bytes'], 2, 'computer arithmetic'),
+    q('Which delivery guarantee does TCP provide?', ['ordered, reliable delivery', 'unordered best-effort delivery', 'no congestion control', 'connectionless delivery'], 0, 'networks'),
+    q('Stateless HTTP tracks a logged-in user by means of:', ['the TCP connection', 'cookies or session tokens', 'the HTTP method', 'the URL port'], 1, 'networks'),
+    q('In git, `git reset --soft HEAD~1` does what?', ['deletes the changes', 'keeps the changes staged', 'keeps the changes unstaged', 'reverts the working tree'], 1, 'tooling'),
+    q('The average-case lookup in a well-behaved hash table is:', ['O(log n)', 'O(1)', 'O(n)', 'O(n log n)'], 1, 'algorithms'),
+    q('Depth-first search is naturally implemented with a:', ['queue', 'stack', 'heap', 'priority queue'], 1, 'algorithms'),
+    q('Cross-site request forgery (CSRF) is mitigated by:', ['CORS headers', 'per-session request tokens', 'HTTPS alone', 'hashing passwords'], 1, 'security'),
+    q('Under the CAP theorem, during a network partition a distributed store must give up:', ['consistency or availability', 'latency or throughput', 'durability or speed', 'security or compression'], 0, 'distributed systems'),
+    q('An n-element set has how many subsets?', ['n²', '2^n', 'n!', 'n(n+1)/2'], 1, 'combinatorics'),
+    q('Building a heap from n unsorted items can be done in:', ['O(n log n) only', 'O(n)', 'O(log n)', 'O(n²)'], 1, 'algorithms'),
+    q('An IPv4 /24 network contains how many addresses in total (including network and broadcast)?', ['128', '254', '256', '512'], 2, 'networks'),
+    q('In ACID, the "D" stands for:', ['Distribution', 'Durability', 'Determinism', 'Deduplication'], 1, 'databases'),
+    q('Which SQL fragment removes duplicate rows from a result?', ['SELECT UNIQUE ROWS', 'SELECT DISTINCT', 'GROUP BY ALL', 'LIMIT 1'], 1, 'databases'),
+    q('Which of these is a symmetric cipher?', ['RSA', 'AES', 'ECDSA', 'DSA'], 1, 'security'),
+    q('A race condition requires:', ['two physical CPUs', 'shared mutable state accessed concurrently without synchronization', 'a network connection', 'an infinite loop'], 1, 'concurrency'),
+    q('HTTP status 401 means:', ['forbidden forever', 'unauthenticated', 'unauthenticated is 403', 'identical to 403'], 1, 'networks'),
+    q('Counting sort runs in:', ['O(n log n)', 'O(n + k)', 'O(n²)', 'O(k log n)'], 1, 'algorithms'),
+    q('A B-tree keeps a high fanout per node mainly to:', ['increase disk reads', 'make the tree shallower so fewer disk reads are needed', 'improve compression', 'simplify the code'], 1, 'databases'),
+    q('Which HTTP method is idempotent by specification?', ['POST', 'PUT', 'CONNECT', 'PATCH'], 1, 'networks'),
+    q('Which of these is NOT a valid JSON value type?', ['null', 'array', 'function', 'number'], 2, 'formats'),
+    q('Binary-searching a sorted array of 1,000,000 items needs about:', ['20 comparisons', '100 comparisons', '1,000 comparisons', '500 comparisons'], 0, 'algorithms'),
+    q('A tracing garbage collector reclaims objects that are:', ['recently allocated', 'unreachable from the roots', 'the oldest in the heap', 'the largest in the heap'], 1, 'runtime'),
+    q('DNS primarily resolves:', ['IP addresses into names', 'domain names into IP addresses', 'ports into services', 'URLs into file paths'], 1, 'networks'),
+    q('A relative URL (no scheme, no host) is resolved against:', ['always the domain root', 'the current document\'s URL', 'the server\'s filesystem layout', 'a browser default'], 1, 'networks'),
+    q('TLS provides:', ['encryption only', 'encryption and integrity only', 'encryption, integrity and server authentication', 'compression'], 2, 'security'),
+    q('Big-O notation drops constant factors because:', ['constants are always slow', 'the growth rate dominates as n grows', 'it reads better', 'hardware compensates for them'], 1, 'algorithms'),
+    q('The halting problem is:', ['decidable by simulation', 'undecidable in general', 'NP-hard but decidable', 'undecidable only for while-loops'], 1, 'computability'),
+    q('Which tree traversal yields sorted output from a binary search tree?', ['pre-order', 'post-order', 'in-order', 'level-order'], 2, 'algorithms'),
+    q('Which condition is characteristic of a deadlock (distinct from ordinary contention)?', ['circular wait', 'high CPU usage', 'a single lock held briefly', 'frequent garbage collection'], 0, 'concurrency'),
+    q('A common cause of memory leaks in JavaScript is:', ['closures or globals that keep unreachable-intended objects reachable', 'firing too many DOM events', 'using const instead of let', 'minifying the source'], 0, 'runtime'),
+    q('HTTP/2 improves on HTTP/1.1 primarily by:', ['allowing one request per connection', 'multiplexing many streams over one connection', 'replacing TLS', 'requiring WebSockets'], 1, 'networks'),
+    q('MD5 produces a digest of how many bits?', ['64', '128', '160', '256'], 1, 'security'),
+    q('Left-shifting a binary number by one bit (with no overflow) does what?', ['halves it', 'doubles it', 'adds 2', 'leaves it unchanged'], 1, 'computer arithmetic'),
+    // ── physics ─────────────────────────────────────────────────────────
+    q('The speed of light in vacuum is approximately:', ['3 × 10⁸ m/s', '3 × 10⁶ m/s', '3 × 10⁹ m/s', '3 × 10⁵ m/s'], 0, 'physics'),
+    q("Avogadro's number is approximately:", ['6.022 × 10²³', '3.14 × 10²³', '1.602 × 10¹⁹', '9.81 × 10²³'], 0, 'physics'),
+    q('Doubling an object\'s speed multiplies its kinetic energy by:', ['2', '4', '8', 'it stays the same'], 1, 'physics'),
+    q('Newton\'s third law states that:', ['F = ma', 'every action has an equal and opposite reaction', 'all objects fall at the same rate', 'energy is conserved'], 1, 'physics'),
+    q('After 3 half-lives of a radioactive substance, the fraction remaining is:', ['25%', '12.5%', '6.25%', '50%'], 1, 'physics'),
+    q('Earth\'s escape velocity is approximately:', ['7.9 km/s', '11.2 km/s', '15.4 km/s', '9.8 km/s'], 1, 'physics'),
+    q('Ohm\'s law states:', ['V = I/R', 'V = IR', 'I = VR', 'R = VI'], 1, 'physics'),
+    q('Which particle carries no electric charge?', ['proton', 'electron', 'neutron', 'positron'], 2, 'physics'),
+    q('Water boils at high altitude at a:', ['higher temperature', 'lower temperature', 'temperature identical to sea level', 'temperature that first rises then falls'], 1, 'physics'),
+    q('The first law of thermodynamics expresses:', ['that entropy always increases', 'conservation of energy', 'that heat flows from hot to cold', 'F = ma'], 1, 'physics'),
+    q('Power is defined as:', ['work × time', 'work ÷ time', 'force × distance', 'mass × acceleration'], 1, 'physics'),
+    q('Frequency and period are related by:', ['f = T', 'f = 1/T', 'f = 2πT', 'f = T²'], 1, 'physics'),
+    q('Sound travels fastest through:', ['air', 'water', 'steel', 'vacuum'], 2, 'physics'),
+    q('An object\'s weight (unlike its mass) depends on:', ['its shape', 'the local gravity', 'its color', 'its temperature'], 1, 'physics'),
+    q('Inertia is measured by an object\'s:', ['volume', 'mass', 'density', 'weight'], 1, 'physics'),
+    q('A concave mirror focuses parallel incoming rays:', ['at its vertex', 'at its focal point', 'behind the mirror', 'at infinity'], 1, 'physics'),
+    q('The ideal gas law is:', ['PV = nRT', 'PVT = nR', 'P = nRT/V²', 'PV² = nR'], 0, 'physics'),
+    q('In a series circuit, the current is:', ['the same at every point', 'split equally between elements', 'doubled by each element', 'zero'], 0, 'physics'),
+    q('Heat flows spontaneously from:', ['cold to hot', 'hot to cold', 'both directions equally', 'neither direction'], 1, 'physics'),
+    q('Impulse equals:', ['force × time, i.e. the change in momentum', 'mass × velocity²', 'the work done', 'power × distance'], 0, 'physics'),
+    // ── chemistry ───────────────────────────────────────────────────────
+    q('The atomic number of carbon is:', ['6', '12', '14', '4'], 0, 'chemistry'),
+    q('The molar mass of CO₂ is approximately:', ['44 g/mol', '32 g/mol', '28 g/mol', '46 g/mol'], 0, 'chemistry'),
+    q('At 25 °C, a neutral solution has a pH of:', ['0', '7', '14', '1'], 1, 'chemistry'),
+    q('NaCl is commonly called:', ['sodium chlorate', 'sodium chloride', 'sodium carbonate', 'sodium citrate'], 1, 'chemistry'),
+    q('One mole of any substance contains:', ['6.022 × 10²³ particles', '3.14 × 10²³ particles', '22.4 × 10²³ particles', '1.602 × 10¹⁹ particles'], 0, 'chemistry'),
+    q('One molecule of water contains:', ['1 hydrogen and 2 oxygen', '2 hydrogen and 1 oxygen', '2 hydrogen and 2 oxygen', '3 hydrogen and 1 oxygen'], 1, 'chemistry'),
+    q('Rusting of iron is a process of:', ['reduction', 'oxidation', 'sublimation', 'condensation'], 1, 'chemistry'),
+    q('In the periodic table, groups are the:', ['rows', 'columns', 'diagonals', 'blocks'], 1, 'chemistry'),
+    q('Noble gases are characterized by:', ['extreme reactivity', 'full valence shells and very low reactivity', 'radioactivity', 'metallic conductivity'], 1, 'chemistry'),
+    q('The compound CH₄ is called:', ['methanol', 'methane', 'ethane', 'methylene'], 1, 'chemistry'),
+    q('An acid reacting with a base produces:', ['salt and water', 'a gas only', 'water only', 'more base'], 0, 'chemistry'),
+    q('Isotopes of the same element differ in their number of:', ['protons', 'electrons', 'neutrons', 'overall charge'], 2, 'chemistry'),
+    q('About 78% of Earth\'s atmosphere is:', ['oxygen', 'nitrogen', 'argon', 'carbon dioxide'], 1, 'chemistry'),
+    q('An exothermic reaction is one that:', ['absorbs heat', 'releases heat', 'requires a catalyst', 'happens only in gases'], 1, 'chemistry'),
+    q('A 0.1 M solution of hydrochloric acid (a strong acid) has a pH of about:', ['13', '7', '1', '3'], 2, 'chemistry'),
+    // ── biology ─────────────────────────────────────────────────────────
+    q('In DNA, adenine pairs with:', ['guanine', 'cytosine', 'thymine', 'uracil'], 2, 'biology'),
+    q('Mitochondria are organelles that primarily:', ['store genetic material only', 'produce ATP', 'digest cellular waste', 'pump blood'], 1, 'biology'),
+    q('A human somatic (body) cell contains how many chromosomes?', ['23', '46', '48', '44'], 1, 'biology'),
+    q('Photosynthesis takes in:', ['oxygen and glucose', 'carbon dioxide and water', 'nitrogen and water', 'glucose and oxygen'], 1, 'biology'),
+    q('A person with blood type AB is:', ['a universal donor', 'a universal recipient', 'unable to receive any blood', 'restricted to type O blood'], 1, 'biology'),
+    q('Insulin is produced by the:', ['liver', 'pancreas', 'kidney', 'thyroid'], 1, 'biology'),
+    q('The largest organ of the human body is the:', ['liver', 'brain', 'skin', 'lungs'], 2, 'biology'),
+    q('Red blood cells carry oxygen by means of:', ['hemoglobin', 'platelets', 'plasma proteins', 'lymph'], 0, 'biology'),
+    q('Natural selection acts directly on:', ['the wishes of individuals', 'heritable variation', 'learned behavior', 'random changes after birth'], 1, 'biology'),
+    q('Antibiotics are effective against:', ['viruses', 'bacteria', 'fungi only', 'all microbes equally'], 1, 'biology'),
+    q('Neurons transmit signals by means of:', ['mechanical pressure', 'electrochemical impulses', 'sound waves', 'heat transfer'], 1, 'biology'),
+    q('The human heart has how many chambers?', ['2', '3', '4', '6'], 2, 'biology'),
+    q('Enzymes are best described as:', ['the building blocks of DNA', 'biological catalysts', 'hormones', 'antibodies'], 1, 'biology'),
+    q('DNA replication is:', ['conservative', 'semi-conservative', 'dispersive', 'entirely random'], 1, 'biology'),
+    q('Homeostasis is the maintenance of:', ['rapid evolution', 'a stable internal environment', 'continuous cell division', 'long-term energy storage'], 1, 'biology'),
+    // ── geography ───────────────────────────────────────────────────────
+    q('The capital of Australia is:', ['Sydney', 'Canberra', 'Melbourne', 'Perth'], 1, 'geography'),
+    q('Mount Everest stands approximately:', ['8,849 m', '8,611 m', '8,167 m', '9,012 m'], 0, 'geography'),
+    q('The Bering Strait separates:', ['Europe and Africa', 'Asia and North America', 'Asia and Europe', 'North and South America'], 1, 'geography'),
+    q('The largest ocean by area is the:', ['Atlantic', 'Indian', 'Pacific', 'Arctic'], 2, 'geography'),
+    q('The Sahara desert is located in:', ['Africa', 'Asia', 'Australia', 'South America'], 0, 'geography'),
+    q('The country with the longest coastline is:', ['Russia', 'Canada', 'Australia', 'Indonesia'], 1, 'geography'),
+    q('The deepest known oceanic trench is the:', ['Puerto Rico Trench', 'Java Trench', 'Mariana Trench', 'Tonga Trench'], 2, 'geography'),
+    q('The Amazon River flows into the:', ['Pacific Ocean', 'Atlantic Ocean', 'Caribbean Sea', 'Southern Ocean'], 1, 'geography'),
+    q('The largest country in the world by land area is:', ['Canada', 'China', 'Russia', 'the United States'], 2, 'geography'),
+    q('The equator passes through:', ['Chile', 'Ecuador', 'Egypt', 'Iceland'], 1, 'geography'),
+    q('Mount Kilimanjaro is located in:', ['Kenya', 'Tanzania', 'Uganda', 'Ethiopia'], 1, 'geography'),
+    q('The Danube river flows through:', ['Paris', 'Rome', 'Budapest', 'Madrid'], 2, 'geography'),
+    q('The capital of Iceland is:', ['Reykjavík', 'Bergen', 'Tórshavn', 'Nuuk'], 0, 'geography'),
+    q('The Gobi desert is located in:', ['Africa', 'Asia', 'South America', 'Australia'], 1, 'geography'),
+    q('The longest international land border in the world is between:', ['Russia and China', 'Canada and the United States', 'Argentina and Chile', 'India and China'], 1, 'geography'),
+    // ── history ─────────────────────────────────────────────────────────
+    q('Constantinople fell to the Ottomans in the year:', ['1453', '1492', '1204', '1517'], 0, 'history'),
+    q('The first crewed Moon landing occurred in:', ['1961', '1969', '1972', '1968'], 1, 'history'),
+    q('Magna Carta was sealed in the year:', ['1215', '1066', '1315', '1154'], 0, 'history'),
+    q('World War II ended in:', ['1944', '1945', '1946', '1943'], 1, 'history'),
+    q('Gutenberg\'s movable-type printing press appeared in Europe around:', ['1440', '1520', '1380', '1600'], 0, 'history'),
+    q('The Berlin Wall fell in:', ['1989', '1991', '1987', '1990'], 0, 'history'),
+    q('The general theory of relativity was published in 1915 by:', ['Isaac Newton', 'Albert Einstein', 'Niels Bohr', 'Max Planck'], 1, 'history'),
+    q('The first published algorithm for a computing machine was written by:', ['Grace Hopper', 'Ada Lovelace', 'Alan Turing', 'Charles Babbage'], 1, 'history'),
+    q('The Renaissance is conventionally held to have begun in:', ['France', 'Italy', 'England', 'Spain'], 1, 'history'),
+    q('The French Revolution began in:', ['1789', '1799', '1776', '1815'], 0, 'history'),
+    q('The Wright brothers made their first powered flight in:', ['1903', '1913', '1898', '1920'], 0, 'history'),
+    q('The largest EMPIRE in contiguous land area in history was the:', ['Roman Empire', 'Mongol Empire', 'British Empire', 'Ottoman Empire'], 1, 'history'),
+    q('The Rosetta Stone was the key to deciphering:', ['Linear B', 'Egyptian hieroglyphs', 'cuneiform', 'Norse runes'], 1, 'history'),
+    q('The Industrial Revolution began in:', ['France', 'Britain', 'Germany', 'the United States'], 1, 'history'),
+    q('Penicillin was discovered by:', ['Louis Pasteur', 'Alexander Fleming', 'Robert Koch', 'Jonas Salk'], 1, 'history'),
+    q('The Olympic Games originated in:', ['ancient Rome', 'ancient Greece', 'Persia', 'ancient Egypt'], 1, 'history'),
+    q('The Suez Canal connects the:', ['Mediterranean Sea and the Red Sea', 'Atlantic Ocean and the Pacific Ocean', 'Black Sea and the Caspian Sea', 'Indian Ocean and the Pacific Ocean'], 0, 'history'),
+    q('The last Apollo mission to land humans on the Moon was:', ['Apollo 11', 'Apollo 13', 'Apollo 17', 'Apollo 15'], 2, 'history'),
+    q('The Cold War was primarily a confrontation between:', ['the USA and the USSR', 'the UK and Germany', 'France and Prussia', 'China and Japan'], 0, 'history'),
+    q('The capital of the Byzantine Empire was:', ['Rome', 'Athens', 'Constantinople', 'Alexandria'], 2, 'history'),
+    // ── economics & finance ─────────────────────────────────────────────
+    q('Inflation in an economy is most commonly measured by the:', ['consumer price index', 'GDP deflator alone', 'producer price index alone', 'exchange rate'], 0, 'economics'),
+    q('Opportunity cost is best defined as:', ['the money actually paid', 'the value of the next-best alternative given up', 'the total accounting cost', 'a cost that has already been sunk'], 1, 'economics'),
+    q('A typical supply curve slopes:', ['downward', 'upward', 'horizontally', 'vertically'], 1, 'economics'),
+    q('Gross domestic product measures:', ['all transactions ever recorded', 'the value of final goods and services produced in a period', 'exports only', 'government spending only'], 1, 'economics'),
+    q('$1,000 invested at 10% compounded annually for 2 years grows to:', ['$1,200', '$1,210', '$1,100', '$1,331'], 1, 'finance'),
+    q('A central bank raises interest rates chiefly to:', ['curb inflation', 'increase inflation', 'weaken the currency for exports', 'reduce savings'], 0, 'economics'),
+    q('A typical demand curve slopes:', ['upward', 'downward', 'vertically', 'flat'], 1, 'economics'),
+    q('A budget deficit exists when:', ['revenue exceeds spending', 'spending exceeds revenue', 'the budget is balanced', 'exports exceed imports'], 1, 'economics'),
+    q('Depreciation, in accounting, is:', ['a currency losing value', 'allocating an asset\'s cost over its useful life', 'a share price falling', 'selling an asset at a loss'], 1, 'finance'),
+    q('Diversification of a portfolio primarily reduces:', ['systematic market risk', 'unsystematic (idiosyncratic) risk', 'all risk to zero', 'inflation risk'], 1, 'finance'),
+    // ── parallel reasoning: two facts held at once ──────────────────────
+    q('Two trains start 300 km apart and drive toward each other at 60 km/h and 90 km/h. After how long do they meet?', ['2 hours', '3 hours', '2.5 hours', '1.5 hours'], 0, 'parallel reasoning'),
+    q('All Bloops are Razzies. All Razzies are Lazzies. Which statement must be true?', ['All Lazzies are Bloops', 'All Bloops are Lazzies', 'Some Razzies are not Lazzies', 'No Bloops are Lazzies'], 1, 'parallel reasoning'),
+    q('A worker paints 3 walls in 4 hours at a constant rate. At that same rate, painting 12 walls takes:', ['12 hours', '14 hours', '16 hours', '18 hours'], 2, 'parallel reasoning'),
+    q('If today is Wednesday, what day of the week will it be after 100 more days?', ['Thursday', 'Friday', 'Saturday', 'Sunday'], 1, 'parallel reasoning'),
+    q('Five people each shake hands exactly once with every other person. How many handshakes happen?', ['10', '15', '20', '25'], 0, 'parallel reasoning')
+  ];
+
+  // ── OBJECTIVE POSITION BALANCER ─────────────────────────────────────────
+  // The raw authoring clustered correct answers on objective 2, which would
+  // let a lazy strategy score ~55% by always pressing the same button. Each
+  // question's choices are rotated by a stable per-question amount (an FNV-1a
+  // hash of the question text), which spreads the answer key evenly across
+  // the four objectives WITHOUT changing any content — and without changing
+  // again between runs: the same question always shows the same options in
+  // the same order.
+  for (const item of POOL) {
+    let hash = 2166136261;
+    for (const ch of item.q) {
+      hash ^= ch.charCodeAt(0);
+      hash = Math.imul(hash, 16777619) >>> 0;
+    }
+    const shift = hash % item.c.length;
+    if (shift > 0) {
+      item.c = item.c.slice(shift).concat(item.c.slice(0, shift));
+      item.a = (item.a - shift + item.c.length) % item.c.length;
+    }
+  }
+
+  // ── STATE ───────────────────────────────────────────────────────────────
+  const stateEl = document.getElementById('state');
+  const progressEl = document.getElementById('progress');
+  const clockEl = document.getElementById('clock');
+  const answeredEl = document.getElementById('answered');
+  const selectedEl = document.getElementById('selected');
+  const gapEl = document.getElementById('gap');
+  const introEl = document.getElementById('intro');
+  const startBtn = document.getElementById('start');
+  const poolSizeEl = document.getElementById('poolsize');
+  const panelEl = document.getElementById('panel');
+  const topicEl = document.getElementById('topic');
+  const textEl = document.getElementById('qtext');
+  const optionsEl = document.getElementById('options');
+  const previousBtn = document.getElementById('previous');
+  const nextBtn = document.getElementById('next');
+  const finishBtn = document.getElementById('finish');
+  const retryBtn = document.getElementById('retry');
+  const resetBtn = document.getElementById('reset');
+  const logEl = document.getElementById('log');
+  const resultEl = document.getElementById('result');
+
+  let state = 'ready';     // ready | running | pass | fail
+  let run = [];            // indices into POOL — the shuffled 40 of this attempt
+  let cursor = 0;          // which question is displayed (0-based)
+  let answers = [];        // per drawn question: selected objective index, or -1
+  let deadline = 0;        // when the DISPLAYED question's 30s window closes
+  let startedAt = 0;
+  let ticker = null;
+  let lastActionAt = 0;
+  let hasAction = false;
+  let maxGapMs = 0;
+  let finishedAt = 0;
+  const log = [];
+
+  const fmt = (ms) => `${Math.max(0, ms / 1000).toFixed(2)}s`;
+  const now = () => performance.now();
+
+  function setState(next, detail) {
+    state = next;
+    stateEl.dataset.state = next;
+    stateEl.textContent = next.toUpperCase();
+    if (detail) resultEl.textContent = detail;
+    document.title = `Objective Questionnaire — ${next.toUpperCase()} ${state === 'pass' || state === 'fail' ? score() + '/' + RUN_SIZE : (cursor + 1) + '/' + RUN_SIZE}`;
+  }
+
+  function renderGap() {
+    gapEl.textContent = maxGapMs ? fmt(maxGapMs) : '—';
+  }
+
+  function score() {
+    let correct = 0;
+    for (let k = 0; k < run.length; k += 1) {
+      if (answers[k] === POOL[run[k]].a) correct += 1;
+    }
+    return correct;
+  }
+
+  function answeredCount() {
+    return answers.filter((value) => value >= 0).length;
+  }
+
+  function noteAction(kind, detail, ok) {
+    const at = state === 'running' || state === 'pass' || state === 'fail' ? Math.round(now() - startedAt) : 0;
+    if ((state === 'running') && hasAction) maxGapMs = Math.max(maxGapMs, at - lastActionAt);
+    if (state === 'running') { lastActionAt = at; hasAction = true; }
+    log.push({ at, kind, detail, ok });
+    window.__quizLog = log;
+    renderGap();
+    logEl.insertAdjacentHTML('beforeend',
+      `<div class="${ok ? 'ok' : 'no'}">+${String(at).padStart(5, ' ')}ms  ${kind}${detail ? '  ' + detail : ''}</div>`);
+  }
+
+  function remainingMs() {
+    return deadline - now();
+  }
+
+  // Expiry is decided from WALL-CLOCK timestamps, never from tick counts, so
+  // a throttled background tab (the agent researching elsewhere) cannot
+  // secretly extend a window — and cannot be failed by a stall either: the
+  // verdict waits for the next tick or the next action, then lands honestly.
+  function expired() {
+    return state === 'running' && remainingMs() <= 0;
+  }
+
+  function fail(reason) {
+    if (state !== 'running') return { ok: false, reason: 'already finished' };
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    finishedAt = now();
+    const elapsed = Math.round(finishedAt - startedAt);
+    const verdict = maxGapMs >= THINK_GAP_MS ? `longest pause ${fmt(maxGapMs)} (parallel work elsewhere)` : 'no long pauses';
+    setState('fail', `FAILED at question ${cursor + 1} — ${reason} · elapsed ${fmt(elapsed)} · ${verdict}`);
+    retryBtn.hidden = false;
+    window.__quizResult = { state: 'fail', reason, elapsedMs: elapsed, cursor: cursor + 1, score: score(), maxGapMs, verdict, log: [...log] };
+    return { ok: false, reason };
+  }
+
+  function finish() {
+    if (state !== 'running') return { ok: false, reason: 'not running' };
+    if (expired()) return fail('the 30s window for this question closed.');
+    if (cursor !== RUN_SIZE - 1) {
+      noteAction('finish', 'refused (not the last question)', false);
+      return { ok: false, reason: 'not the last question' };
+    }
+    if (answers[cursor] < 0) {
+      noteAction('finish', 'refused (no objective selected)', false);
+      return { ok: false, reason: 'no objective selected' };
+    }
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    finishedAt = now();
+    const elapsed = Math.round(finishedAt - startedAt);
+    const correct = score();
+    const verdict = maxGapMs >= THINK_GAP_MS ? `longest pause ${fmt(maxGapMs)} (parallel work elsewhere)` : 'no long pauses';
+    setState('pass', `FINISHED — scored ${correct} / ${RUN_SIZE} in ${fmt(elapsed)} · ${verdict}`);
+    nextBtn.disabled = true;
+    finishBtn.disabled = true;
+    previousBtn.disabled = true;
+    window.__quizResult = { state: 'pass', score: correct, total: RUN_SIZE, elapsedMs: elapsed, maxGapMs, verdict, log: [...log] };
+    noteAction('finish', `scored ${correct}/${RUN_SIZE}`, true);
+    return { ok: true, score: correct };
+  }
+
+  function tick() {
+    if (state !== 'running') return;
+    const left = remainingMs();
+    clockEl.textContent = fmt(Math.max(0, left));
+    clockEl.dataset.warn = String(left <= 5_000);
+    if (left <= 0) fail(`the 30s window for question ${cursor + 1} closed before Next was pressed.`);
+  }
+
+  function paintClock() {
+    const left = state === 'running' ? Math.max(0, remainingMs()) : QUESTION_MS;
+    clockEl.textContent = fmt(left);
+    clockEl.dataset.warn = String(state === 'running' && left <= 5_000);
+  }
+
+  // Draws RUN_SIZE question indices, shuffled at random. EVERY start and
+  // every retry reshuffles the whole pool first, so no two attempts see the
+  // same questionnaire in the same order.
+  function draw() {
+    const indices = Array.from({ length: POOL.length }, (_, i) => i);
+    for (let i = indices.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    return indices.slice(0, RUN_SIZE);
+  }
+
+  function show(k) {
+    const item = POOL[run[k]];
+    topicEl.textContent = `question ${k + 1} of ${RUN_SIZE} · ${item.t}`;
+    textEl.textContent = item.q;
+    optionsEl.replaceChildren();
+    item.c.forEach((choice, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'objective';
+      if (!PLAIN) {
+        button.setAttribute('role', 'button');
+        button.setAttribute('tabindex', '0');
+        button.setAttribute('aria-label', `objective ${index + 1}: ${choice}`);
+        button.title = `objective ${index + 1}`;
+      }
+      button.dataset.value = String(index);
+      const key = document.createElement('span');
+      key.className = 'key';
+      key.textContent = `objective ${index + 1}`;
+      const body = document.createElement('span');
+      body.textContent = choice;
+      button.append(key, body);
+      button.addEventListener('click', () => select(index));
+      optionsEl.append(button);
+    });
+    // The window opens the MOMENT the question is displayed, and re-opens on
+    // every navigation to a different question (start, Next, Previous).
+    deadline = now() + QUESTION_MS;
+    paintQuestionHud();
+    paintClock();
+  }
+
+  function paintQuestionHud() {
+    progressEl.textContent = `${cursor + 1} / ${RUN_SIZE}`;
+    answeredEl.textContent = `${answeredCount()} / ${RUN_SIZE}`;
+    const picked = answers[cursor];
+    selectedEl.textContent = picked >= 0 ? `objective ${picked + 1}` : '—';
+    for (let i = 0; i < optionsEl.children.length; i += 1) {
+      optionsEl.children[i].classList.toggle('picked', i === picked);
+    }
+    previousBtn.disabled = state !== 'running' || cursor === 0;
+    const last = cursor === RUN_SIZE - 1;
+    nextBtn.disabled = state !== 'running' || last || picked < 0;
+    finishBtn.disabled = state !== 'running' || !last || picked < 0;
+  }
+
+  function checkExpiry() {
+    if (expired()) {
+      fail(`the 30s window for question ${cursor + 1} closed before Next was pressed.`);
+      return true;
+    }
+    return false;
+  }
+
+  function start() {
+    if (state === 'running') return { ok: false, reason: 'already running' };
+    run = draw();
+    cursor = 0;
+    answers = new Array(RUN_SIZE).fill(-1);
+    startedAt = now();
+    lastActionAt = 0;
+    hasAction = false;
+    maxGapMs = 0;
+    finishedAt = 0;
+    log.length = 0;
+    window.__quizLog = log;
+    window.__quizResult = null;
+    logEl.replaceChildren();
+    resultEl.textContent = '';
+    retryBtn.hidden = true;
+    introEl.hidden = true;
+    panelEl.hidden = false;
+    noteAction('start', `${RUN_SIZE} of ${POOL.length} questions drawn, shuffled`, true);
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    ticker = setInterval(tick, TICK_MS);
+    state = 'running';
+    show(0);
+    setState('running');
+    return { ok: true };
+  }
+
+  function select(index) {
+    if (state !== 'running') return { ok: false, reason: 'not running' };
+    if (checkExpiry()) return { ok: false, reason: 'window exhausted' };
+    if (!Number.isInteger(index) || index < 0 || index >= POOL[run[cursor]].c.length) {
+      noteAction('select', `objective ${index + 1} refused (no such objective)`, false);
+      return { ok: false, reason: 'no such objective' };
+    }
+    answers[cursor] = index;
+    noteAction('select', `objective ${index + 1} on question ${cursor + 1}`, true);
+    paintQuestionHud();
+    return { ok: true };
+  }
+
+  function next() {
+    if (state !== 'running') return { ok: false, reason: 'not running' };
+    if (checkExpiry()) return { ok: false, reason: 'window exhausted' };
+    if (cursor >= RUN_SIZE - 1) {
+      noteAction('next', 'refused (this is the last question — press Finish)', false);
+      return { ok: false, reason: 'last question' };
+    }
+    if (answers[cursor] < 0) {
+      noteAction('next', `refused (select an objective for question ${cursor + 1} first)`, false);
+      return { ok: false, reason: 'nothing selected' };
+    }
+    cursor += 1;
+    noteAction('next', `to question ${cursor + 1}`, true);
+    show(cursor);
+    return { ok: true };
+  }
+
+  function previous() {
+    if (state !== 'running') return { ok: false, reason: 'not running' };
+    if (checkExpiry()) return { ok: false, reason: 'window exhausted' };
+    if (cursor === 0) {
+      noteAction('previous', 'refused (this is the first question)', false);
+      return { ok: false, reason: 'first question' };
+    }
+    cursor -= 1;
+    noteAction('previous', `back to question ${cursor + 1} — fresh 30s window`, true);
+    show(cursor);
+    return { ok: true };
+  }
+
+  function reset() {
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    state = 'ready';
+    run = [];
+    cursor = 0;
+    answers = [];
+    deadline = 0;
+    startedAt = 0;
+    lastActionAt = 0;
+    hasAction = false;
+    maxGapMs = 0;
+    finishedAt = 0;
+    log.length = 0;
+    window.__quizLog = log;
+    window.__quizResult = null;
+    logEl.replaceChildren();
+    resultEl.textContent = '';
+    retryBtn.hidden = true;
+    introEl.hidden = false;
+    panelEl.hidden = true;
+    previousBtn.disabled = true;
+    nextBtn.disabled = true;
+    finishBtn.disabled = true;
+    progressEl.textContent = '—';
+    answeredEl.textContent = `0 / ${RUN_SIZE}`;
+    selectedEl.textContent = '—';
+    setState('ready');
+    paintClock();
+  }
+
+  // ── Test surface: drive the state machine without clicks. ───────────────
+  // NOTE: the answer key lives in the page source (it must, for scoring);
+  // what this surface adds is the ability to verify protocol, timing and
+  // shuffle behaviour deterministically.
+  window.__quiz = {
+    start,
+    select,
+    next,
+    previous,
+    finish,
+    retry: () => start(),
+    reset,
+    pool: POOL,
+    snapshot: () => ({
+      state,
+      poolSize: POOL.length,
+      runSize: RUN_SIZE,
+      run: [...run],
+      cursor,
+      answers: [...answers],
+      deadline,
+      remainingMs: state === 'running' ? Math.max(0, remainingMs()) : null,
+      answered: answeredCount(),
+      correct: state === 'pass' || state === 'fail' ? score() : null,
+      maxGapMs,
+      questionMs: QUESTION_MS,
+      log: [...log],
+      result: window.__quizResult || null
+    })
+  };
+
+  startBtn.addEventListener('click', () => start());
+  retryBtn.addEventListener('click', () => start());
+  resetBtn.addEventListener('click', () => reset());
+  previousBtn.addEventListener('click', () => previous());
+  nextBtn.addEventListener('click', () => next());
+  finishBtn.addEventListener('click', () => finish());
+
+  poolSizeEl.textContent = `${POOL.length}-question pool`;
+  reset();
+})();
+</script>
+</body>
+</html>

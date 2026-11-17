@@ -318,9 +318,8 @@ try {
   await window.locator('#agent-new-chat').click();
   await window.waitForFunction(() => !document.querySelector('#agent-send')?.disabled && document.querySelector('#agent-transcript')?.childElementCount === 0);
   assert.deepEqual(await electronApp.evaluate(() => globalThis.__browserUseAgentControlCancels), [
-    'handoff-controls',
-    'active-controls-keep controls interactive'
-  ], 'New chat must cancel the active run before clearing its transcript');
+    'handoff-controls'
+  ], 'New chat must HAND OFF the running task to the background, never cancel it');
   await composer.fill('stop this active run');
   await composer.press('Enter');
   await window.waitForFunction(() => !document.querySelector('#agent-cancel')?.hidden && !document.querySelector('#agent-cancel')?.disabled);
@@ -328,7 +327,6 @@ try {
   await window.waitForFunction(() => document.querySelector('#agent-cancel')?.hidden && !document.querySelector('#agent-send')?.disabled);
   assert.deepEqual(await electronApp.evaluate(() => globalThis.__browserUseAgentControlCancels), [
     'handoff-controls',
-    'active-controls-keep controls interactive',
     'active-controls-stop this active run'
   ], 'Stop must cancel the actual live run ID rather than a saved or placeholder chat state');
   await electronApp.evaluate(({ ipcMain }) => {

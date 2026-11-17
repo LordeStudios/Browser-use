@@ -635,7 +635,7 @@ function boundedAttachments(attachments) {
           : 'Attached file delivered as its source path only — nothing was copied. Read it directly with your file tools (computer_read / computer_search / terminal); there are no size limits. Never claim the file is missing without actually trying.'
       };
     }
-    if (attachment?.kind !== 'text') return { name: String(attachment?.name || 'attachment').slice(0, 160), kind: 'image', mimeType: String(attachment?.mimeType || '').slice(0, 100), size: Number(attachment?.size) || 0, note: 'Image content is supplied through the provider image input.' };
+    if (attachment?.kind !== 'text') return { name: String(attachment?.name || 'attachment').slice(0, 160), kind: 'image', mimeType: String(attachment?.mimeType || '').slice(0, 100), size: Number(attachment?.size) || 0, note: 'Image attachment — its pixels ride the provider image input. If you cannot actually see it, say so plainly; never describe an image you were not given.' };
     const original = String(attachment.content || '');
     const content = original.slice(0, perTextLimit);
     return { name: String(attachment.name || 'attachment').slice(0, 160), kind: 'text', mimeType: String(attachment.mimeType || 'text/plain').slice(0, 100), size: Number(attachment.size) || 0, content,
@@ -669,7 +669,14 @@ function boundedRequestContext({ task, agentIdentity, attachments, observation, 
     attachments: boundedAttachments(attachments),
     ...(Array.isArray(attachments) && attachments.length ? {
       attachmentsNote: 'Attachments are delivered BELOW by name. Text attachments carry their full text content inline; "path" attachments carry only their SOURCE PATH — read those with your own file tools (computer_read / computer_search / computer_index / terminal); there are no size or count limits. Labels used in the task (for example "DOM 1", "DOM 2") refer to these attachments — their content is current evidence; never claim an attachment is missing or read files to rediscover one that arrived inline.'
-    } : {}),
+    } : {
+      // An EMPTY attachments list must be stated, not merely omitted: the model
+      // used to see "attachments: []" and still claim "the image you attached"
+      // whenever a desktop screenshot rode the observation. Say it plainly —
+      // the only image-like evidence is evidenceKind, which is not a user
+      // attachment.
+      attachmentsNote: 'NO attachments came with this message: the user attached no file and no image. Never claim or imply that an image or file was attached. Any visual evidence you have is the run\'s own capture (see evidenceKind), not something the user sent.'
+    }),
     messages: boundedMessages(messages),
     ...(runtimeContext.length ? {
       runtimeContext,

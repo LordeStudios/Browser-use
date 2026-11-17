@@ -8,6 +8,7 @@ import test from 'node:test';
 // action, its input AND its output - not just the tool name.
 const app = fs.readFileSync(path.join(process.cwd(), 'desktop/renderer/app.js'), 'utf8');
 const css = fs.readFileSync(path.join(process.cwd(), 'desktop/renderer/chat-reference.css'), 'utf8');
+const rendererHtml = fs.readFileSync(path.join(process.cwd(), 'desktop/renderer/index.html'), 'utf8');
 
 test('every copy control acknowledges with a visible feedback state', () => {
   assert.match(app, /function showCopyFeedback\(button, label = 'Copied'\)/, 'a shared feedback state exists');
@@ -16,8 +17,24 @@ test('every copy control acknowledges with a visible feedback state', () => {
   // No copy control may bypass the feedback path.
   const rawCopySites = app.match(/copyText\([^)]*\)\.then\(\(\) => flashCopyIcon/g) || [];
   assert.equal(rawCopySites.length, 0, 'no copy button may copy without the shared feedback');
+  // A copy that travels through a wrapper (the whole-chat copy) bypassed the
+  // direct-call check above, so the bypass is banned in every shape.
+  const wrappedBypasses = app.match(/\.then\(\(\) => flashCopyIcon\(/g) || [];
+  assert.equal(wrappedBypasses.length, 0, 'no copy button may flash its icon instead of using the shared feedback');
   const helperSites = (app.match(/copyWithFeedback\(/g) || []).length;
   assert.ok(helperSites >= 7, `expected every copy control to use the helper (found ${helperSites})`);
+});
+
+test('the whole-chat copy button is styled for feedback and uses the shared path', () => {
+  // The copied state is styled by a CLASS (.agent-copy-chat.is-copied). The
+  // button only carried the matching ID, so the `is-copied` flag the script
+  // sets matched NO rule and the button showed no feedback at all.
+  assert.match(rendererHtml, /class="[^"]*\bagent-copy-chat\b[^"]*"[^>]*id="agent-copy-chat"/,
+    'the whole-chat button carries the class the copied state is styled by');
+  assert.match(app, /agentCopyChat\?\.addEventListener\('click',[\s\S]{0,240}showCopyFeedback\(agentCopyChat\)/,
+    'the whole-chat copy acknowledges through the shared feedback path');
+  // The badge is clipped above the header row, so it must drop below it.
+  assert.match(css, /\.agent-head-actions \.agent-copy-chat\.is-copied::after/, 'the header badge drops below the button');
 });
 
 test('the copied badge is styled so icon-only buttons show it', () => {

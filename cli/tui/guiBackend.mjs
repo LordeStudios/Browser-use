@@ -34,7 +34,7 @@ const { DesktopChatAgent } = require(path.join(TOOL_ROOT, 'desktop/agent/desktop
 const { createOpenAiCompatibleProvider } = require(path.join(TOOL_ROOT, 'desktop/agent/openAiCompatibleProvider.cjs'));
 const { createCliModelTaskApi, createCliCatalogApi } = require(path.join(TOOL_ROOT, 'cli/cliAgentApis.cjs'));
 const {
-  readAppSettings, readAppSecrets, readCliConfig, resolveProviderConfig, activeConnection,
+  readAppSettings, readAppSecrets, readCliConfig, writeCliConfig, resolveProviderConfig, activeConnection,
 } = await import('./appConfig.mjs');
 
 const GUI_DIR = path.join(os.homedir(), '.browser-use-cli');
@@ -125,6 +125,40 @@ function saveSettingsFile() {
     fs.mkdirSync(GUI_DIR, { recursive: true });
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
   } catch { /* settings persistence is best effort */ }
+  // Every settings write also projects the provider setup into the CLI config.
+  // The provider flow saves through browser-use:save-ai-connection and
+  // set-provider-credential, which never touched the config file, so the
+  // terminal and the runner stayed disconnected from the interface.
+  syncCliConfig();
+}
+
+// ONE PROVIDER SETUP FOR BOTH SURFACES. A provider added in the web interface
+// used to land only in gui-settings.json, so the terminal and `browser-use run`
+// never saw it and every message failed with "no provider API key". The active
+// connection is now projected into the CLI's own config file, which the TUI and
+// the runner already read.
+function syncCliConfig() {
+  try {
+    const connections = Array.isArray(settings.aiConnections) ? settings.aiConnections : [];
+    if (!connections.length) return;
+    const active = connections.find((item) => item && item.id === settings.aiChatConnectionId) || connections[0];
+    if (!active) return;
+    const existing = readCliConfig().config || {};
+    const secret = String(
+      active.credential?.secret || active.apiKey || active.secret || existing.apiKey || ''
+    );
+    writeCliConfig({
+      ...existing,
+      connectionId: active.id || existing.connectionId,
+      providerId: active.provider || active.providerId || existing.providerId,
+      baseUrl: active.baseUrl || settings.aiChatBaseUrl || existing.baseUrl,
+      // The connection the user just saved owns the model; the global chat
+      // model can be stale from an earlier selection.
+      model: active.model || settings.aiChatModel || existing.model,
+      apiKey: secret || existing.apiKey,
+      updatedAt: new Date().toISOString()
+    });
+  } catch { /* a failed projection must never break a settings save */ }
 }
 
 // Credential for a saved connection, resolved from the decrypted app secrets
@@ -225,7 +259,7 @@ function resolvedProviderInfo() {
       })
       .catch(() => { /* env/cli-config key still applies */ });
   } catch (error) {
-    resolvedProvider = { baseUrl: 'https://api.xkiro.com/v1', model: 'z-ai/glm-5.3-flash', apiKey: process.env.XKIRO_API_KEY || process.env.BROWSER_USE_API_KEY || '', providerId: 'xkiro', source: 'defaults' };
+    resolvedProvider = { baseUrl: 'https://api.xkiro.com/v1', model: '', apiKey: process.env.XKIRO_API_KEY || process.env.BROWSER_USE_API_KEY || '', providerId: 'xkiro', source: 'defaults' };
     console.error('[guiBackend] credential resolution failed:', error?.message || error);
   }
   return resolvedProvider;
@@ -236,7 +270,38 @@ async function ensureRuntime() {
   if (runtimeStarting) return runtimeStarting;
   runtimeStarting = (async () => {
     addConsole('agent', 'info', '[GUI] Booting standalone runtime (headless Chrome + chat agent)…');
-    const chrome = await launchHeadlessChrome({ startPort: 9401, profileDir: null, headed: false });
+    let chrome;
+    try {
+      // Auto-install when missing: an interrupted install, a cleared cache or a
+      // first run must not leave the interface dead. Provisioning happens here,
+      // the first time a message is sent, and reports progress in the console.
+      try {
+        const provisioner = await import('../browserProvisioner.mjs');
+        if (!provisioner.findProvisionedBrowser()) {
+          addConsole('agent', 'info', 'Browser missing. Downloading the bundled headless shell (one time).');
+          await provisioner.ensureProvisionedBrowser({
+            onLine: (line) => {
+              const pct = line.match(/(\d{1,3})%/);
+              if (pct && Number(pct[1]) % 25 === 0) addConsole('agent', 'info', `Browser download ${pct[1]}%`);
+            }
+          });
+          addConsole('agent', 'info', 'Browser ready.');
+        }
+      } catch (provisionError) {
+        addConsole('agent', 'error', `Browser download failed: ${String(provisionError?.message || provisionError).slice(0, 200)}`);
+      }
+      chrome = await launchHeadlessChrome({ startPort: 9401, profileDir: null, headed: false });
+    } catch (launchError) {
+      // The common failure on a fresh machine (and on Android/Termux) is no
+      // Chromium binary at all. Say that once, clearly, instead of surfacing a
+      // wall of navigation errors on every action.
+      const reason = String(launchError?.message || launchError);
+      throw new Error(
+        `No usable Chromium browser on this machine. ${reason}. ` +
+        'Install Chrome, Chromium or Edge, or point CHROME_PATH at a Chromium binary, then retry. ' +
+        'Run `browser-use doctor` for the exact check.'
+      );
+    }
     const tabs = new Map();
     let selectedTabId = null;
 
@@ -533,7 +598,23 @@ const handlers = {
   'browser-use:renderer-ready': async () => null,
   'browser-use:state': async () => (runtime ? buildState() : { tabs: [], selectedTabId: '', agent: null, settings, mcp: { running: false }, downloads: { items: [] } }),
   'browser-use:agent-state': async () => (runtime?.agent ? runtime.agent.state() : null),
-  'browser-use:agent-start': async (request) => startAgentRun(request),
+  'browser-use:agent-start': async (request) => {
+    // A failure here used to reject the IPC call and leave the transcript
+    // stale with no error at all. Every failure now lands in the console and
+    // in the event stream, so the interface can show what happened.
+    try {
+      return await startAgentRun(request);
+    } catch (error) {
+      const message = String(error?.message || error);
+      addConsole('agent', 'error', `AI chat run failed: ${message}`);
+      emitEvent('browser-use:agent-event', {
+        type: 'error', status: 'failed', message,
+        runId: String(request?.runId || ''), at: new Date().toISOString()
+      });
+      publishState();
+      throw error;
+    }
+  },
   'browser-use:agent-cancel': async (request) => {
     if (!runtime?.agent) return { status: 'cancelled' };
     return runtime.agent.cancel(request?.runId);
@@ -555,6 +636,7 @@ const handlers = {
   'browser-use:save-settings': async (patch) => {
     settings = { ...settings, ...(patch && typeof patch === 'object' ? patch : {}) };
     saveSettingsFile();
+    syncCliConfig();
     publishState();
     return settings;
   },
@@ -743,7 +825,7 @@ const handlers = {
 // (CDP capture), connections/settings CRUD, schedules.
 // ===========================================================================
 import { randomUUID } from 'node:crypto';
-import { exec as childExec } from 'node:child_process';
+import { exec as childExec, spawn as childSpawn } from 'node:child_process';
 
 const CDP = require('chrome-remote-interface');
 const { listDeviceProfiles } = require(path.join(TOOL_ROOT, 'src/browser/deviceProfiles.cjs'));
@@ -758,14 +840,31 @@ try { chatHistoryStore.recoverInterrupted(); } catch { /* fresh install */ }
 const TERMINAL_HISTORY_MAX = 200_000;
 const terminalSessionsMap = new Map(); // id -> session
 
+// Set when the native module cannot load, so the session can say why it fell back.
+let ptyLoadError = null;
+
 function ptyModule() {
-  return require('node-pty');
+  // node-pty ships native prebuilds for desktop platforms. In a stripped Linux
+  // container or on Android the require throws. Returning null (instead of
+  // throwing) lets the terminal fall back to a pipe-backed shell, so the panel
+  // stays usable rather than failing on every keystroke.
+  // BROWSER_USE_FORCE_PIPE_TERMINAL=1 exercises the fallback on any platform.
+  if (String(process.env.BROWSER_USE_FORCE_PIPE_TERMINAL || '') === '1') {
+    ptyLoadError = 'forced by BROWSER_USE_FORCE_PIPE_TERMINAL';
+    return null;
+  }
+  try {
+    return require('node-pty');
+  } catch (error) {
+    ptyLoadError = String(error?.message || error);
+    return null;
+  }
 }
 
 function terminalStatus(session) {
   return {
     id: session.id,
-    backend: 'pty',
+    backend: session.backend || 'pty',
     shell: session.shell,
     profile: session.profile,
     cwd: session.cwd,
@@ -783,13 +882,19 @@ function terminalStatus(session) {
 
 function createTerminalSession({ cols = 80, rows = 24 } = {}) {
   const pty = ptyModule();
-  const systemRoot = process.env.SystemRoot || 'C:\\Windows';
-  const shellCandidates = [
-    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
-    path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
-    process.env.ComSpec || path.join(systemRoot, 'System32', 'cmd.exe'),
-  ];
-  const shell = shellCandidates.find((candidate) => { try { return fs.existsSync(candidate); } catch { return false; } }) || shellCandidates[shellCandidates.length - 1];
+  // The candidate list used to be Windows-only, so on Linux the terminal tried
+  // to launch cmd.exe and reported a PTY problem that was really a shell
+  // problem. Pick the shell for the platform that is actually running.
+  const isWindows = process.platform === 'win32';
+  const shellCandidates = isWindows
+    ? [
+        'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+        path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+        process.env.ComSpec || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'),
+      ]
+    : [process.env.SHELL || '', '/bin/bash', '/bin/sh', '/system/bin/sh'].filter(Boolean);
+  const shell = shellCandidates.find((candidate) => { try { return fs.existsSync(candidate); } catch { return false; } })
+    || shellCandidates[shellCandidates.length - 1];
   const session = {
     id: randomUUID(),
     shell: path.basename(shell).replace(/\.exe$/i, ''),
@@ -806,6 +911,40 @@ function createTerminalSession({ cols = 80, rows = 24 } = {}) {
     error: null,
     reason: null,
   };
+  if (!pty) {
+    // No native PTY available. Run the shell over pipes: no full TTY semantics,
+    // but commands execute and output streams, so the terminal panel works
+    // instead of refusing every keystroke.
+    const child = childSpawn(shell, isWindows ? [] : ['-i'], {
+      cwd: TOOL_ROOT,
+      env: { ...process.env, TERM: 'dumb' },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    session.pty = {
+      write: (data) => { try { child.stdin.write(data); } catch { /* shell closed */ } },
+      resize: () => { /* a pipe has no window size */ },
+      kill: () => { try { child.kill(); } catch { /* gone */ } },
+    };
+    session.child = child;
+    session.backend = 'pipe';
+    session.reason = `native PTY module unavailable, using a pipe-backed shell (${String(ptyLoadError || '').slice(0, 90)})`;
+    const push = (chunk) => {
+      const text = String(chunk);
+      session.lastOutputAt = Date.now();
+      if (session.history.length > TERMINAL_HISTORY_MAX) session.history = session.history.slice(-TERMINAL_HISTORY_MAX / 2);
+      session.history += text;
+      emitEvent('browser-use:terminal-data', { id: session.id, data: text, status: terminalStatus(session) });
+    };
+    child.stdout.on('data', push);
+    child.stderr.on('data', push);
+    child.on('exit', (code) => {
+      session.disposed = true;
+      emitEvent('browser-use:terminal-exit', { id: session.id, exitCode: code, status: terminalStatus(session) });
+    });
+    terminalSessionsMap.set(session.id, session);
+    addConsole('terminal', 'warn', session.reason);
+    return session;
+  }
   const term = pty.spawn(shell, shell.endsWith('cmd.exe') ? [] : ['-NoLogo'], {
     name: 'xterm-color',
     cols, rows,

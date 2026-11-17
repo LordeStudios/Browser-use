@@ -27,11 +27,17 @@ async function waitForJob(job, waitMs) {
 }
 
 class ComputerTools {
-  constructor({ executablePath = process.execPath, terminal = null, capture = null, clipboard = null, nativeRequest = null, workspaceGuard = new WorkspaceChangeGuard(), androidManager = null, androidSurface = null } = {}) {
+  constructor({ executablePath = process.execPath, terminal = null, capture = null, clipboard = null, nativeRequest = null, workspaceGuard = new WorkspaceChangeGuard(), androidManager = null, androidSurface = null, restartApp = null } = {}) {
     this.executablePath = executablePath;
     this.terminal = terminal;
     this.capture = capture;
     this.clipboard = clipboard;
+    // computer_resume: the app owns the restart (it knows whether it is a dev
+    // build, whether a restart is already scheduled, and how to keep the
+    // session). The agent never shells out to a launcher it cannot observe —
+    // that path looked "still running", got retried, and queued a restart per
+    // retry (an infinite restart loop).
+    this.restartApp = restartApp;
     this.closed = false;
     this.nativeOverride = nativeRequest;
     this.child = null;
@@ -137,6 +143,7 @@ class ComputerTools {
       else if (name === 'computer_patch_chunk') result = await this.patchChunk(input, check, ownerId);
       else if (name === 'computer_git') result = await this.git(input, check, ownerId);
       else if (name === 'computer_terminal') result = await this.shell(input, ownerId, check);
+      else if (name === 'computer_resume') result = this.restartTool(input);
       else if (name === 'computer_clipboard') {
         if (!this.clipboard) throw new Error('System clipboard is unavailable.');
         if (input.action === 'write') {
@@ -145,7 +152,22 @@ class ComputerTools {
         } else { const text = this.clipboard.readText(); result = { text: text.slice(0, 64_000), truncated: text.length > 64_000 }; }
       } else if (name === 'computer_screenshot') {
         if (!this.capture) throw new Error('Desktop capture is unavailable.');
-        result = { ...await this.capture.screenshot(input), screenshotId: crypto.randomUUID() }; check();
+        // A full-display capture is useless evidence when the thing under test
+        // is one window among several — the caller then has to describe where
+        // to look. Resolve the window's bounds first and crop to them; the
+        // origin/scale that come back still map image pixels to desktop pixels,
+        // so a coordinate derived from the crop is directly clickable.
+        let window = null;
+        if (input.windowId) {
+          const listed = await this.native('computer_window', { action: 'list' }, ownerId);
+          const target = (listed?.windows || []).find(entry => String(entry.id) === String(input.windowId));
+          if (!target) throw new Error(`Unknown window ${input.windowId}. Call computer_observe to list the current windows.`);
+          if (!target.bounds || !(target.bounds.width > 0) || !(target.bounds.height > 0)) {
+            throw new Error(`Window ${input.windowId} has no capturable bounds.`);
+          }
+          window = { id: String(target.id), title: target.title || null, bounds: target.bounds };
+        }
+        result = { ...await this.capture.screenshot({ ...input, windowBounds: window?.bounds || null, windowTitle: window?.title || null }), screenshotId: crypto.randomUUID(), ...(window ? { window } : {}) }; check();
         const { data, ...mapping } = result;
         owner.screenshot = mapping;
       } else if (name === 'computer_record') {
@@ -186,6 +208,13 @@ class ComputerTools {
         const nativeInput = nativeName === 'computer_pointer' ? mapPointerInput(pointerInput, owner.screenshot, input.coordinateSpace === 'screenshot' ? this.capture?.displays() : undefined) : input;
         result = await this.native(nativeName, nativeInput, ownerId);
         if (name === 'computer_observe' && this.capture) result.displays = this.capture.displays();
+        // The model only needs the windows it can see and drive. A parked
+        // File Explorer, a minimized ChatGPT and an off-desktop MSN tab were
+        // all listed at full size, and the agent chased one of them instead
+        // of the work. The hidden ones stay addressable, compactly.
+        if (name === 'computer_observe' || (name === 'computer_window' && input.action === 'list')) {
+          result = this.presentWindows(result);
+        }
         if (name === 'computer_window' && input.action === 'list' && Number(input.waitMs) > 0) {
           result = await this.waitForNewWindow(result, input, ownerId, check);
           if (this.capture) result.displays = this.capture.displays();
@@ -203,6 +232,32 @@ class ComputerTools {
   // result, nothing the model can mistake for its own action. The payload is
   // the same window list the model-facing computer_window list returns, so a
   // dialog detector still sees the dialog it is looking for.
+  // The model-facing window list carries only the windows that are actually
+  // on the desktop: minimized and off-screen windows were listed at full
+  // size, and the agent read one of them as the dialog that blocked its
+  // work, left the page, and pressed Escape in an unrelated application.
+  // Nothing is hidden - the omitted windows stay addressable by id.
+  presentWindows(result) {
+    const windows = Array.isArray(result?.windows) ? result.windows : [];
+    if (!windows.length) return result;
+    const desktop = result.virtualDesktop || null;
+    const visible = [];
+    const hidden = [];
+    for (const window of windows) {
+      const bounds = window?.bounds || {};
+      const parked = Boolean(desktop && bounds.width > 0 && bounds.height > 0 && (
+        bounds.x + bounds.width <= desktop.x || bounds.x >= desktop.x + desktop.width
+        || bounds.y + bounds.height <= desktop.y || bounds.y >= desktop.y + desktop.height
+      ));
+      if (window?.minimized || parked) {
+        hidden.push({ id: window.id, title: String(window.title || '').slice(0, 60), minimized: Boolean(window?.minimized) });
+        continue;
+      }
+      visible.push(window);
+    }
+    return { ...result, windows: visible, hiddenWindowCount: hidden.length, hiddenWindows: hidden };
+  }
+
   async scanWindows(ownerId, options = {}) {
     const { signal } = options || {};
     if (this.closed) throw new Error('Computer backend is shutting down.');
@@ -268,6 +323,25 @@ class ComputerTools {
   warmup() {
     try { if (process.platform === 'win32' && !this.nativeOverride) this.ensureNativeWorker(); } catch { /* warmup is best effort */ }
     try { this.ripgrepAvailable(); } catch { /* warmup is best effort */ }
+  }
+
+  // computer_resume — restart THIS app so source changes take effect. The app
+  // owns the decision (dev build? already scheduled? cooldown?) so a resumed
+  // run cannot restart itself again by accident. The result always says
+  // whether the restart was scheduled, so the model has a truthful outcome to
+  // act on instead of re-running a shell command that looks unfinished.
+  restartTool(input = {}) {
+    if (typeof this.restartApp !== 'function') {
+      return {
+        ok: false,
+        note: 'This build cannot restart itself (no restart hook). The change takes effect the next time the app is launched; do not retry.'
+      };
+    }
+    const result = this.restartApp({
+      graceSeconds: Number(input?.graceSeconds) || 5,
+      reason: String(input?.reason || '')
+    }) || {};
+    return result;
   }
 
   async observe(ownerId, options = {}) {
@@ -722,17 +796,30 @@ class ComputerTools {
       return id;
     };
     const walkList = [];
+    // The corpus budget bounds the work AND the noise: an index over a whole
+    // Desktop (9,991 files, a vendor clone included) tokenized everything to
+    // answer one query about one file, and the model paid a 4,000-character
+    // preview of unrelated matches for it. The budget is reported honestly so
+    // the model narrows the path instead of trusting a partial index.
+    const INDEX_MAX_FILES = 2500;
+    let indexCapped = false;
     // LORDE_SEARCH_DEPTH_V1 — raised depth 12→16 and file cap 5000→10000 so
     // nested src/ subdirectories are indexed.
     const walk = async (dir, depth) => {
-      if (depth > 16 || walkList.length > 10000) return;
+      if (depth > 16 || walkList.length >= INDEX_MAX_FILES) {
+        if (walkList.length >= INDEX_MAX_FILES) indexCapped = true;
+        return;
+      }
       let entries = [];
       try { entries = await fs.promises.readdir(dir, { withFileTypes: true }); } catch { return; }
       for (const entry of entries) {
         if (['node_modules', 'dist', 'build', 'out', '.git', '.wrangler'].includes(entry.name) || entry.name.startsWith('.')) continue;
         const full = `${dir}${path.sep}${entry.name}`;
         if (entry.isDirectory()) await walk(full, depth + 1);
-        else if (entry.isFile() && INDEX_EXT.test(entry.name)) walkList.push(full);
+        else if (entry.isFile() && INDEX_EXT.test(entry.name)) {
+          if (walkList.length >= INDEX_MAX_FILES) { indexCapped = true; return; }
+          walkList.push(full);
+        }
       }
     };
     await walk(rootStat.isDirectory() ? root : path.dirname(root), 0);
@@ -841,6 +928,7 @@ class ComputerTools {
         indexedFiles: state.files.size, filesMatched: groups.size, results: [...groups.values()],
         elapsedMs: Date.now() - startedAt,
         ...(ranked.length === 0 ? { notice: 'No line matched enough query terms. Widen the query or use computer_search (regex) for exact patterns.' } : {}),
+        ...(indexCapped ? { notice: `This tree holds more files than the index budget (${INDEX_MAX_FILES}); only the first ${INDEX_MAX_FILES} were indexed, so a file OUTSIDE them cannot match. Narrow the path to the folder you care about (or read the file directly) instead of trusting this partial index.` } : {}),
         note: `Index cached per session (${state.files.size} files; re-tokenized ${tokenizedFiles} changed this call). Results are ranked line-level hits across docs AND code — quote the file:line evidence directly; no re-search needed.`
       };
     }
@@ -895,6 +983,7 @@ class ComputerTools {
       ok: true, tool: 'computer_index', root, mode: 'map', files: outlines.length, included, truncated, map: map || '(no symbols found)',
       indexedFiles: state.files.size, elapsedMs: Date.now() - startedAt,
       ...(goalTokenSet.size ? { goal: { tokens: [...goalTokenSet].slice(0, 12), matchedFiles: goalMatched } } : {}),
+      ...(indexCapped ? { notice: `This tree holds more files than the index budget (${INDEX_MAX_FILES}); only the first ${INDEX_MAX_FILES} were indexed. Narrow the path to the folder you care about instead of trusting this partial map.` } : {}),
       ...(truncated ? { note: `Map bounded at ${maxChars} characters. Omitted: ${omittedSummary || 'lower-symbol files'}. For an omitted file use file=<path>, or — much faster — pass query=<terms> for ranked line-level hits across the WHOLE corpus (docs included) in milliseconds.` } : {}),
       ...(repeat ? { repeat } : {})
     };

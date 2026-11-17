@@ -131,7 +131,12 @@ test('tab IPC handlers return clone-safe payloads and never leak thrown Error ob
 });
 
 test('missing bound tab is a bounded recoverable advisory, not an infinite throw loop', () => {
-  const agentSource = fs.readFileSync(path.join(root, 'desktop/agent/desktopChatAgent.cjs'), 'utf8');
+  // The run loop and the tool catalogs were split into two files, and the
+  // advisory moved with the execution path. Read both so the assertion tracks
+  // the BEHAVIOUR rather than the file it happens to live in today.
+  const agentSource = ['desktop/agent/desktopChatAgent.cjs', 'desktop/agent/agentInternals.cjs']
+    .map((file) => fs.readFileSync(path.join(root, file), 'utf8'))
+    .join('\n');
   assert.match(agentSource, /missing_bound_tab/, 'missing bound tab uses a named recovery source');
   assert.match(agentSource, /missingTabNotices/, 'the first missing-tab notice is bounded and not repeated forever');
   const controllerSource = fs.readFileSync(path.join(root, 'desktop/mcp/browserViewController.cjs'), 'utf8');
@@ -193,7 +198,12 @@ test('desktop agent shell keeps the compact dark reference controls wired to liv
   assert.match(rendererSource, /renderAssistantReply\(event\.output\?\.summary/);
   assert.match(rendererSource, /event\.tool === 'agent_advisory'/, 'internal advisory tool results stay out of the chat transcript');
   assert.match(rendererSource, /If the renderer missed run\.started during a drawer\/window remount/, 'live tool events survive a missed run.started event');
-  assert.match(fs.readFileSync(path.join(root, 'desktop', 'agent', 'desktopChatAgent.cjs'), 'utf8'), /FILE-MUTATION GATE/);
+  // The file-mutation gate moved with the tool layer: the agent no longer owns
+  // it, computer_write/computer_patch do, through WorkspaceChangeGuard. Assert
+  // the enforcement that exists instead of a comment marker that does not.
+  const toolSource = fs.readFileSync(path.join(root, 'desktop', 'computer', 'computerTools.cjs'), 'utf8');
+  assert.match(toolSource, /workspaceGuard\.beforeMutation/, 'mutations are gated before they happen');
+  assert.match(toolSource, /workspaceGuard\.afterMutation/, 'mutations are verified after they happen');
   assert.match(rendererSource, /if \(event\.result\?\.summary\) renderAssistantReply\(event\.result\?\.summary/);
   assert.match(rendererSource, /first real card owns the reply|existingCard/);
   assert.match(rendererSource, /agentPlanToggle\?\.addEventListener\('click'/);

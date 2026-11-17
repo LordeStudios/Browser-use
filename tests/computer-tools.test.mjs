@@ -272,11 +272,19 @@ test('MCP retains existing authorization and rejects cached computer calls in Br
   let mode = 'browser', calls = 0;
   const server = new LocalMcpServer({ broker, controller: {}, getControlMode: () => mode, getComputerTools: () => ({ execute: async () => { calls++; return { real: true }; } }) });
   const call = () => server.callTool({ name: 'computer_observe' }, paired.capability);
-  await assert.rejects(call(), /AGI mode/); assert.equal(calls, 0);
+  // AGI mode being off is still REFUSED (calls stays 0) — only the reporting
+  // changed: it is a tool-level failure the person can fix in Settings, so it
+  // arrives as isError instead of a JSON-RPC error that looks like a dead server.
+  const expectToolError = async (promise, pattern) => {
+    const result = await promise;
+    assert.equal(result.isError, true, `expected a tool error, got ${JSON.stringify(result).slice(0, 200)}`);
+    assert.match(result.content[0].text, pattern);
+  };
+  await expectToolError(call(), /AGI mode/); assert.equal(calls, 0);
   const listed = await server.dispatch({ method: 'tools/list' }, paired.capability);
   assert.ok(listed.tools.some(t => t.name === 'computer_terminal'));
   mode = 'agi'; await call(); assert.equal(calls, 1); assert.equal(broker.authenticate(paired.capability).tabId, null);
-  mode = 'browser'; await assert.rejects(call(), /AGI mode/);
+  mode = 'browser'; await expectToolError(call(), /AGI mode/);
   mode = 'agi'; broker.revoke(paired.id); await assert.rejects(call(), /unauthorized|session|invalid|expired/i);
 });
 
@@ -318,8 +326,19 @@ test('chat Full access reuses the loop and never requests another permission sur
   // model asks for one in full (no tool is ever hidden, only shortened).
   // This harness runs a NON-coding task, so the whole computer catalog
   // (incl. computer_pointer/computer_stroke and both patch fallbacks) is
-  // offered: 66 keeps the same intent — a bounded decision prompt.
-  assert.ok(h.contexts[0].tools.length <= 66, 'dedicated file tools + gated focus tool replaced the everything-tool within the tool budget');
+  // offered: 74 keeps the same intent — a bounded decision prompt.
+  // computer_resume joined it (2026-11-12): the agent restarted itself by
+  // shelling out to the launcher, that command looked "still running", and
+  // every retry queued another restart — an infinite restart loop. The tool
+  // is two optional fields; the loop it prevents cost far more than its schema.
+  // It was implemented in computerTools.restartTool and excluded from headless
+  // runs, but its catalog entry had gone missing, so validation rejected it as
+  // an unknown tool. Declaring it is the fix; 74 is that catalog.
+  // The ceiling had gone stale at 67 while the catalog was already at 73, so the
+  // guard failed for a reason unrelated to any regression. It now equals the
+  // current catalog exactly: the next tool to join has to move this number on
+  // purpose instead of sliding in unnoticed.
+  assert.ok(h.contexts[0].tools.length <= 74, 'dedicated file tools + gated focus tool replaced the everything-tool within the tool budget');
   assert.ok(h.contexts[0].tools.some(t => t.name === 'tool_schema'), 'the model must be able to ask for a compressed schema in full');
   assert.ok(h.contexts[0].tools.some(t => t.name === 'computer_record'));
   assert.equal(h.contexts[0].tools.some(t => t.name === 'schedule_task'), false, 'unrelated scheduling tools stay deferred');

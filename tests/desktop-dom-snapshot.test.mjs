@@ -116,10 +116,16 @@ test('DOM snapshot uses the shared CDP lease when it can return a serializable p
 
   assert.equal(snapshot.title, 'CDP DOM fixture');
   assert.deepEqual(snapshot.elements[0].center, { x: 90, y: 50 });
-  assert.equal(cdpCalls.length, 1);
+  // A snapshot is more than one read now — elements, then a bounded text and
+  // frame overview — so an exact count would break every time the observation
+  // grows a question. The invariant is that EVERY read rides the shared lease
+  // and the slow executeJavaScript fallback (which this harness makes throw)
+  // never runs. The first call must still be the element snapshot itself.
+  assert.ok(cdpCalls.length >= 1);
   assert.equal(cdpCalls[0].method, 'Runtime.evaluate');
   assert.equal(cdpCalls[0].purpose, 'DOM snapshot');
   assert.equal(cdpCalls[0].params.returnByValue, true);
+  assert.ok(cdpCalls.every((call) => call.method === 'Runtime.evaluate'), 'no read may bypass the lease');
 });
 
 test('clickElement resolves the latest snapshot index and sends real mouse events at its center', async () => {
@@ -410,4 +416,27 @@ test('selectElementsByAnchor keeps the nearest elements in stable DOM order', ()
   assert.deepEqual(far.map(e => e.index), [7, 8, 9]);
   // No anchor: untouched.
   assert.equal(selectElementsByAnchor(elements, 3, null), elements);
+});
+
+test('the text filter matches element CONTENT, not only attribute values', () => {
+  // Regression: the collector used to reject any element whose attributes did
+  // not contain the filter text, before reading its text — so a text search
+  // only matched text that also happened to be an attribute. On the TikTok
+  // inbox, { text: 'Cottiny' } returned 0 rows that plainly contain it.
+  const source = require('node:fs').readFileSync(
+    new URL('../desktop/mcp/browserViewController.cjs', import.meta.url), 'utf8'
+  );
+  const start = source.indexOf('function buildElementCollectorScript');
+  const body = source.slice(start, start + 30_000);
+  assert.ok(body.length > 1000, 'the collector must be locatable');
+  assert.doesNotMatch(
+    body,
+    /if \(!cheapMatches\(element\)\) continue;/,
+    'an unconditional attribute-only rejection hides all text matches'
+  );
+  assert.match(
+    body,
+    /!cheapMatches\(element\) && !String\(element\.textContent \|\| ''\)\.toLowerCase\(\)\.includes\(filterText\)/,
+    'a cheap miss must fall through to the element text before rejecting'
+  );
 });

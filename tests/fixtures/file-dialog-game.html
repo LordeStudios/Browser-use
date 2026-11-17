@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lorde File Quest — native dialog test</title>
+<style>
+  :root {
+    --bg: #0d1017;
+    --panel: #151a24;
+    --panel-2: #1b2230;
+    --line: #2a3344;
+    --text: #e8edf6;
+    --muted: #8d9bb0;
+    --accent: #7c9cff;
+    --good: #4ade80;
+    --warn: #fbbf24;
+    --bad: #f87171;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: radial-gradient(1200px 600px at 20% -10%, #1a2440 0%, transparent 60%), var(--bg);
+    color: var(--text);
+    font: 15px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 28px 20px 60px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+  .badge {
+    width: 46px; height: 46px; border-radius: 13px; flex: none;
+    background: linear-gradient(160deg, #2b3f7a, #1a2440);
+    border: 1px solid var(--line);
+    display: grid; place-items: center; font-size: 22px;
+  }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+  .hud { display: flex; gap: 10px; margin: 18px 0 20px; flex-wrap: wrap; }
+  .stat {
+    flex: 1 1 150px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 14px;
+  }
+  .stat b { display: block; font-size: 20px; letter-spacing: -0.02em; }
+  .stat span { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 4px; display: flex; align-items: center; gap: 9px; }
+  .step {
+    width: 22px; height: 22px; border-radius: 50%; flex: none;
+    display: grid; place-items: center; font-size: 11.5px; font-weight: 700;
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--accent);
+  }
+  .card p { margin: 6px 0 14px; color: var(--muted); font-size: 13.5px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button {
+    font: inherit; font-weight: 600; color: #0b0f16; background: var(--accent);
+    border: 0; border-radius: 10px; padding: 11px 18px; cursor: pointer;
+    transition: transform .06s ease, filter .15s ease;
+  }
+  button:hover { filter: brightness(1.06); }
+  button:active { transform: translateY(1px); }
+  button.ghost {
+    background: transparent; color: var(--text); border: 1px solid var(--line);
+  }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .path {
+    font-family: var(--mono); font-size: 12.5px; background: #0b0f16;
+    border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px;
+    color: var(--warn); display: inline-block; margin-top: 4px; word-break: break-all;
+  }
+  .drop {
+    margin-top: 12px; border: 1px dashed var(--line); border-radius: 12px;
+    padding: 16px; text-align: center; color: var(--muted); font-size: 13px;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .drop.hot { border-color: var(--accent); background: rgba(124,156,255,.08); color: var(--text); }
+  .log {
+    font-family: var(--mono); font-size: 12px; background: #0b0f16;
+    border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+    height: 190px; overflow: auto; white-space: pre-wrap; color: #b9c6dc;
+  }
+  .log .t { color: #55637a; }
+  .log .ok { color: var(--good); }
+  .log .warn { color: var(--warn); }
+  .log .err { color: var(--bad); }
+  .treasure {
+    display: flex; align-items: center; gap: 12px; background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 12px;
+  }
+  .treasure .ico { font-size: 24px; }
+  .treasure .meta { font-size: 12.5px; color: var(--muted); }
+  .treasure .meta b { color: var(--text); display: block; font-size: 13.5px; }
+  .done { color: var(--good); font-weight: 600; }
+  .hint { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+  .hint code { font-family: var(--mono); color: var(--accent); }
+  footer { color: #5c6a80; font-size: 12px; text-align: center; margin-top: 22px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="badge">🗝️</div>
+    <div>
+      <h1>Lorde File Quest</h1>
+      <p class="sub">A two-level game that tests the native <b>Open</b> and <b>Save</b> dialogs — the agent must finish it without touching an OS window.</p>
+    </div>
+  </header>
+
+  <div class="hud">
+    <div class="stat"><b id="score">0</b><span>Score</span></div>
+    <div class="stat"><b id="level">1 / 2</b><span>Level</span></div>
+    <div class="stat"><b id="files">0</b><span>Files attached</span></div>
+    <div class="stat"><b id="saves">0</b><span>Saves completed</span></div>
+  </div>
+
+  <section class="card">
+    <h2><span class="step">1</span> Attach the key — native Open dialog</h2>
+    <p>Click <b>Choose file</b>. A native file picker opens; the agent answers it with <code>browser_file_dialog_accept</code> and the file becomes the level-1 key.</p>
+    <div class="row">
+      <button id="pick">Choose file…</button>
+      <button id="pickMulti" class="ghost">Choose several…</button>
+      <button id="clear" class="ghost">Reset</button>
+    </div>
+    <input id="fileInput" type="file" hidden>
+    <input id="fileInputMulti" type="file" multiple hidden>
+    <div class="drop" id="drop">…or drop a file here</div>
+    <div id="treasureSlot"></div>
+    <div class="hint">Any file works — a .txt, .png, .json. The picker reports the name, size and type back into the log.</div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">2</span> Save your inventory — native Save dialog</h2>
+    <p>Click <b>Save inventory</b>. The page starts a download; the agent routes it with <code>browser_downloads_set_path</code>, so no Save dialog appears.</p>
+    <div class="row">
+      <button id="save" disabled>Save inventory (.json)</button>
+      <button id="saveTxt" class="ghost" disabled>Save notes (.txt)</button>
+    </div>
+    <div class="hint">Save these to: <span class="path" id="savePath">C:\Users\london\lorde-quest\</span></div>
+    <div class="hint">On macOS or Linux the same folder is <code>~/lorde-quest/</code>. The agent sets this directory with <code>browser_downloads_set_path</code> before clicking save.</div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">3</span> Event log</h2>
+    <p>Everything the page observes, in order — this is the evidence the agent can quote back.</p>
+    <div class="log" id="log"></div>
+    <div class="row" style="margin-top:12px">
+      <button id="copyLog" class="ghost">Copy log</button>
+      <button id="clearLog" class="ghost">Clear log</button>
+    </div>
+  </section>
+
+  <footer>Lorde OS · browser-use file-dialog fixture · no network, no storage, everything stays in this page</footer>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const logEl = $('log');
+  const state = { score: 0, files: 0, saves: 0, inventory: [] };
+
+  function stamp() {
+    const d = new Date();
+    return d.toTimeString().slice(0, 8);
+  }
+  function log(message, kind = '') {
+    const line = document.createElement('div');
+    line.innerHTML = `<span class="t">${stamp()}</span>  <span class="${kind}">${message}</span>`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+  function render() {
+    $('score').textContent = state.score;
+    $('files').textContent = state.files;
+    $('saves').textContent = state.saves;
+    $('level').textContent = state.files === 0 ? '1 / 2' : state.saves === 0 ? '2 / 2' : 'complete';
+    $('save').disabled = state.inventory.length === 0;
+    $('saveTxt').disabled = state.inventory.length === 0;
+  }
+  function human(bytes) {
+    if (!bytes) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+    return `${(bytes / Math.pow(1024, i)).toFixed(i ? 1 : 0)} ${units[i]}`;
+  }
+
+  function showTreasure(files) {
+    const slot = $('treasureSlot');
+    slot.innerHTML = '';
+    for (const file of files) {
+      const row = document.createElement('div');
+      row.className = 'treasure';
+      row.innerHTML = `<div class="ico">${file.type.startsWith('image/') ? '🖼️' : file.type.includes('json') ? '📦' : '📄'}</div>
+        <div class="meta"><b>${file.name}</b>${human(file.size)} · ${file.type || 'unknown type'}</div>`;
+      slot.appendChild(row);
+      state.inventory.push({ name: file.name, size: file.size, type: file.type || 'unknown', at: new Date().toISOString() });
+    }
+    state.files += files.length;
+    state.score += 10 * files.length;
+    render();
+  }
+
+  function handleFiles(fileList) {
+    const files = [...fileList];
+    if (!files.length) { log('picker closed with no file', 'warn'); return; }
+    for (const file of files) log(`attached <b>${file.name}</b> (${human(file.size)})`, 'ok');
+    showTreasure(files);
+    if (state.files === files.length) log('level 1 complete — +' + 10 * files.length + ' points', 'ok');
+  }
+
+  $('pick').addEventListener('click', () => {
+    log('opening the native Open dialog…');
+    $('fileInput').click();
+  });
+  $('pickMulti').addEventListener('click', () => {
+    log('opening the native Open dialog (multiple)…');
+    $('fileInputMulti').click();
+  });
+  $('fileInput').addEventListener('change', (e) => handleFiles(e.target.files));
+  $('fileInputMulti').addEventListener('change', (e) => handleFiles(e.target.files));
+  $('clear').addEventListener('click', () => {
+    state.score = 0; state.files = 0; state.saves = 0; state.inventory = [];
+    $('treasureSlot').innerHTML = '';
+    log('reset — start again', 'warn');
+    render();
+  });
+
+  // Drag and drop also opens the same file-input path.
+  const drop = $('drop');
+  ['dragenter', 'dragover'].forEach((type) => drop.addEventListener(type, (e) => {
+    e.preventDefault(); drop.classList.add('hot');
+  }));
+  ['dragleave', 'drop'].forEach((type) => drop.addEventListener(type, (e) => {
+    e.preventDefault(); drop.classList.remove('hot');
+  }));
+  drop.addEventListener('drop', (e) => {
+    if (e.dataTransfer?.files?.length) {
+      log('dropped ' + e.dataTransfer.files.length + ' file(s)');
+      handleFiles(e.dataTransfer.files);
+    }
+  });
+
+  // A run stamp keeps repeated test runs from producing "file (2).json",
+  // "file (3).json" in the target folder.
+  function runStamp() {
+    const d = new Date();
+    return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join('');
+  }
+  function download(filename, text, mime) {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    state.saves += 1;
+    state.score += 25;
+    render();
+    log(`save started → <b>${filename}</b> (${human(blob.size)})`, 'ok');
+    if (state.saves === 1) log('level 2 complete — +25 points. Inventory should be in C:\\Users\\london\\lorde-quest\\', 'ok');
+    if (state.saves >= 2) log('both saves done — quest complete 🏆', 'ok');
+  }
+
+  $('save').addEventListener('click', () => {
+    const payload = {
+      game: 'Lorde File Quest',
+      savedAt: new Date().toISOString(),
+      score: state.score,
+      inventory: state.inventory
+    };
+    download(`lorde-quest-save-${runStamp()}.json`, JSON.stringify(payload, null, 2), 'application/json');
+  });
+  $('saveTxt').addEventListener('click', () => {
+    const lines = ['Lorde File Quest — notes', 'Saved: ' + new Date().toISOString(), ''];
+    for (const item of state.inventory) lines.push(`- ${item.name} (${human(item.size)})`);
+    download(`lorde-quest-notes-${runStamp()}.txt`, lines.join('\n'), 'text/plain');
+  });
+
+  $('copyLog').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(logEl.innerText);
+      log('log copied to clipboard', 'ok');
+    } catch {
+      log('clipboard blocked by the page sandbox — select the text instead', 'warn');
+    }
+  });
+  $('clearLog').addEventListener('click', () => { logEl.innerHTML = ''; log('log cleared'); });
+
+  render();
+  log('ready — level 1: attach a file, level 2: save the inventory');
+  log('save target: C:\\Users\\london\\lorde-quest\\ (agent sets it with browser_downloads_set_path)', 'warn');
+})();
+</script>
+</body>
+</html>

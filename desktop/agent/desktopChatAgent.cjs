@@ -33,6 +33,11 @@ const { performance } = require('node:perf_hooks');
 // Functionality library (verbatim from the original implementation).
 const I = require('./agentInternals.cjs');
 
+// FAILURE REPORT: a stopped or parked run must always explain itself in the
+// provider's own words. See the header of failureReport.cjs for the incident.
+const { classifyProviderFailure, describeParkedRun, formatFailureReport } = require('./failureReport.cjs');
+const { describeAction } = require('./narration.cjs');
+
 // Harness core (harness pattern).
 const { createPromptRegistry, SECTION_ORDERS } = require('./harness/promptRegistry.cjs');
 const { registerPromptSections, modelingPlaybookFor, drawingPlaybookFor } = require('./prompt/sections.cjs');
@@ -464,6 +469,17 @@ class DesktopChatAgent {
           ? new Set([...previous.nativeSurfaceSeen].map((id) => String(id)).filter(Boolean))
           : undefined)
         : undefined,
+      // A native dialog is only EXPECTED after the agent asked for one (a
+      // file-open, a save-as, an elevated launch). Without that demand the
+      // detector must never run: an unrelated window on the desktop is not a
+      // blocker, and treating it as one sent the agent out of the task.
+      nativeDialogExpectedUntil: continuation
+        ? Number(previous?.nativeDialogExpectedUntil || 0)
+        : (NATIVE_DIALOG_DEMAND.test(String(task || '')) ? Date.now() + NATIVE_DIALOG_EXPECTATION_MS : 0),
+      nativeDialogExpectedReason: continuation
+        ? String(previous?.nativeDialogExpectedReason || '')
+        : (NATIVE_DIALOG_DEMAND.test(String(task || '')) ? 'the task asks for a native dialog' : ''),
+      nativeDialogDetected: continuation ? Boolean(previous?.nativeDialogDetected) : false,
       step: 0,
       decisionCount: 0,
       failures: 0,
@@ -620,6 +636,24 @@ class DesktopChatAgent {
       run.thinkingBudgetCapMs = Number(previous.thinkingBudgetCapMs);
     }
     if (request?.resumeRecovery !== true && (!continuation || run.newTurn)) appendConversationMessage(run, 'user', task, { domAttachments });
+    // THE RESUME CARD — the proof that this process came back after a restart.
+    //
+    // It goes into the CONVERSATION, not only into the opening notices: the
+    // opening notices are delivered to ONE decision, while a conversation
+    // message stays in the model's context for every decision of this run and
+    // is checkpointed with it. Without that, the agent kept re-planning the
+    // restart it had already done and the app restarted nine times in a row.
+    //
+    // It is a runtime message, so the provider bundles it as runtime context
+    // rather than as a user turn, and the renderer shows it as a badged card.
+    const resumeCard = request?.resumeCard;
+    if (resumeCard && String(resumeCard.content || '').trim()) {
+      appendConversationMessage(run, 'user', String(resumeCard.content).slice(0, 2000), {
+        source: 'runtime',
+        badge: String(resumeCard.badge || 'app restart').slice(0, 40),
+        displayContent: String(resumeCard.displayContent || '').slice(0, 2000)
+      });
+    }
     void maybeGenerateConversationTitle(this, run);
     try {
       const matched = this.skillsApi?.search?.({ task, limit: 2 }) || [];
@@ -892,8 +926,15 @@ class DesktopChatAgent {
             run.decisionCount += 1;
             if (run.providerInstance?.visionDegraded && !run.visionAdvisoryPublished) {
               run.visionAdvisoryPublished = true;
+              // Say what actually happened, not a verdict about the model. The
+              // old wording ("<model> does not support image input") was
+              // published whenever an image-bearing request was rejected twice
+              // — including for size/policy rejections — and users with
+              // perfectly vision-capable models were told their model could
+              // not see images. The check is per conversation, so a new chat
+              // (or a model switch) retries it.
               this.publish('assistant.message', run, {
-                text: `⚠️ ${run.provider?.model || 'The active model'} does not support image input. Continuing with text evidence only. Switch to a vision-capable model for full desktop awareness.`
+                text: `⚠️ ${run.provider?.model || 'The active model'} did not accept image input in this run, so the agent is working from text evidence (window titles, DOM captures). If this model does support images, start a new chat or switch models to retry — the capability check runs per conversation.`
               });
             }
             if (pendingHarnessNotices) {
@@ -926,6 +967,10 @@ class DesktopChatAgent {
             }
           } catch (error) {
             if (run.status !== 'running' || run.abortController.signal.aborted) throw error;
+            // Remember the RAW provider error: parkRun() is often called from a
+            // string-only site, and the classifier needs the original object to
+            // tell a 429 from a bad key.
+            run.lastProviderError = error;
             if (String(error?.message || '') === 'agent-message-arrived') {
               latestObservation = null;
               continue;
@@ -959,7 +1004,12 @@ class DesktopChatAgent {
             if (providerBlock) {
               this.record(run, { name: 'agent_provider_blocked', input: {} }, { ok: false, recoverable: false, error: providerBlock });
               run.status = 'failed';
-              run.result = { summary: providerBlock, success: false, verified: false, reason: 'provider_external_block' };
+              // Carry BOTH halves: the actionable sentence AND the provider's
+              // own words. The old summary was the generic sentence alone, so a
+              // user with a bad key and a user with an unpaid invoice saw the
+              // identical line and could not tell what to fix.
+              const failure = classifyProviderFailure(error, { model: run.provider?.model });
+              run.result = { summary: formatFailureReport(failure), success: false, verified: false, reason: 'provider_external_block', failure };
               break;
             }
             if (error?.code === 'DECISION_OUTPUT_BUDGET') {
@@ -985,10 +1035,16 @@ class DesktopChatAgent {
             if (isTransportError(error)) {
               const attempt = (run.transportRetryAttempts || 0) + 1;
               if (attempt > this.transportRetryDelays.length) {
-                const message = `The provider remained unavailable after the cumulative transport retry budget was exhausted (${Math.round(this.transportRetryDelays.reduce((total, delay) => total + delay, 0) / 60000)} minutes). The browser task state was preserved; retry the provider or continue the conversation when it is available.`;
+                const failure = classifyProviderFailure(error, { model: run.provider?.model, attempts: attempt - 1 });
+                const minutes = Math.round(this.transportRetryDelays.reduce((total, delay) => total + delay, 0) / 60000);
+                const message = formatFailureReport({
+                  ...failure,
+                  body: `${failure.body} It was retried ${attempt - 1} times across about ${minutes} minutes before giving up, so this is not a one-off blip.`,
+                  nextStep: failure.nextStep || 'Retry when the provider is available; the browser task state was preserved.'
+                });
                 this.record(run, { name: 'agent_provider_unreachable', input: {} }, { ok: false, recoverable: false, error: message });
                 run.status = 'failed';
-                run.result = { summary: message, success: false, verified: false, reason: 'provider_unreachable' };
+                run.result = { summary: message, success: false, verified: false, reason: 'provider_unreachable', failure };
                 break;
               }
               const delayMs = this.transportRetryDelays[attempt - 1];
@@ -1007,7 +1063,7 @@ class DesktopChatAgent {
               run.providerDecisionFailures = decisionFailures;
               if (decisionFailures >= 3) {
                 run.providerDecisionFailures = 0;
-                this.parkRun(run, `The provider failed ${decisionFailures} consecutive decisions (${String(error?.message || error).replace(/\s+/g, ' ').slice(0, 200)}). The run is parked; recovery resumes it automatically.`);
+                this.parkRun(run, `The provider failed ${decisionFailures} consecutive decisions (${String(error?.message || error).replace(/\s+/g, ' ').slice(0, 200)}). The run is parked; recovery resumes it automatically.`, { error });
                 break;
               }
               this.scheduleRecovery(run, { source: 'provider_decision', error, recordSyntheticHistory: true });
@@ -1242,6 +1298,12 @@ class DesktopChatAgent {
             run.waitTurns = (run.waitTurns || 0) + 1;
           }
           run.step += 1;
+          // GRADUAL RENAMING — a conversation's name follows the WORK, not just
+          // its opening message. Naming once per user turn froze the name at
+          // whatever the first sentence sounded like; every few decisions the
+          // agent knows better, so the name is re-proposed (throttled and
+          // silent, so it can never slow or fail a run).
+          if (run.step % 6 === 0) void maybeGenerateConversationTitle(this, run, { inRun: true });
           const decisionObservation = { desktop: run.latestObservation?.desktop, screenshot: run.latestObservation?.screenshot };
           const planBeforeDecision = JSON.stringify(run.plan || []);
           // entry.at is strictly increasing (nextTimelineAt), so "at >
@@ -1504,6 +1566,9 @@ class DesktopChatAgent {
               const elementText = String(resolvedElement?.text || resolvedElement?.name || call.input?.text || '').toLowerCase();
               const opensDialog = /upload|browse|choose file|select file|open file|save as|print|attach|import|pick file/.test(elementText);
               if (opensDialog && run.observationDomain === 'browser') {
+                // This click ASKED for a native dialog: from here on looking
+                // for one is legitimate.
+                expectNativeDialog(run, `the clicked element ("${elementText.slice(0, 80)}") opens a native dialog`);
                 run.observationDomain = 'computer';
                 run.computerObservationDirty = true;
                 latestObservation = null;
@@ -1671,18 +1736,29 @@ class DesktopChatAgent {
   // run.escalated + auto-resume timer with bounded backoff. NEVER terminates
   // (owner directive preserved). The external-deadline park (parkOnDeadline)
   // is the only non-resuming park.
-  parkRun(run, reason) {
+  parkRun(run, reason, { error = null } = {}) {
     if (!run || run.status !== 'running') return false;
     run.status = 'awaiting_recovery';
     run.escalation = { at: Date.now(), reason: String(reason || '').slice(0, 400), fires: (Number(run.escalation?.fires) || 0) + 1 };
-    this.publish('run.escalated', run, { reason: run.escalation.reason });
+    const resumeMs = loopPolicy.escalationBackoffMs(Number(run.recoveryEpisodes) || 0);
+    // A PARK IS NOT A CANCEL. This used to publish only `run.escalated`, which
+    // no renderer handled, so a rate-limited or hung provider ended the turn
+    // with zero visible output — the user assumed the agent ignored them and
+    // re-sent the task. Publish the classified failure (provider's own words
+    // included) plus when recovery resumes, every time; the renderer collapses
+    // repeats of the same kind into one card with an attempt counter.
+    const failure = describeParkedRun(run, reason, {
+      error: error || run.lastProviderError || null,
+      model: run.provider?.model
+    });
+    this.publish('run.escalated', run, { reason: run.escalation.reason, failure, resumeInMs: resumeMs, fires: run.escalation.fires });
+    this.publish('run.parked', run, { reason: run.escalation.reason, failure, resumeInMs: resumeMs, fires: run.escalation.fires });
     appendConversationMessage(run, 'user', `PARKED: ${run.escalation.reason} Held state: plan ${Array.isArray(run.plan) ? run.plan.length : 0} items, completed work ${run.coordinator?.completedWork?.length || 0}, last evidence revision ${run.coordinator?.observationRevision || 0}. Resume is automatic; a message from you retargets the run.`, { source: 'runtime' });
     try { run.activeStepController?.abort(new Error('run-escalated')); } catch { /* parking must never depend on an abortable step */ }
     // Converge an abandoned step whose provider call never settles (a hung
     // model or mock): without retiring it the step's dead-air timer holds the
     // event loop for the whole connect window after the run already parked.
     try { run.activeStepRetire?.(new Error('The run was parked while this step was in flight; the step is retired.')); } catch { /* retirement is best effort */ }
-    const resumeMs = loopPolicy.escalationBackoffMs(Number(run.recoveryEpisodes) || 0);
     if (run.escalationTimer) clearTimeout(run.escalationTimer);
     // ONE-SHOT resume timer (hygiene): a single re-armed timeout instead
     // of an interval — resumption is always scheduled (indefinite recovery),
@@ -1893,6 +1969,23 @@ class DesktopChatAgent {
   }
 
   steerNow(run, text, plan, goals, attachments = [], domAttachments = []) {
+    // A run that is still ASSEMBLING (status 'starting': attachment
+    // normalization, workspace resolution, the first tab) or PARKED
+    // ('awaiting_recovery') is NOT over. Refusing the message there threw,
+    // and the renderer's fallback put it in the END-OF-RUN queue — the user's
+    // direct instruction then arrived minutes later, as the NEXT turn, after
+    // the agent had already finished doing the thing being corrected.
+    // Queue it into the run instead: the loop delivers it at its first
+    // boundary (or when the parked run resumes).
+    if (run.status === 'starting' || run.status === 'awaiting_recovery') {
+      const queued = {
+        id: crypto.randomUUID(), role: 'user',
+        content: String(text || '').trim(), at: Date.now()
+      };
+      if (!queued.content) throw new Error('Steering messages must contain at least 1 character.');
+      (run.pendingUserMessages ||= []).push(queued);
+      return { id: queued.id, status: 'queued', runId: run.id };
+    }
     if (!['running', 'awaiting_approval', 'awaiting_input', 'paused'].includes(run.status)) throw new Error('This run has ended. Send a continuation instead.');
     if (run.status === 'awaiting_input' && run.userInputResolver && String(text || '').trim()) {
       this.resolveUserInput(run, String(text).trim());
@@ -1962,6 +2055,25 @@ class DesktopChatAgent {
     };
     run.pendingUserMessages.push(message);
     this.publish('user.message.queued', run, { messageId: message.id });
+    // USER STEERING INTERRUPTS THE OPEN DECISION — parity with cross-agent
+    // messages, which have always been able to break in (see the wake/step
+    // aborts below in the message-delivery path). Without this, a direct
+    // instruction typed mid-run waited for the ENTIRE in-flight model call
+    // (minutes of thinking) before the loop next looked at
+    // pendingUserMessages; the user experienced that as "the agent ignores
+    // my message until a later turn". Aborting here lands the steering at
+    // the NEXT decision boundary instead, and the flag makes a decision that
+    // already completed re-plan against it rather than executing work the
+    // user just corrected.
+    run.messageArrivedWhileStep = true;
+    if (run.status === 'running') {
+      if (run.messageWakeController && !run.messageWakeController.signal.aborted) {
+        try { run.messageWakeController.abort(new Error('agent-message-arrived')); } catch { /* best effort */ }
+      }
+      if (run.activeStepController && !run.activeStepController.signal.aborted) {
+        try { run.activeStepController.abort(new Error('agent-message-arrived')); } catch { /* best effort */ }
+      }
+    }
     return { id: message.id, status: 'queued', runId: run.id, ...(planEdited ? { plan: planEdited } : {}), ...(goalsEdited ? { goals: goalsEdited } : {}) };
   }
 
@@ -2003,6 +2115,13 @@ class DesktopChatAgent {
   async deliverNativeSurfaceNotice(run) {
     if (!run || run.remoteExecution) return;
     if (run.settings?.controlMode !== 'agi' || typeof run.getComputerTools !== 'function') return;
+    // DEMAND-DRIVEN (owner directive): a native dialog is detected ONLY after
+    // the agent triggered an action that asks for one (open as admin, open
+    // file, save file, a file picker). Without that demand the detector must
+    // never run: an unrelated window on the desktop is not a blocker, and
+    // announcing it sent the agent out of the task to "resolve" a window
+    // that blocked nothing.
+    if (!nativeDialogExpected(run)) return;
     const now = Date.now();
     if (now < (run.nativeSurfaceCheckAt || 0)) return;
     run.nativeSurfaceCheckAt = now + 4000;
@@ -2018,7 +2137,10 @@ class DesktopChatAgent {
     if (!scanWindows) return;
     let inventory = null;
     const observed = run.latestObservation?.desktop;
-    if (observed && Array.isArray(observed.windows) && run.nativeSurfaceScanRevision !== run.coordinator?.observationRevision) {
+    // A cached observation is only usable when it actually enumerated windows:
+    // an empty list cannot answer "is a dialog open?", so it must fall through
+    // to a real scan instead of silently reporting "no dialog".
+    if (observed && Array.isArray(observed.windows) && observed.windows.length > 0 && run.nativeSurfaceScanRevision !== run.coordinator?.observationRevision) {
       run.nativeSurfaceScanRevision = run.coordinator?.observationRevision;
       inventory = observed;
     }
@@ -2031,19 +2153,20 @@ class DesktopChatAgent {
       } catch { return; }
     }
     const windows = Array.isArray(inventory?.windows) ? inventory.windows : [];
-    const DIALOG_CLASSES = new Set(['#32770', '#32771', 'Chrome_WidgetWin_1', 'Chrome_WidgetWin_0']);
-    const isDialog = (w) => {
-      const cls = String(w?.className || '');
-      const title = String(w?.title || '').toLowerCase();
-      if (w?.own === true) return false;
-      if (/^browser-use( agent pointer)?$/.test(title)) return false;
-      const looksDialog = DIALOG_CLASSES.has(cls)
-        || /open|save|select|choose|upload|permission|allow|deny|confirm|dialog|browse|file/.test(title);
-      return looksDialog && !w?.minimized;
-    };
+    const isDialog = (w) => isNativeDialogWindow(w, inventory?.virtualDesktop || null);
     const dialogs = windows.filter(isDialog);
     if (!run.nativeSurfaceSeen) run.nativeSurfaceSeen = new Set(windows.map(w => w.id));
     const fresh = dialogs.filter(dialog => !run.nativeSurfaceSeen.has(dialog.id));
+    // The dialog that was announced is gone: the demand is satisfied, so the
+    // detector stops running until the agent asks for another dialog. Only a
+    // window list that actually SAW the desktop can prove that - an empty or
+    // partial inventory (a cached observation with no windows) proves nothing
+    // and must never cancel a live demand.
+    if (run.nativeDialogDetected && windows.length > 0 && !dialogs.length) {
+      run.nativeDialogDetected = false;
+      run.nativeDialogExpectedUntil = 0;
+      run.nativeDialogExpectedReason = '';
+    }
     if (!fresh.length) return;
     for (const dialog of fresh) run.nativeSurfaceSeen.add(dialog.id);
     run.computerObservationDirty = true;
@@ -2051,6 +2174,8 @@ class DesktopChatAgent {
     const switching = run.observationDomain !== 'computer';
     const worthNoticing = switching ? fresh : fresh.filter((dialog) => Number(dialog.pid) !== process.pid);
     if (!worthNoticing.length) return;
+    run.nativeDialogDetected = true;
+    expectNativeDialog(run, run.nativeDialogExpectedReason || 'the agent asked for a native dialog');
     if (switching) run.observationDomain = 'computer';
     const listed = worthNoticing.map(dialog => `"${String(dialog.title || 'Untitled').slice(0, 80)}" (windowId ${dialog.id})`).join(', ');
     appendConversationMessage(run, 'user', [
@@ -2333,7 +2458,10 @@ class DesktopChatAgent {
     this.controller.releaseSessionInput(run.id);
     if (run.computerUsed) void run.getComputerTools().releaseOwner(run.computerOwner).catch(error => this.publish('computer.cleanup.error', run, { error: error.message }));
     this.resolveApproval(run, { decision: 'deny' });
-    this.publish('run.cancelled', run, {});
+    // A stop is a visible outcome, not a vanished spinner: the renderer used to
+    // only settle the thinking card, so a stopped run left the last thought
+    // hanging as if work were still in flight.
+    this.publish('run.cancelled', run, { reason: 'stopped', detail: 'Run stopped. The work done so far is preserved in the conversation; send a message to continue from here.' });
     return serializeRun(run);
   }
 
@@ -2394,6 +2522,12 @@ class DesktopChatAgent {
     const executableTool = !['update_plan', 'create_plan', 'browser_done'].includes(call.name);
     if (executableTool && run.coordinator.metrics.firstToolStartedMs === null) run.coordinator.metrics.firstToolStartedMs = performance.now() - run.attemptStartedClock;
     this.publish('tool.started', run, { tool: call.name, args: redactArgs(call.name, call.input), inspection: { input: inspectionInput, output: null } });
+    // PROGRESS NARRATION: one human line for the action that is starting. A
+    // model that streams no reasoning text would otherwise leave the card
+    // blank, which reads as a wedged run. Derived from the call, so it is true
+    // for every model.
+    const narration = describeAction(call);
+    if (narration) this.publish('assistant.narration', run, { text: narration, tool: call.name, phase: 'acting' });
     const heartbeatStartedAt = Date.now();
     const heartbeat = executableTool ? setInterval(() => {
       try { this.publish('tool.progress', run, { tool: call.name, elapsedMs: Date.now() - heartbeatStartedAt }); } catch { /* progress is additive */ }
@@ -3047,6 +3181,60 @@ class DesktopChatAgent {
   }
 }
 
+// A NATIVE DIALOG is a small system window that opened on top of the work
+// and blocks it. Ordinary application windows are NOT dialogs:
+// Chrome_WidgetWin_1/0 is the class of every Chromium and Electron app (Edge,
+// MSN, ChatGPT, other Electron apps), and a title containing "file" belongs
+// to a File Explorer that was already open. Treating those as dialogs made
+// the agent leave the task, focus an unrelated app and press Escape in it -
+// the run spent a minute chasing a window that blocked nothing.
+const NATIVE_DIALOG_CLASSES = new Set(['#32770', '#32771', '#32772', 'NotifyWin32']);
+const NATIVE_DIALOG_TITLES = /\b(?:open|save as|save image|select|choose|upload|permission|allow|deny|confirm|dialog|picker|prompt|print)\b/;
+// The work that ASKS for a native dialog. The task itself may ask for one
+// ("open the file as admin", "save it as ..."), and a click on an upload /
+// open-file / save-as control asks for one.
+const NATIVE_DIALOG_DEMAND = /\b(?:open (?:as admin|the file|a file)|save (?:as|the file)|file (?:picker|dialog|chooser)|choose (?:a |the )?file|browse for|upload)\b/i;
+const NATIVE_DIALOG_EXPECTATION_MS = 90_000;
+
+function nativeDialogExpected(run) {
+  return Number(run?.nativeDialogExpectedUntil || 0) > Date.now();
+}
+
+// Arm the expectation: the agent just asked for a native dialog, so looking
+// for one is legitimate from now on.
+function expectNativeDialog(run, reason) {
+  if (!run) return false;
+  run.nativeDialogExpectedUntil = Date.now() + NATIVE_DIALOG_EXPECTATION_MS;
+  run.nativeDialogExpectedReason = String(reason || 'the agent asked for a native dialog').slice(0, 200);
+  return true;
+}
+
+function isNativeDialogWindow(window, virtualDesktop = null) {
+  if (!window) return false;
+  const cls = String(window.className || '');
+  const title = String(window.title || '').toLowerCase();
+  if (window.own === true) return false;
+  if (/^browser-use( agent pointer)?$/.test(title)) return false;
+  if (window.minimized) return false;
+  const bounds = window.bounds || {};
+  if (virtualDesktop && bounds.width > 0 && bounds.height > 0) {
+    // A window parked off the desktop (-32000,-32000 is the classic parked
+    // position) cannot be seen or clicked; it is never the dialog that
+    // blocks the work.
+    const onScreen = bounds.x + bounds.width > virtualDesktop.x && bounds.x < virtualDesktop.x + virtualDesktop.width
+      && bounds.y + bounds.height > virtualDesktop.y && bounds.y < virtualDesktop.y + virtualDesktop.height;
+    if (!onScreen) return false;
+  }
+  if (NATIVE_DIALOG_CLASSES.has(cls)) return true;
+  if (!NATIVE_DIALOG_TITLES.test(title)) return false;
+  // A title alone is not enough: an app whose title mentions "Open" (an IDE,
+  // a file manager, a browser tab) is not a modal. A dialog is small: it
+  // covers a fraction of the screen, never the whole desktop.
+  const screenArea = virtualDesktop ? virtualDesktop.width * virtualDesktop.height : 0;
+  const windowArea = (bounds.width || 0) * (bounds.height || 0);
+  return !screenArea || windowArea <= screenArea * 0.6;
+}
+
 module.exports = {
   // Additive (): prompt assembly exported for tests and tooling.
   assembleSystemPrompt, runtimeContextText, attachCreativePlaybooks,
@@ -3060,5 +3248,6 @@ module.exports = {
   remainingRunMs,
   executeAction,
   normalizeAttachments,
-  advanceObjectiveLedger, closeActiveObjective, retireAnswerOnlyObjective, settleObjectiveLedgerOnTerminal, activeObjectiveEntry
+  advanceObjectiveLedger, closeActiveObjective, retireAnswerOnlyObjective, settleObjectiveLedgerOnTerminal, activeObjectiveEntry,
+  isNativeDialogWindow, nativeDialogExpected, expectNativeDialog
 };
